@@ -59,6 +59,18 @@ lemma denotation_independentOf_of_geq_nvars {n : Nat} {i : Fin n} {B : BDD} {h1 
   simp only [Vector.getElem_take]
   rw [Vector.getElem_set_ne _ _ (by omega)]
 
+/-- The `denotation` of a BDD only depends on `Nary.Dependency` of the denotation -/
+lemma denotation_eq_of_forall_dependency {n : ℕ} {B : BDD} {h} {I J : Vector Bool n} :
+    (∀ i : Nary.Dependency (B.denotation h), I[i.1] = J[i.1]) → B.denotation h I = B.denotation h J := by
+  simp only [denotation, evaluate, lift_nvars, Nary.DependsOn, Nary.IndependentOf, Fin.getElem_fin,
+    Evaluate.evaluate_evaluate]
+  intro h1
+  apply OBdd.evaluate_eq_of_forall_usesVar
+  intro i h2
+  rw [OBdd.usesVar_iff_dependsOn_of_reduced (B.lift h).hred, ← Evaluate.evaluate_evaluate] at h2
+  specialize h1 ⟨i, h2⟩
+  simp_all only [Fin.getElem_fin]
+
 /-- `BDD`s are semantically equivalent when their `denotation`s coincide. -/
 def SemanticEquiv (B C : BDD) := B.denotation (le_max_left ..) = C.denotation (le_max_right ..)
 
