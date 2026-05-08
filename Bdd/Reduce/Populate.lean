@@ -1,4 +1,8 @@
-import Bdd.Reduce.State
+module
+
+import Mathlib.Tactic.Linarith
+
+public import Bdd.Reduce.State
 
 open Pointer
 open Bdd
@@ -7,7 +11,7 @@ open RawBdd
 namespace Reduce
 
 /-- The output pointer of `get_id` is bounded by `ps.state.size`. -/
-private lemma get_id_bounded {n m : Nat} {O : OBdd n m} {ps : ProvedState n m} {i : Nat}
+lemma get_id_bounded {n m : Nat} {O : OBdd n m} {ps : ProvedState n m} {i : Nat}
     (inv : Invariant O ps i) {p : Pointer m}
     (h : ∀ j, p = .node j → (ps.state.ids[j]).isSome) :
     (get_id ps p h).Bounded ps.state.size := by
@@ -25,7 +29,7 @@ private lemma get_id_bounded {n m : Nat} {O : OBdd n m} {ps : ProvedState n m} {
 
 /-- For any pointer `p` reachable from a node with all children in `ids`, extract the full
     semantic information from the invariant using `get_id`. -/
-private lemma get_id_semantic {n m : Nat} {O : OBdd n m} {ps : ProvedState n m} {i : Nat}
+lemma get_id_semantic {n m : Nat} {O : OBdd n m} {ps : ProvedState n m} {i : Nat}
     (inv : Invariant O ps i) (p : Pointer m)
     (hp : Bdd.Ordered ⟨O.1.heap, p⟩)
     (hch : ∀ l, p = .node l → (ps.state.ids[l]).isSome) :
@@ -48,7 +52,7 @@ private lemma get_id_semantic {n m : Nat} {O : OBdd n m} {ps : ProvedState n m} 
 
 /-- For each node j in l: if lid = hid (redundant), set ids[j] := lid;
 otherwise add to accumulator. -/
-def populate_queue {n m : Nat} (O : OBdd n m)
+public def populate_queue {n m : Nat} (O : OBdd n m)
     (i : Fin n)
     (acc : List ((RawPointer × RawPointer) × Fin m)) :
     (l : List (Fin m)) →
@@ -320,7 +324,7 @@ def populate_queue {n m : Nat} (O : OBdd n m)
 
 /-- Any node reachable in the pushed heap was already reachable in the original heap,
     and its index is strictly less than `s` (the pre-push size). -/
-lemma push_back_lt {n s : Nat} {v : Vector (RawNode n) s} {N : RawNode n}
+public lemma push_back_lt {n s : Nat} {v : Vector (RawNode n) s} {N : RawNode n}
     {hh  : ∀ k : Fin s,       v[k].Bounded k}
     {hh' : ∀ k : Fin (s + 1), (v.push N)[k].Bounded k}
     {p : RawPointer} (hp : p.Bounded s) {hp' : p.Bounded (s + 1)} :

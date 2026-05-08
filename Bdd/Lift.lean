@@ -1,16 +1,18 @@
-import Bdd.Basic
+module
+
+public import Bdd.Basic
 
 namespace Lift
 
 @[simp]
-private def lift (h : n ≤ n') (B : Bdd n m) : Bdd n' m :=
+def lift (h : n ≤ n') (B : Bdd n m) : Bdd n' m :=
   ⟨ Vector.map
       (fun N ↦ ⟨⟨N.var.1, Fin.val_lt_of_le N.var h⟩, N.low, N.high⟩)
       B.heap,
     B.root
   ⟩
 
-private lemma lift_edge_iff {h : n ≤ n'} {B : Bdd n m} {p q : Pointer m} :
+lemma lift_edge_iff {h : n ≤ n'} {B : Bdd n m} {p q : Pointer m} :
     Edge B.heap p q ↔ Edge (lift h B).heap p q := by
   constructor
   · intro e
@@ -22,7 +24,7 @@ private lemma lift_edge_iff {h : n ≤ n'} {B : Bdd n m} {p q : Pointer m} :
     | low  _ => left;  simp_all
     | high _ => right; simp_all
 
-private lemma lift_reachable_iff {h : n ≤ n'} {B : Bdd n m} {p : Pointer m} :
+lemma lift_reachable_iff {h : n ≤ n'} {B : Bdd n m} {p : Pointer m} :
     Pointer.Reachable B.heap B.root p ↔ Pointer.Reachable (lift h B).heap (lift h B).root p := by
   constructor
   · intro r
@@ -40,7 +42,7 @@ private lemma lift_reachable_iff {h : n ≤ n'} {B : Bdd n m} {p : Pointer m} :
       · exact ih
       · exact (lift_edge_iff.mpr e)
 
-private lemma lift_preserves_MayPrecede {h : n ≤ n'} {B : Bdd n m} {p q : Pointer m} :
+lemma lift_preserves_MayPrecede {h : n ≤ n'} {B : Bdd n m} {p q : Pointer m} :
     Pointer.MayPrecede (lift h B).heap p q ↔ Pointer.MayPrecede B.heap p q := by
   constructor
   · intro hm
@@ -71,7 +73,7 @@ private lemma lift_preserves_MayPrecede {h : n ≤ n'} {B : Bdd n m} {p q : Poin
         simp only [Pointer.MayPrecede, Nat.succ_eq_add_one, lift]
         simp_all [Vector.getElem_map, Pointer.toVar]
 
-private lemma lift_preserves_RelevantEdge {h : n ≤ n'} {B : Bdd n m} {p q : Pointer m} :
+lemma lift_preserves_RelevantEdge {h : n ≤ n'} {B : Bdd n m} {p q : Pointer m} :
     ( ∃ (hp : Pointer.Reachable (lift h B).heap (lift h B).root p)
         (hq : Pointer.Reachable (lift h B).heap (lift h B).root q), Bdd.RelevantEdge (lift h B) ⟨p, hp⟩ ⟨q, hq⟩) ↔
     ( ∃ (hp : Pointer.Reachable B.heap B.root p)
@@ -90,15 +92,16 @@ private lemma lift_preserves_RelevantEdge {h : n ≤ n'} {B : Bdd n m} {p q : Po
     | low  hl => simp at hl; left ; simpa
     | high hh => simp at hh; right; simpa
 
-private lemma lift_ordered {h : n ≤ n'} {B : Bdd n m} : B.Ordered → (lift h B).Ordered := by
+lemma lift_ordered {h : n ≤ n'} {B : Bdd n m} : B.Ordered → (lift h B).Ordered := by
   rintro ho ⟨x, hx⟩ ⟨y, hy⟩ e
   apply lift_preserves_MayPrecede.mpr
   exact ho (lift_preserves_RelevantEdge.mp ⟨hx, hy, e⟩).2.2
 
-def olift (h : n ≤ n') (O : OBdd n m) : OBdd n' m := ⟨(lift h O.1), lift_ordered O.2⟩
+public def olift (h : n ≤ n') (O : OBdd n m) : OBdd n' m := ⟨(lift h O.1), lift_ordered O.2⟩
 
 @[simp]
-lemma olift_trivial_eq {h : n = n'} {O : OBdd n m} : (olift (n' := n') (by rw [h]) O) = h ▸ O := by
+public lemma olift_trivial_eq {h : n = n'} {O : OBdd n m} :
+    (olift (n' := n') (by rw [h]) O) = h ▸ O := by
   rcases O with ⟨⟨M, r⟩, o⟩
   simp only [olift, lift]
   congr
@@ -110,21 +113,21 @@ lemma olift_trivial_eq {h : n = n'} {O : OBdd n m} : (olift (n' := n') (by rw [h
     simp
 
 @[simp]
-private lemma olift_preserves_root {h : n ≤ n'} {O : OBdd n m} : (olift h O).1.root = O.1.root := by simp [olift]
+public lemma olift_preserves_root {h : n ≤ n'} {O : OBdd n m} : (olift h O).1.root = O.1.root := by simp [olift]
 
-private lemma olift_low {h : n ≤ n'} {O : OBdd n m} {j : Fin m} (hr : O.1.root = .node j): (olift h O).low hr = olift h (O.low hr) := by
+lemma olift_low {h : n ≤ n'} {O : OBdd n m} {j : Fin m} (hr : O.1.root = .node j): (olift h O).low hr = olift h (O.low hr) := by
   simp only [OBdd.low, olift, lift]
   simp_rw [Bdd.low_heap_eq_heap]
   simp_rw [hr]
   simp [Bdd.low]
 
-private lemma olift_high {h : n ≤ n'} {O : OBdd n m} {j : Fin m} (hr : O.1.root = .node j): (olift h O).high hr = olift h (O.high hr) := by
+lemma olift_high {h : n ≤ n'} {O : OBdd n m} {j : Fin m} (hr : O.1.root = .node j): (olift h O).high hr = olift h (O.high hr) := by
   simp only [OBdd.high, olift, lift]
   simp_rw [Bdd.high_heap_eq_heap]
   simp_rw [hr]
   simp [Bdd.high]
 
-private lemma NoRedundancy_of_olift {h : n ≤ n'} {O : OBdd n m} : O.1.NoRedundancy → (olift h O).1.NoRedundancy := by
+lemma NoRedundancy_of_olift {h : n ≤ n'} {O : OBdd n m} : O.1.NoRedundancy → (olift h O).1.NoRedundancy := by
   rintro hnr ⟨p, hp⟩ contra
   simp only at contra
   cases p_def : p with
@@ -141,7 +144,7 @@ private lemma NoRedundancy_of_olift {h : n ≤ n'} {O : OBdd n m} : O.1.NoRedund
       constructor
       simp_all
 
-private lemma olift_preserves_toTree {h : n ≤ n'} {O : OBdd n m} : (olift h O).toTree = DecisionTree.lift h O.toTree := by
+lemma olift_preserves_toTree {h : n ≤ n'} {O : OBdd n m} : (olift h O).toTree = DecisionTree.lift h O.toTree := by
   cases O_root_def : O.1.root with
   | terminal b =>
     simp only [OBdd.toTree_terminal' O_root_def, DecisionTree.lift, olift, lift]
@@ -161,12 +164,12 @@ private lemma olift_preserves_toTree {h : n ≤ n'} {O : OBdd n m} : (olift h O)
 termination_by O
 
 @[simp]
-lemma olift_evaluate {h : n ≤ n'} {O : OBdd n m} {I : Vector Bool n'} :
+public lemma olift_evaluate {h : n ≤ n'} {O : OBdd n m} {I : Vector Bool n'} :
     (olift h O).evaluate I = O.evaluate (Vector.cast (by simpa) (I.take n)) := by
   simp only [OBdd.evaluate, Function.comp_apply, olift_preserves_toTree]
   rw [DecisionTree.lift_evaluate]
 
-private lemma olift_SimilarRP {h : n ≤ n'} {O : OBdd n m} {p q : Pointer m}
+lemma olift_SimilarRP {h : n ≤ n'} {O : OBdd n m} {p q : Pointer m}
     {hp : Pointer.Reachable (olift h O).1.heap (olift h O).1.root p}
     {hq : Pointer.Reachable (olift h O).1.heap (olift h O).1.root q} :
     (olift h O).SimilarRP ⟨p, hp⟩ ⟨q, hq⟩ →
@@ -186,14 +189,14 @@ private lemma olift_SimilarRP {h : n ≤ n'} {O : OBdd n m} {p q : Pointer m}
   simp only [OBdd.SimilarRP, OBdd.Similar,OBdd.HSimilar]
   rw [DecisionTree.lift_injective sim]
 
-lemma olift_reduced {h : n ≤ n'} {O : OBdd n m} : O.Reduced → (olift h O).Reduced := by
+public lemma olift_reduced {h : n ≤ n'} {O : OBdd n m} : O.Reduced → (olift h O).Reduced := by
   rintro ⟨r1, r2⟩
   constructor
   · exact NoRedundancy_of_olift r1
   · rintro _ _ sim; exact r2 (olift_SimilarRP sim)
 
 @[simp]
-lemma olift_olift {h1 : n ≤ n'} {h2 : n' ≤ n''} {O : OBdd n m} : olift h2 (olift h1 O) = olift (.trans h1 h2) O := by
+public lemma olift_olift {h1 : n ≤ n'} {h2 : n' ≤ n''} {O : OBdd n m} : olift h2 (olift h1 O) = olift (.trans h1 h2) O := by
   simp only [olift, lift, Vector.map_map]
   congr
 
