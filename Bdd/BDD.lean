@@ -36,6 +36,9 @@ lemma lift_refl {B : BDD} : (B.lift (le_refl _)) = B := by simp [lift]
 /-- The `denotation` of a `BDD` is the Boolean function that it represents. -/
 def denotation (B : BDD) (h : B.nvars ≤ n) : Vector Bool n → Bool := (B.lift h).evaluate
 
+@[simp]
+abbrev denotation' O := denotation O (le_refl _)
+
 /-- `lift` does not affect `denotation`. -/
 @[simp]
 lemma lift_denotation {B : BDD} {h1 : B.nvars ≤ n} {h2 : n ≤ m} :
@@ -109,6 +112,30 @@ private lemma denotation_eq_of_denotation_eq_geq (B C : BDD) (hn : max B.nvars C
   rw [denotation_append (hm := hnm) (J := Vector.replicate _ false)]
   rw [denotation_append (hm := hnm) (J := Vector.replicate _ false)]
   rw [h]
+
+lemma denotation_congr_dependsOn {B : BDD}
+    {I : Vector Bool n} {J : Vector Bool m} {hn : B.nvars ≤ n} {hm : B.nvars ≤ m} :
+    (∀ i : Nary.Dependency B.denotation', I[i.val] = J[i.val]) →
+    B.denotation hn I = B.denotation hm J := by
+  intro h1
+  have h2 : min B.nvars n = B.nvars := by omega
+  have h3 : min B.nvars m = B.nvars := by omega
+  suffices B.denotation' ((I.take B.nvars).cast h2) = B.denotation' ((J.take B.nvars).cast h3) by
+    grind only [denotation_cast, !denotation_take]
+  apply Nary.eq_of_forall_dependency_getElem_eq
+  rintro ⟨j, h4⟩
+  calc
+  (I.take B.nvars)[↑j]
+  _ = I[j] := by
+    grind only [= Fin.getElem_fin, = Vector.getElem_take]
+  _ = J[j] := by exact h1 ⟨j, h4⟩
+  _ = (J.take B.nvars)[↑j] := by
+    grind only [= Fin.getElem_fin, = Vector.getElem_take]
+
+lemma denotation_congr {B : BDD}
+    {I : Vector Bool n} {J : Vector Bool m} {hn : B.nvars ≤ n} {hm : B.nvars ≤ m} :
+    (∀ i : Fin B.nvars, I[i] = J[i]) → B.denotation hn I = B.denotation hm J := by
+  grind only [denotation_congr_dependsOn]
 
 /-- If two `BDD` have the same `denotation` with respect to some input size `n`, then they have the same `denotation` with respect to any other input size `m` as well. -/
 lemma denotation_eq_of_denotation_eq {B C : BDD} (hn : B.nvars ⊔ C.nvars ≤ n) (hm : B.nvars ⊔ C.nvars ≤ m) :
@@ -328,17 +355,13 @@ lemma const_denotation : (const b).denotation h = Function.const _ b := by
 lemma var_nvars : (var i).nvars = i + 1 := rfl
 
 @[simp]
-lemma var_denotation : (var i).denotation h I = I[i] := by
+lemma var_denotation {n i h1} {h2 : i < n} {I : Vector Bool n} :
+    (var i).denotation h1 I = I[i]'h2 := by
   simp [denotation, evaluate, var, lift, Evaluate.evaluate_evaluate, Lift.olift_evaluate]
-  rename_i n
-  rw [var_nvars] at h
   have : (I.take (i + 1))[i] = I[i] := by
     apply Vector.getElem_take
   erw [← this]
   rfl
-
-@[simp]
-abbrev denotation' O := denotation O (le_refl _)
 
 lemma apply_denotation' {B C : BDD} {op} I :
     (apply op B C).denotation (le_refl _) I =
