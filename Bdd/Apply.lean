@@ -111,9 +111,9 @@ lemma heap_push_aux (s : (State n n' m m')) (inv : Invariant op O U s)
         | inl val =>
           rw [← cook_low]
           simp_rw [heq]
-          · simp only [RawPointer.cook, Nat.succ_eq_add_one, Pointer.toVar, RawNode.cook,
-            Fin.getElem_fin, Vector.getElem_ofFn, Vector.getElem_push_eq, Fin.lt_def,
-            Fin.val_last, lt_sup_iff]
+          · simp only [RawNode.cook, RawPointer.cook, Pointer.toVar_terminal_eq,
+              Nat.succ_eq_add_one, Fin.lt_def, Pointer.toVar_node_eq, Fin.getElem_fin,
+              Vector.getElem_ofFn, Vector.getElem_push_eq, lt_sup_iff]
             omega
           · apply RawPointer.bounded_of_le (inv.2 kl N.lo hkl).2.2.2.1
             simp
@@ -122,9 +122,8 @@ lemma heap_push_aux (s : (State n n' m m')) (inv : Invariant op O U s)
             apply RawPointer.bounded_of_le (inv.2 kl N.lo hkl).2.2.2.1 .refl heq
           rw [← cook_low]
           simp_rw [heq]
-          · simp only [RawNode.cook, RawPointer.cook, Nat.succ_eq_add_one,
-              Fin.getElem_fin, Vector.getElem_ofFn, Pointer.toVar]
-            simp only [Vector.getElem_push_eq, Fin.mk_lt_mk, Fin.val_fin_lt, gt_iff_lt]
+          · simp only [RawNode.cook, RawPointer.cook, Fin.lt_def, Nat.succ_eq_add_one,
+              Pointer.toVar_node_eq, Fin.getElem_fin, Vector.getElem_ofFn, Vector.getElem_push_eq]
             rw [Vector.getElem_push_lt]
             · have hvs : val < s.size := by
                 apply RawPointer.bounded_of_le (inv.2 kl N.lo hkl).2.2.2.1 .refl heq
@@ -146,10 +145,9 @@ lemma heap_push_aux (s : (State n n' m m')) (inv : Invariant op O U s)
         | inl val =>
           rw [← cook_high]
           simp_rw [heq]
-          simp only [RawPointer.cook, Nat.succ_eq_add_one,
-            Pointer.toVar]
+          simp only [RawPointer.cook, Fin.lt_def, Nat.succ_eq_add_one, Pointer.toVar_node_eq]
           simp only [RawNode.cook, Fin.getElem_fin, Vector.getElem_ofFn, Vector.getElem_push_eq,
-            Fin.lt_def, Fin.val_last, lt_sup_iff]
+            Pointer.toVar_terminal_eq, Nat.succ_eq_add_one, lt_sup_iff]
           omega
           apply RawPointer.bounded_of_le (inv.2 kh N.hi hkh).2.2.2.1
           simp
@@ -159,8 +157,8 @@ lemma heap_push_aux (s : (State n n' m m')) (inv : Invariant op O U s)
           rw [← cook_high]
           simp_rw [heq]
           simp only [RawNode.cook, RawPointer.cook]
-          simp only [Pointer.toVar, Nat.succ_eq_add_one, Fin.getElem_fin, Vector.getElem_ofFn,
-            Vector.getElem_push_eq, Fin.mk_lt_mk, Fin.val_fin_lt, gt_iff_lt]
+          simp_rw [Fin.lt_def, Nat.succ_eq_add_one, Pointer.toVar_node_eq, Fin.getElem_fin,
+            Vector.getElem_ofFn, Vector.getElem_push_eq]
           rw [Vector.getElem_push_lt]
           exact hxh _ hvs heq
           apply RawPointer.bounded_of_le (inv.2 kh N.hi hkh).2.2.2.1; omega
@@ -294,7 +292,7 @@ lemma aux_lt1_low {O : OBdd n m} {U : OBdd n' m'} (O_root_def : O.1.root = .term
     min (toVar_or O.1.heap O.1.root (max n n'))
         (toVar_or U.1.heap (U.low U_root_def).1.root (max n n')) := by
   have := OBdd.var_lt_low_var (h := U_root_def)
-  simp_all [OBdd.var, toVar_or, Pointer.toVar]
+  simp_all [OBdd.var, toVar_or]
   split <;> simp_all
 
 lemma aux_lt1_high {O : OBdd n m} {U : OBdd n' m'} (O_root_def : O.1.root = .terminal b) (U_root_def : U.1.root = .node j') :
@@ -303,7 +301,7 @@ lemma aux_lt1_high {O : OBdd n m} {U : OBdd n' m'} (O_root_def : O.1.root = .ter
         (toVar_or U.1.heap (U.high U_root_def).1.root (max n n')) := by
   have := OBdd.var_lt_low_var (h := U_root_def)
   have := OBdd.var_lt_high_var (h := U_root_def)
-  simp_all [OBdd.var, toVar_or, Pointer.toVar]
+  simp_all [OBdd.var, toVar_or]
   split <;> simp_all
 
 lemma aux_lt2_low {O : OBdd n m} {U : OBdd n' m'} (O_root_def : O.1.root = .node j) (U_root_def : U.1.root = .terminal b') :
@@ -312,7 +310,7 @@ lemma aux_lt2_low {O : OBdd n m} {U : OBdd n' m'} (O_root_def : O.1.root = .node
         (toVar_or U.1.heap U.1.root (max n n')) := by
   have := OBdd.var_lt_low_var (h := O_root_def)
   have := OBdd.var_lt_high_var (h := O_root_def)
-  simp_all [OBdd.var, toVar_or, Pointer.toVar]
+  simp_all [OBdd.var, toVar_or]
   split <;> simp_all
 
 lemma aux_lt2_high {O : OBdd n m} {U : OBdd n' m'} (O_root_def : O.1.root = .node j) (U_root_def : U.1.root = .terminal b') :
@@ -321,7 +319,7 @@ lemma aux_lt2_high {O : OBdd n m} {U : OBdd n' m'} (O_root_def : O.1.root = .nod
         (toVar_or U.1.heap U.1.root (max n n')) := by
   have := OBdd.var_lt_low_var (h := O_root_def)
   have := OBdd.var_lt_high_var (h := O_root_def)
-  simp_all [OBdd.var, toVar_or, Pointer.toVar]
+  simp_all [OBdd.var, toVar_or]
   split <;> simp_all
 
 lemma aux_lt3_low {O : OBdd n m} {U : OBdd n' m'} (O_root_def : O.1.root = .node j) (U_root_def : U.1.root = .node j') (hleq : O.1.heap[j].var.1 < U.1.heap[j'].var.1) :
@@ -332,7 +330,7 @@ lemma aux_lt3_low {O : OBdd n m} {U : OBdd n' m'} (O_root_def : O.1.root = .node
   have := OBdd.var_lt_high_var (h := O_root_def)
   have := OBdd.var_lt_low_var (h := U_root_def)
   have := OBdd.var_lt_high_var (h := U_root_def)
-  simp_all [OBdd.var, toVar_or, Pointer.toVar]
+  simp_all [OBdd.var, toVar_or]
   split <;> simp_all
 
 lemma aux_lt3_high {O : OBdd n m} {U : OBdd n' m'} (O_root_def : O.1.root = .node j) (U_root_def : U.1.root = .node j') (hleq : O.1.heap[j].var.1 < U.1.heap[j'].var.1) :
@@ -343,7 +341,7 @@ lemma aux_lt3_high {O : OBdd n m} {U : OBdd n' m'} (O_root_def : O.1.root = .nod
   have := OBdd.var_lt_high_var (h := O_root_def)
   have := OBdd.var_lt_low_var (h := U_root_def)
   have := OBdd.var_lt_high_var (h := U_root_def)
-  simp_all [OBdd.var, toVar_or, Pointer.toVar]
+  simp_all [OBdd.var, toVar_or]
   split <;> simp_all
 
 lemma aux_lt4_low {O : OBdd n m} {U : OBdd n' m'} (O_root_def : O.1.root = .node j) (U_root_def : U.1.root = .node j') (hgeq : O.1.heap[j].var.1 > U.1.heap[j'].var.1) :
@@ -354,7 +352,7 @@ lemma aux_lt4_low {O : OBdd n m} {U : OBdd n' m'} (O_root_def : O.1.root = .node
   have := OBdd.var_lt_high_var (h := O_root_def)
   have := OBdd.var_lt_low_var (h := U_root_def)
   have := OBdd.var_lt_high_var (h := U_root_def)
-  simp_all [OBdd.var, toVar_or, Pointer.toVar]
+  simp_all [OBdd.var, toVar_or]
   split <;> simp_all
 
 lemma aux_lt4_high {O : OBdd n m} {U : OBdd n' m'} (O_root_def : O.1.root = .node j) (U_root_def : U.1.root = .node j') (hgeq : O.1.heap[j].var.1 > U.1.heap[j'].var.1) :
@@ -365,7 +363,7 @@ lemma aux_lt4_high {O : OBdd n m} {U : OBdd n' m'} (O_root_def : O.1.root = .nod
   have := OBdd.var_lt_high_var (h := O_root_def)
   have := OBdd.var_lt_low_var (h := U_root_def)
   have := OBdd.var_lt_high_var (h := U_root_def)
-  simp_all [OBdd.var, toVar_or, Pointer.toVar]
+  simp_all [OBdd.var, toVar_or]
   split <;> simp_all
 
 lemma aux_lt5_low {O : OBdd n m} {U : OBdd n' m'} (O_root_def : O.1.root = .node j) (U_root_def : U.1.root = .node j') (heeq : O.1.heap[j].var.1 = U.1.heap[j'].var.1) :

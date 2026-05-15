@@ -57,10 +57,9 @@ lemma relabel_relevantMayPrecede {B : Bdd n m} {f : Nat → Nat} {hf : ∀ i : F
     cases y with
     | terminal _ => apply Pointer.MayPrecede_node_terminal
     | node j' =>
-      simp only [Pointer.MayPrecede, Pointer.toVar, Nat.succ_eq_add_one, Fin.getElem_fin] at h
-      simp only [Pointer.MayPrecede, relabel, relabel_heap, Pointer.toVar]
-      simp only [Nat.succ_eq_add_one, Fin.getElem_fin, Vector.getElem_map]
-      simp only [relabel_node, Fin.eta, Fin.mk_lt_mk]
+      simp only [Pointer.MayPrecede, Nat.succ_eq_add_one, Fin.lt_def, Pointer.toVar_node_eq] at h
+      simp only [Pointer.MayPrecede, relabel, relabel_heap, Fin.lt_def, Pointer.toVar_node_eq]
+      simp only [Fin.getElem_fin, Vector.getElem_map, relabel_node, Fin.eta]
       apply hu
       · exact h
       · use j

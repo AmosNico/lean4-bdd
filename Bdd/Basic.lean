@@ -94,7 +94,6 @@ lemma not_terminal_edge {q} : ¬ Edge w (terminal b) q := by
   contradiction
 
 --FIXME: Maybe use WithTop (Fin n) instead of Fin n.succ
-@[expose]
 def Pointer.toVar (M : Vector (Node n m) m) : Pointer m → Fin n.succ
   | terminal _ => Fin.last n
   | node j     => ⟨M[j].var.1, .trans M[j].var.2 (Nat.lt_add_one n)⟩
