@@ -14,11 +14,6 @@ def parseDimacs (n : Nat) [NeZero n] (lines : Array String) : Std.Sat.CNF (Fin n
         | none   => none)
       )
 
-partial def readLines (s : IO.FS.Stream) : IO (List String) := do
-  let line ← s.getLine
-  if line == "" then pure []
-  else let rest ← readLines s; pure (line :: rest)
-
 def main (args : List String) : IO Unit := do
   match args with
   | [ns, fs] =>
