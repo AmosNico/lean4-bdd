@@ -110,25 +110,24 @@ lemma heap_push_aux (s : State n m) (inv : Invariant b i O s)
         cases heq : N.lo with
         | inl val =>
           rw [← cook_low]
-          simp_rw [heq]
-          simp only [RawPointer.cook, Pointer.toVar_terminal_eq, Nat.succ_eq_add_one]
-          simp only [Pointer.toVar, Nat.succ_eq_add_one, Fin.getElem_fin, Vector.getElem_ofFn,
-            Vector.getElem_push_eq, Fin.mk_lt_mk, Fin.is_lt]
-          apply RawPointer.bounded_of_le (inv.2 kl N.lo hkl).2.2.1; omega
+          · simp_rw [heq]
+            simp only [RawPointer.cook, Pointer.toVar_terminal_eq, Nat.succ_eq_add_one]
+            simp only [Fin.lt_def, Nat.succ_eq_add_one, Pointer.toVar_node_eq,
+              Fin.getElem_fin, Vector.getElem_ofFn, Vector.getElem_push_eq, Fin.is_lt]
+          · apply RawPointer.bounded_of_le (inv.2 kl N.lo hkl).2.2.1; omega
         | inr val =>
           have hvs : val < s.size := by
             apply RawPointer.bounded_of_le (inv.2 kl N.lo hkl).2.2.1 .refl heq
           rw [← cook_low]
-          simp_rw [heq]
-          simp only [RawNode.cook, RawPointer.cook]
-          simp only [Pointer.toVar, Nat.succ_eq_add_one, Fin.getElem_fin, Vector.getElem_ofFn,
-            Vector.getElem_push_eq, Fin.mk_lt_mk, Fin.val_fin_lt, gt_iff_lt]
-          rw [Vector.getElem_push_lt]
-          have hvs : val < s.size := by
-            apply RawPointer.bounded_of_le (inv.2 kl N.lo hkl).2.2.1 .refl heq
-          exact hxl _ hvs heq
-          exact hvs
-          apply RawPointer.bounded_of_le (inv.2 kl N.lo hkl).2.2.1; omega
+          · simp_rw [heq]
+            simp only [RawNode.cook, RawPointer.cook]
+            simp only [Fin.lt_def, Nat.succ_eq_add_one, Pointer.toVar_node_eq, Fin.getElem_fin,
+              Vector.getElem_ofFn, Vector.getElem_push_eq]
+            have hvs : val < s.size := by
+              apply RawPointer.bounded_of_le (inv.2 kl N.lo hkl).2.2.1 .refl heq
+            rw [Vector.getElem_push_lt hvs]
+            exact hxl _ hvs heq
+          · apply RawPointer.bounded_of_le (inv.2 kl N.lo hkl).2.2.1; omega
       · simp only [Bdd.high, cook_heap]
         simp only [Fin.getElem_fin, Vector.getElem_ofFn, Vector.getElem_push_eq]
         rw [← cook_high]
@@ -142,22 +141,22 @@ lemma heap_push_aux (s : State n m) (inv : Invariant b i O s)
         cases heq : N.hi with
         | inl val =>
           rw [← cook_high]
-          simp_rw [heq]
-          simp only [RawPointer.cook, Pointer.toVar_terminal_eq, Nat.succ_eq_add_one]
-          simp only [Pointer.toVar, Nat.succ_eq_add_one, Fin.getElem_fin, Vector.getElem_ofFn,
-            Vector.getElem_push_eq, Fin.mk_lt_mk, Fin.is_lt]
-          apply RawPointer.bounded_of_le (inv.2 kh N.hi hkh).2.2.1; omega
+          · simp_rw [heq]
+            simp only [RawPointer.cook, Pointer.toVar_terminal_eq, Nat.succ_eq_add_one]
+            simp only [Fin.lt_def, Nat.succ_eq_add_one, Pointer.toVar_node_eq, Fin.getElem_fin,
+              Vector.getElem_ofFn, Vector.getElem_push_eq, Fin.is_lt]
+          · apply RawPointer.bounded_of_le (inv.2 kh N.hi hkh).2.2.1; omega
         | inr val =>
           have hvs : val < s.size := by
             apply RawPointer.bounded_of_le (inv.2 _ _ hkh).2.2.1 .refl heq
           rw [← cook_high]
-          simp_rw [heq]
-          simp only [RawNode.cook, RawPointer.cook]
-          simp only [Pointer.toVar, Nat.succ_eq_add_one, Fin.getElem_fin, Vector.getElem_ofFn,
-            Vector.getElem_push_eq, Fin.mk_lt_mk, Fin.val_fin_lt, gt_iff_lt]
-          rw [Vector.getElem_push_lt]
-          exact hxh _ hvs heq
-          apply RawPointer.bounded_of_le (inv.2 kh N.hi hkh).2.2.1; omega
+          · simp_rw [heq]
+            simp only [RawNode.cook, RawPointer.cook]
+            simp only [Fin.lt_def, Nat.succ_eq_add_one, Pointer.toVar_node_eq, Fin.getElem_fin,
+              Vector.getElem_ofFn, Vector.getElem_push_eq, gt_iff_lt]
+            rw [Vector.getElem_push_lt]
+            exact hxh _ hvs heq
+          · apply RawPointer.bounded_of_le (inv.2 kh N.hi hkh).2.2.1; omega
     use hoo
     rw [show ⟨{ heap := O.1.heap, root := O.1.root }, _⟩ =  O by rfl]
     simp [RawPointer.cook]
@@ -347,7 +346,7 @@ def restrict_helper (O : OBdd n m) (b : Bool) (i : Fin n) (s0 : State n m) (inv 
                         simp only [OBdd.var, Nat.succ_eq_add_one, Bdd.var, OBdd.high_heap_eq_heap,
                           Fin.val_fin_lt] at this
                         rw [O_root_def] at this
-                        simp only [Pointer.toVar] at this
+                        simp only [Fin.lt_def, Nat.succ_eq_add_one, Pointer.toVar_node_eq] at this
                         exact this
                       have := (invl.2 _ _ hl).1 _ hj1 rfl
                       split at this
@@ -437,7 +436,7 @@ def restrict_helper (O : OBdd n m) (b : Bool) (i : Fin n) (s0 : State n m) (inv 
                         simp only [OBdd.var, Nat.succ_eq_add_one, Bdd.var, OBdd.low_heap_eq_heap,
                           Fin.val_fin_lt] at this
                         rw [O_root_def] at this
-                        simp only [Pointer.toVar] at this
+                        simp only [Fin.lt_def, Pointer.toVar_node_eq] at this
                         exact this
                       have := (invl.2 _ _ hl).1 _ hj1 rfl
                       split at this
@@ -536,8 +535,7 @@ def restrict_helper (O : OBdd n m) (b : Bool) (i : Fin n) (s0 : State n m) (inv 
                   simp only [OBdd.var, Nat.succ_eq_add_one, Bdd.var, OBdd.low_heap_eq_heap,
                     Fin.val_fin_lt] at this
                   rw [O_root_def] at this
-                  nth_rw 1 [Pointer.toVar] at this
-                  simp_rw [Fin.lt_def, Fin.getElem_fin] at this
+                  simp_rw [Fin.lt_def, Pointer.toVar_node_eq] at this
                   convert this using 1
                 split at that
                 next =>
@@ -558,8 +556,7 @@ def restrict_helper (O : OBdd n m) (b : Bool) (i : Fin n) (s0 : State n m) (inv 
                   simp only [OBdd.var, Nat.succ_eq_add_one, Bdd.var, OBdd.high_heap_eq_heap,
                     Fin.val_fin_lt] at this
                   rw [O_root_def] at this
-                  nth_rw 1 [Pointer.toVar] at this
-                  simp_rw [Fin.lt_def, Fin.getElem_fin] at this
+                  simp_rw [Fin.lt_def, Pointer.toVar_node_eq] at this
                   convert this using 1
                 split at that
                 next =>

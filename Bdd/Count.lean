@@ -20,8 +20,8 @@ lemma solution_iff_or (O : OBdd n m) (i : Fin n) :
 def my_vector_equiv_vector : List.Vector α n ≃ Vector α n where
   toFun     := fun l ↦ ⟨l.toList.toArray, .trans List.size_toArray   (List.Vector.toList_length _)⟩
   invFun    := fun v ↦ ⟨v.toList,         .trans Array.length_toList (Vector.size_toArray       _)⟩
-  left_inv  := fun x ↦ (by simp)
-  right_inv := fun x ↦ (by simp; try rfl)
+  left_inv _  := rfl
+  right_inv _ := rfl
 
 @[no_expose]
 public instance instVectorFintype [Fintype α] {n : ℕ} : Fintype (Vector α n) :=

@@ -107,8 +107,7 @@ public def populate_queue {n m : Nat} (O : OBdd n m)
         have hmay := O.2
           (show O.1.RelevantEdge ⟨.node j, hreach_j⟩ ⟨.node k, hreach_k⟩ from hedgep)
         -- Unfold the ordered-edge condition to get a Nat inequality.
-        simp only [Bdd.RelevantMayPrecede, Pointer.MayPrecede, Pointer.toVar,
-                   Fin.mk_lt_mk] at hmay
+        simp only [RelevantMayPrecede, MayPrecede, Fin.lt_def, toVar_node_eq] at hmay
         -- hmay : var[j].1 < var[k].1;  hvar_j : var[j].1 = i.1
         linarith [hvar_j]
       let lid := get_id ps O.1.heap[j].low  (hchild _ (Edge.low  rfl))
@@ -188,14 +187,14 @@ public def populate_queue {n m : Nat} (O : OBdd n m)
               .tail hr (Edge.low hl)
             have hmay := O.2 (show O.1.RelevantEdge ⟨.node entry.2, hr⟩ ⟨.node l, hreach_l⟩
               from Edge.low hl)
-            simp only [Bdd.RelevantMayPrecede, Pointer.MayPrecede, Pointer.toVar, Fin.mk_lt_mk] at hmay
+            simp only [RelevantMayPrecede, MayPrecede, Fin.lt_def, toVar_node_eq] at hmay
             have hlj : l ≠ j := fun h => by subst h; linarith [hv]
             rw [ids_set_ne l hlj]; exact hlo l hl
           · have hreach_l : Reachable O.1.heap O.1.root (.node l) :=
               .tail hr (Edge.high hl)
             have hmay := O.2 (show O.1.RelevantEdge ⟨.node entry.2, hr⟩ ⟨.node l, hreach_l⟩
               from Edge.high hl)
-            simp only [Bdd.RelevantMayPrecede, Pointer.MayPrecede, Pointer.toVar, Fin.mk_lt_mk] at hmay
+            simp only [RelevantMayPrecede, MayPrecede, Fin.lt_def, toVar_node_eq] at hmay
             have hlj : l ≠ j := fun h => by subst h; linarith [hv]
             rw [ids_set_ne l hlj]; exact hhi l hl
         -- VarInvariant is preserved through set_id ps j lid.
@@ -229,8 +228,7 @@ public def populate_queue {n m : Nat} (O : OBdd n m)
             have hvi := hvarinv l k₀ hids_l
             have hmay := O.2 (show O.1.RelevantEdge ⟨.node j, hreach_j⟩
               ⟨.node l, .tail hreach_j (Edge.low hlow)⟩ from Edge.low hlow)
-            simp only [Bdd.RelevantMayPrecede, Pointer.MayPrecede, Pointer.toVar,
-                       Fin.mk_lt_mk] at hmay
+            simp only [RelevantMayPrecede, MayPrecede, Fin.lt_def, toVar_node_eq] at hmay
             exact Nat.le_trans (Nat.le_of_lt hmay) hvi
           · rw [ids_set_ne j₀ hjj₀] at hids₀
             exact hvarinv j₀ k₀ hids₀

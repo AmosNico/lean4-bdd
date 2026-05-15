@@ -1162,8 +1162,7 @@ public def process_queue {n m : Nat} {i : Nat} (O : OBdd n m)
             hedge.elim (Edge.low ·) (Edge.high ·)
           have hmay : O.1.heap[e.2].var.1 < O.1.heap[l].var.1 := by
             have h := O.2 hedge'
-            simp only [Bdd.RelevantMayPrecede, Pointer.MayPrecede, Pointer.toVar,
-                       Fin.mk_lt_mk] at h
+            simp only [RelevantMayPrecede, MayPrecede, Fin.lt_def, toVar_node_eq] at h
             exact h
           have h_var_l : O.1.heap[l].var.1 = i := h_eq ▸ hec_hd.2.1
           omega

@@ -230,7 +230,7 @@ lemma var_ordered : Bdd.Ordered (var_raw n) := by
   · simp [Bdd.low]
     apply Fin.lt_def.mpr
     refine Nat.lt_succ_of_le ?_
-    simp [Pointer.toVar]
+    simp
   · simp only [Bdd.high]
     conv =>
       congr
@@ -241,7 +241,7 @@ lemma var_ordered : Bdd.Ordered (var_raw n) := by
   · simp [Bdd.high]
     apply Fin.lt_def.mpr
     refine Nat.lt_succ_of_le ?_
-    simp [Pointer.toVar]
+    simp
 
 lemma var_reduced : OBdd.Reduced ⟨(var_raw n), var_ordered⟩ := by
   constructor
