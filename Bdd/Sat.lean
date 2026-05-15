@@ -80,8 +80,8 @@ instance instDecidableUnsat {n} (C : Std.Sat.CNF (Fin n)) : Decidable (Std.Sat.C
       rw [BDD.denotation_take (m := max (BDD_of_CNF C).nvars (BDD.const false).nvars)] at h2
       · rw [← h2]
         simp only [BDD.const, Vector.take_eq_extract]
-        conv => lhs; rw [BDD.denotation_take' (hn := by simp)]
-        conv => rhs; rw [BDD.denotation_take' (hn := by simp)]
+        conv => lhs; rw [BDD.denotation_take' (hn := by omega)]
+        conv => rhs; rw [BDD.denotation_take' (hn := by grind only [= min_def])]
         congr 1
         simp_rw [Vector.take_eq_extract, Vector.cast_eq_cast, Vector.extract_extract, Vector.cast_cast, Nat.add_zero, Nat.sub_zero]
         ext i hi
