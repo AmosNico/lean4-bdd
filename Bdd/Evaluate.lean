@@ -33,6 +33,20 @@ lemma evaluate_node {O : OBdd n m} (h : O.1.root = .node j) :
   rw [OBdd.evaluate_node'' h]
   simp [evaluate_evaluate]
 
+/--
+A simp attribute that is used in `BDD.lean` to infer the size of `BDDs` when during evaluation. -/
+register_simp_attr bdd_nvars
+
+-- Macro for a common pattern
+macro "bdd_bounds" : tactic => `(tactic|
+  first
+  | assumption
+  | simp only [bdd_nvars] at *; omega
+)
+
+macro_rules
+  | `(tactic| get_elem_tactic_extensible) => `(tactic| bdd_bounds)
+
 end
 
 end Evaluate
