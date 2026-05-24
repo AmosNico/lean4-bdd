@@ -18,9 +18,6 @@ structure BDD where
 
 namespace BDD
 
-@[simp]
-private abbrev evaluate (B : BDD) : Vector Bool B.nvars → Bool := Evaluate.evaluate B.obdd
-
 /-- Raise the input size (`nvars`) of a `BDD` to `n`, given a proof that the current input size is at most `n`. -/
 def lift (B : BDD) (h : B.nvars ≤ n) : BDD :=
   ⟨n, _, Lift.olift h B.obdd, Lift.olift_reduced B.hred⟩
@@ -34,19 +31,30 @@ lemma lift_nvars {B : BDD} {h : B.nvars ≤ n} : (B.lift h).nvars = n := rfl
 lemma lift_refl {B : BDD} : (B.lift (le_refl _)) = B := by simp [lift]
 
 /-- The `denotation` of a `BDD` is the Boolean function that it represents. -/
---def denotation {n} (B : BDD) (h : B.nvars ≤ n) : Vector Bool n → Bool := (B.lift h).evaluate
+def denotation (B : BDD) : Vector Bool B.nvars → Bool := Evaluate.evaluate B.obdd
+
+lemma denotation_eq_evaluate (B : BDD) : B.denotation = Evaluate.evaluate B.obdd := (rfl)
 
 instance : GetElem BDD (Vector Bool n) Bool (fun B _ ↦ B.nvars ≤ n) where
-  getElem B v h := (B.lift h).evaluate v
+  getElem B v h := (B.lift h).denotation v
 
 lemma getElem_def (B : BDD) (v : Vector Bool n) (h : B.nvars ≤ n) :
-    B[v] = (B.lift h).evaluate v := (rfl)
+    B[v] = (B.lift h).denotation v := (rfl)
+
+lemma getElem_eq_evaluate (B : BDD) (I : Vector Bool n) (h : B.nvars ≤ n) :
+    B[I] = Evaluate.evaluate (B.lift h).obdd I := by
+  simp [getElem_def, denotation_eq_evaluate]
+
+@[simp]
+lemma denotation_eq_getElem (B : BDD) (I : Vector Bool B.nvars) :
+    B.denotation I = B[I]  := by
+  simp [getElem_def, denotation_eq_evaluate, lift]
 
 /-- `lift` does not affect `denotation`. -/
 @[simp]
 lemma lift_denotation {v : Vector Bool m} {B : BDD} {h1 : B.nvars ≤ n} {h2 : n ≤ m} :
     (B.lift h1)[v] = B[v] := by
-  simp [getElem_def, lift, Evaluate.evaluate_evaluate]
+  simp [getElem_eq_evaluate, lift, Evaluate.evaluate_evaluate]
 
 /-- `denotation` absorbs `Vector.cast`. -/
 @[simp]
@@ -59,7 +67,7 @@ lemma denotation_cast {I : Vector Bool n} {B : BDD} {hn : B.nvars ≤ n} {hm : B
 lemma denotation_independentOf_of_geq_nvars {n : Nat} {i : Fin n} {B : BDD} {h1 : B.nvars ≤ n} {h2 : B.nvars ≤ i} :
     Nary.IndependentOf (fun (v : Vector Bool n) ↦ B[v]) i := by
   rintro b I
-  simp only [getElem_def, Evaluate.evaluate_evaluate, Lift.olift_evaluate, lift]
+  simp only [getElem_eq_evaluate, Evaluate.evaluate_evaluate, Lift.olift_evaluate, lift]
   suffices s : (I.set i b).take B.nvars = I.take B.nvars by rw [s]
   ext j hj
   simp only [Vector.getElem_take]
@@ -73,13 +81,13 @@ private def Similar (B : BDD) (B' : BDD) :=
 
 lemma denotation_take {I : Vector Bool n} {B : BDD} {hn : B.nvars ≤ n} {hm1 : B.nvars ≤ m} {hm2 : m ≤ n}:
     B[I] = B[I.take m] := by
-  simp [getElem_def, Evaluate.evaluate_evaluate, lift]
+  simp [getElem_eq_evaluate, Evaluate.evaluate_evaluate, lift]
   congr!
   omega
 
 lemma denotation_take' {I : Vector Bool n} {B : BDD} {hn : B.nvars ≤ n} :
     B[I] = B[I.take B.nvars] := by
-  simp [getElem_def, Evaluate.evaluate_evaluate, lift]
+  simp [getElem_eq_evaluate, Evaluate.evaluate_evaluate, lift]
   grind only
 
 private lemma Vector.append_take (v : Vector α n) (u : Vector α m) : (v ++ u).take n = (Vector.cast (by simp) v) := by
@@ -113,6 +121,17 @@ private lemma denotation_eq_of_denotation_eq_geq (B C : BDD) (hn : max B.nvars C
   rw [denotation_append (B := C) (J := Vector.replicate (m - n) false)]
   rw [h]
   omega
+
+private lemma denotation_eq_iff_getElem_eq (B C : BDD) :
+    (∀ I : Vector Bool (max B.nvars C.nvars), B[I] = C[I]) ↔
+    ∀ n (I : Vector Bool n) (_ : n ≥ max B.nvars C.nvars), B[I] = C[I] := by
+  constructor
+  · intro h1 n I h2
+    rw [denotation_take (hm1 := by omega) (hm2 := h2), denotation_take (hm1 := by omega) (hm2 := h2)]
+    have h3 : min (max B.nvars C.nvars) n = max B.nvars C.nvars := by omega
+    rw [← denotation_cast h3 (hn := by omega) (hm := by omega), ← denotation_cast h3 (hn := by omega) (hm := by omega)]
+    apply h1
+  · tauto
 
 /-- If two `BDD` have the same `denotation` with respect to some input size `n`, then they have the same `denotation` with respect to any other input size `m` as well. -/
 lemma denotation_eq_of_denotation_eq {B C : BDD} (hn : B.nvars ⊔ C.nvars ≤ n) (hm : B.nvars ⊔ C.nvars ≤ m) :
@@ -148,12 +167,12 @@ private instance instDecidableSimilar : DecidableRel Similar
 private theorem SemanticEquiv_iff_Similar {B C : BDD} :
     B.SemanticEquiv C ↔ B.Similar C := ⟨l_to_r, r_to_l⟩ where
   l_to_r h := by
-    simp [Evaluate.evaluate_evaluate, SemanticEquiv, getElem_def] at h
+    simp [getElem_eq_evaluate, Evaluate.evaluate_evaluate, SemanticEquiv] at h
     apply OBdd.Canonicity (Lift.olift_reduced B.hred) (Lift.olift_reduced C.hred)
     ext I
     exact h I
   r_to_l h := by
-    simp [SemanticEquiv, getElem_def, Evaluate.evaluate_evaluate]
+    simp [getElem_eq_evaluate, SemanticEquiv, Evaluate.evaluate_evaluate]
     intro I
     rw [OBdd.Canonicity_reverse]
     exact h
@@ -332,7 +351,7 @@ lemma const_nvars : (const b).nvars = 0 := (rfl)
 
 @[simp]
 lemma const_denotation {n b} : ∀ I : Vector Bool n, (const b)[I] = b := by
-  simp [getElem_def, const, Evaluate.evaluate_terminal _, lift]
+  simp [getElem_eq_evaluate, const, Evaluate.evaluate_terminal _, lift]
 
 @[simp]
 lemma var_nvars : (var i).nvars = i + 1 := rfl
@@ -340,7 +359,7 @@ lemma var_nvars : (var i).nvars = i + 1 := rfl
 @[simp]
 lemma var_denotation {i n} {h1 : (var i).nvars ≤ n} : ∀ I : Vector Bool n, (var i)[I] = I[i] := by
   intro I
-  simp [getElem_def, evaluate, var, lift, Evaluate.evaluate_evaluate, Lift.olift_evaluate]
+  simp [getElem_eq_evaluate, var, lift, Evaluate.evaluate_evaluate, Lift.olift_evaluate]
   rw [var_nvars] at h1
   have h2 : (I.take (i + 1))[i] = I[i] := by
     apply Vector.getElem_take
@@ -360,7 +379,7 @@ lemma apply_denotation {n} {B C : BDD} {op} {h1 : max B.nvars C.nvars ≤ n} :
     apply this
     simp_all
   · rcases h2 with ⟨rfl⟩
-    simp only [getElem_def, Evaluate.evaluate_evaluate, lift, Lift.olift_evaluate]
+    simp only [getElem_eq_evaluate, Evaluate.evaluate_evaluate, lift, Lift.olift_evaluate]
     simp [apply]
     grind only
 
@@ -404,21 +423,21 @@ lemma not_denotation {B : BDD} {h : B.nvars ≤ n} :
 
 private def relabel' (B : BDD) (f : Nat → Nat)
       (h1 : ∀ i : Fin B.nvars, f i < f B.nvars)
-      (h2 : ∀ i i', i < i' → Nary.DependsOn (fun I : Vector Bool B.nvars ↦ B[I]) i → Nary.DependsOn (fun I : Vector Bool B.nvars ↦ B[I]) i' → f i < f i') :
+      (h2 : ∀ i i', i < i' → Nary.DependsOn B.denotation i → Nary.DependsOn B.denotation i' → f i < f i') :
     BDD :=
   ⟨ f B.nvars, _,
     Relabel.orelabel B.obdd h1 (by
       intro i i' hii' hi hi'
       rw [OBdd.usesVar_iff_dependsOn_of_reduced B.hred] at hi
       rw [OBdd.usesVar_iff_dependsOn_of_reduced B.hred] at hi'
-      simp only [getElem_def, Evaluate.evaluate_evaluate, Lift.olift_trivial_eq, lift] at h2
+      simp only [denotation_eq_evaluate, Evaluate.evaluate_evaluate] at h2
       exact h2 i i' hii' hi hi'),
     Relabel.orelabel_reduced B.hred
   ⟩
 
 private def relabel'' (B : BDD) (f : Nat → Nat)
       (h1 : ∀ i : Fin B.nvars, f i < f B.nvars)
-      (h2 : ∀ i i' : (Nary.Dependency fun I : Vector Bool B.nvars ↦ B[I]), i.1 < i'.1 → f i.1 < f i'.1) :
+      (h2 : ∀ i i' : (Nary.Dependency B.denotation), i.1 < i'.1 → f i.1 < f i'.1) :
     BDD :=
   relabel' B f h1 (fun i i' hii' hi hi' ↦ h2 ⟨i, hi⟩ ⟨i', hi'⟩ hii')
 
@@ -437,8 +456,8 @@ private lemma relabel_helper_aux' {i : Fin m} : relabel_wrap m n f i.1 = f i := 
 
 See also `relabel_denotation`. -/
 def relabel (B : BDD) (f : Fin B.nvars → Fin n)
-    (h : ∀ i i' : (Nary.Dependency fun I : Vector Bool B.nvars ↦ B[I]), i.1 < i'.1 → f i.1 < f i'.1) :
-  BDD := relabel'' B (relabel_wrap B.nvars n f) (by simp) (fun i i' h' ↦ by simp [h i i' h'])
+    (h : ∀ i i' : Nary.Dependency B.denotation, i.1 < i'.1 → f i.1 < f i'.1) : BDD :=
+  relabel'' B (relabel_wrap B.nvars n f) (by simp) (fun i i' h' ↦ by simp [h i i' h'])
 
 @[simp]
 lemma relabel_nvars {B : BDD} {f : _ → Fin n} {h} : (relabel B f h).nvars = n := by
@@ -446,7 +465,7 @@ lemma relabel_nvars {B : BDD} {f : _ → Fin n} {h} : (relabel B f h).nvars = n 
 
 private lemma relabel_spec {B : BDD} {f : Nat → Nat} {hf} {hu} {I : Vector Bool (relabel'' B f hf hu).nvars} :
     (relabel'' B f hf hu)[I] = B[Vector.ofFn fun i ↦ I[f i]'(hf i)] := by
-  simp [getElem_def, Evaluate.evaluate_evaluate, relabel'', relabel', lift]
+  simp [getElem_eq_evaluate, Evaluate.evaluate_evaluate, relabel'', relabel', lift]
   sorry
 
 
@@ -468,17 +487,17 @@ lemma relabel_denotation {B : BDD} {f} {hf} {I : Vector Bool n} {h} :
     (relabel B f hf)[I] = B[Vector.ofFn (fun i ↦ I[f i])] := by
   simp [relabel]
 
-lemma relabel_dependsOn {n} {B : BDD} {f : Fin B.nvars → Fin n} {hf i} {h : (B.relabel f hf).nvars ≤ n} :
-  Nary.DependsOn (fun I : Vector Bool n ↦ (B.relabel f hf)[I]'h) i ↔
-  ∃ j, i = f j ∧ Nary.DependsOn (fun I : Vector Bool B.nvars ↦ B[I]) j :=
+lemma relabel_dependsOn {n} {B : BDD}  {f : Fin B.nvars → Fin n} {hf} {i : Fin (B.relabel f hf).nvars} :
+  Nary.DependsOn (B.relabel f hf).denotation i ↔
+  ∃ j, i.cast relabel_nvars = f j ∧ Nary.DependsOn B.denotation j :=
   by
-    have h1 : ∀ (i i' : Nary.Dependency (fun I : Vector Bool B.nvars ↦ B[I])), f i.val = f i'.val ↔ i = i' := by
+    have h1 : ∀ i i' : Nary.Dependency B.denotation, f i.val = f i'.val ↔ i = i' := by
       rintro i i'
       have := hf i i'
       specialize hf i i'
       grind only [Subtype.val_inj]
     simp only [Nary.DependsOn, Nary.IndependentOf, BDD.relabel_denotation,
-      Fin.getElem_fin, Bool.forall_bool, not_and, not_forall]
+      Fin.getElem_fin, Bool.forall_bool, not_and, not_forall, denotation_eq_getElem]
     constructor
     · intro h2
       rw [imp_iff_not_or, not_forall] at h2
@@ -491,6 +510,7 @@ lemma relabel_dependsOn {n} {B : BDD} {f : Fin B.nvars → Fin n} {hf i} {h : (B
         use j.val, h3.2
         intro h4
         use Vector.ofFn fun j ↦ (v.set i false)[f j]
+        simp only [denotation_eq_getElem] at *
         apply ne_of_ne_of_eq (ne_comm.1 h2)
         apply Nary.eq_of_forall_dependency_getElem_eq
         intro j'
@@ -517,11 +537,11 @@ lemma relabel_dependsOn {n} {B : BDD} {f : Fin B.nvars → Fin n} {hf i} {h : (B
       simp_all only [Vector.set_set, not_true_eq_false, exists_const, imp_false, not_forall]
       rcases h2 with ⟨I, h2⟩
       apply h2
-      have : ∀ i, Decidable (∃ j : Nary.Dependency (fun I : Vector Bool B.nvars ↦ B[I]), i = f j.val) := by
+      have : ∀ i, Decidable (∃ j : Nary.Dependency B.denotation, i = f j.val) := by
         intro i
         apply Classical.propDecidable
-      let g := fun i ↦ if h : ∃ j : Nary.Dependency (fun I : Vector Bool B.nvars ↦ B[I]), i = f j.val then I[h.choose.val] else false
-      have hg : ∀ j' : Nary.Dependency (fun I : Vector Bool B.nvars ↦ B[I]), g (f j'.val) = I[j'.val] := by
+      let g := fun i ↦ if h : ∃ j : Nary.Dependency B.denotation, i = f j.val then I[h.choose.val] else false
+      have hg : ∀ j' : Nary.Dependency B.denotation, g (f j'.val) = I[j'.val] := by
         rintro ⟨j', hj'⟩
         simp [g]
         split
@@ -559,12 +579,12 @@ lemma relabel_dependsOn {n} {B : BDD} {f : Fin B.nvars → Fin n} {hf i} {h : (B
 
 See also `choice_denotation`. -/
 def choice {B : BDD} (s : ∃ I : Vector Bool B.nvars, B[I]) : Vector Bool B.nvars :=
-  Choice.choice B.obdd (by simp_all [getElem_def, Evaluate.evaluate_evaluate, lift])
+  Choice.choice B.obdd (by simp_all [getElem_eq_evaluate, Evaluate.evaluate_evaluate, lift])
 
 @[simp]
 lemma choice_denotation {B : BDD} {s : ∃ I : Vector Bool B.nvars, B[I]} : B[B.choice s] = true := by
-  simp only [choice, getElem_def, evaluate, lift, Lift.olift_trivial_eq, Evaluate.evaluate_evaluate]
-  exact Choice.choice_evaluate B.hred (by simp_all [getElem_def, Evaluate.evaluate_evaluate, lift])
+  simp only [choice, getElem_eq_evaluate, lift, Lift.olift_trivial_eq, Evaluate.evaluate_evaluate]
+  exact Choice.choice_evaluate B.hred (by simp_all [getElem_eq_evaluate, Evaluate.evaluate_evaluate, lift])
 
 private lemma find_aux' {B : BDD} :
     ¬ B.SemanticEquiv (const false) → ∃ (I : Vector Bool (max B.nvars 0)), B[I] := by
@@ -639,7 +659,7 @@ lemma restrict_denotation {B : BDD} {i} {hi : i < n} {h} : ∀ I : Vector Bool n
   simp only [restrict]
   split
   next hlt =>
-    simp only [restrict', getElem_def, lift, evaluate, Evaluate.evaluate_evaluate, Lift.olift_evaluate]
+    simp only [restrict', getElem_eq_evaluate, lift, Evaluate.evaluate_evaluate, Lift.olift_evaluate]
     simp only [Reduce.oreduce_evaluate]
     have := (Restrict.orestrict b ⟨i, hlt⟩ (BDD.obdd B)).2.2
     rw [this]
@@ -662,8 +682,8 @@ lemma restrict_denotation {B : BDD} {i} {hi : i < n} {h} : ∀ I : Vector Bool n
     have := denotation_independentOf_of_geq_nvars (B := B) (h1 := restrict_nvars ▸ h) (h2 := (by simp_all)) (i := ⟨i, hi⟩)
     rw [Nary.restrict_eq_self_of_independentOf this]
 
-instance instDecidableDependsOn (B : BDD) : DecidablePred (Nary.DependsOn fun I : Vector Bool B.nvars ↦ B[I]) := fun i ↦
-  (show B.denotation' = B.obdd.evaluate by simp [denotation, Evaluate.evaluate_evaluate, lift]) ▸
+instance instDecidableDependsOn (B : BDD) : DecidablePred (Nary.DependsOn B.denotation) := fun i ↦
+  (show B.denotation = B.obdd.evaluate by simp [denotation, Evaluate.evaluate_evaluate]) ▸
   (decidable_of_iff _ (OBdd.usesVar_iff_dependsOn_of_reduced B.hred))
 
 /-- Universal quantification over input at index `i`.
@@ -763,7 +783,7 @@ def count (B : BDD) : Nat := Count.count B.obdd
 
 lemma count_eq_card {B : BDD} :
     B.count = Fintype.card { I : Vector Bool B.nvars // B[I] = true } := by
-  simp only [count, Count.count_corrent, Count.numSolutions, Count.Solution, getElem_def, evaluate,
+  simp only [count, Count.count_corrent, Count.numSolutions, Count.Solution, getElem_eq_evaluate,
     lift, Lift.olift_trivial_eq, Evaluate.evaluate_evaluate]
 
 end BDD
