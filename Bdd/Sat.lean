@@ -58,7 +58,7 @@ instance instDecidableUnsat {n} (C : Std.Sat.CNF (Fin n)) : Decidable (Std.Sat.C
       use Vector.cast (by simp) (Vector.ofFn fun i : Fin (BDD_of_CNF C).nvars ↦ f ⟨i.1, lt_of_lt_of_le i.2 BDD_of_CNF_nvars⟩)
       simp only [le_refl, BDD.denotation_cast]
       rw [← hf]
-      apply BDD.getElem_congr'
+      apply BDD.getElem_congr
       grind only [= Fin.getElem_fin, = Vector.getElem_ofFn]
     r_to_l h1 := by
       simp only [Std.Sat.CNF.Unsat] at h1
@@ -67,7 +67,7 @@ instance instDecidableUnsat {n} (C : Std.Sat.CNF (Fin n)) : Decidable (Std.Sat.C
       have h2:= h1 (fun i ↦ if hi : i < (max (BDD_of_CNF C).nvars (BDD.const false).nvars) then I[i] else false)
       simp only [BDD.const_nvars, Nat.zero_le, sup_of_le_left] at h2
       rw [← h2, BDD_of_CNF_correct]
-      apply BDD.getElem_congr'
+      apply BDD.getElem_congr
       intro i
       simp
 

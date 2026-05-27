@@ -30,33 +30,26 @@ lemma lift_nvars {B : BDD} {h : B.nvars ≤ n} : (B.lift h).nvars = n := rfl
 @[simp]
 lemma lift_refl {B : BDD} : (B.lift (le_refl _)) = B := by simp [lift]
 
-/-- The `denotation` of a `BDD` is the Boolean function that it represents. -/
-def denotation (B : BDD) : Vector Bool B.nvars → Bool := Evaluate.evaluate B.obdd
-
-lemma denotation_eq_evaluate (B : BDD) : B.denotation = Evaluate.evaluate B.obdd := (rfl)
-
 instance : GetElem BDD (Vector Bool n) Bool (fun B _ ↦ B.nvars ≤ n) where
-  getElem B v h := (B.lift h).denotation v
-
-lemma getElem_def (B : BDD) (v : Vector Bool n) (h : B.nvars ≤ n) :
-    B[v] = (B.lift h).denotation v := (rfl)
+  getElem B v h := Evaluate.evaluate (B.lift h).obdd v
 
 lemma getElem_eq_evaluate (B : BDD) (I : Vector Bool n) (h : B.nvars ≤ n) :
-    B[I] = Evaluate.evaluate (B.lift h).obdd I := by
-  simp [getElem_def, denotation_eq_evaluate]
+    B[I] = Evaluate.evaluate (B.lift h).obdd I := rfl
 
-@[simp]
-lemma denotation_eq_getElem (B : BDD) (I : Vector Bool B.nvars) :
-    B.denotation I = B[I]  := by
-  simp [getElem_def, denotation_eq_evaluate, lift]
+lemma getElem_eq_evaluate' (B : BDD) (I : Vector Bool B.nvars) :
+    B[I] = Evaluate.evaluate B.obdd I := by
+  simp only [getElem_eq_evaluate, lift, Lift.olift_trivial_eq]
 
 def DependsOn (B : BDD) (i : ℕ) : Prop :=
-  ∃ h : i < B.nvars, Nary.DependsOn B.denotation ⟨i, h⟩
+  ∃ h : i < B.nvars, Nary.DependsOn (Evaluate.evaluate B.obdd) ⟨i, h⟩
 
-@[simp]
-lemma dependsOn_iff {B : BDD} {i} (h : i < B.nvars) :
-    B.DependsOn i ↔ Nary.DependsOn B.denotation ⟨i, h⟩ := by
+lemma dependsOn_iff_evaluate {B : BDD} {i} (h : i < B.nvars) :
+    B.DependsOn i ↔ Nary.DependsOn (Evaluate.evaluate B.obdd) ⟨i, h⟩ := by
   grind only [DependsOn]
+
+lemma dependsOn_iff {B : BDD} {i} (h : i < B.nvars) :
+    B.DependsOn i ↔ Nary.DependsOn (fun I : Vector Bool B.nvars ↦ B[I]) ⟨i, h⟩ := by
+  simp_all only [dependsOn_iff_evaluate, getElem_eq_evaluate']
 
 /-- The `denotation` of a `BDD` is independent of indices greater or equal to its input size. -/
 @[simp]
@@ -134,25 +127,13 @@ private lemma denotation_eq_of_denotation_eq_geq (B C : BDD) (hn : max B.nvars C
   rw [h]
   omega
 
-private lemma denotation_eq_iff_getElem_eq (B C : BDD) :
-    (∀ I : Vector Bool (max B.nvars C.nvars), B[I] = C[I]) ↔
-    ∀ n (I : Vector Bool n) (_ : n ≥ max B.nvars C.nvars), B[I] = C[I] := by
-  constructor
-  · intro h1 n I h2
-    rw [denotation_take (hm1 := by omega) (hm2 := h2), denotation_take (hm1 := by omega) (hm2 := h2)]
-    have h3 : min (max B.nvars C.nvars) n = max B.nvars C.nvars := by omega
-    rw [← denotation_cast h3 (hn := by omega) (hm := by omega), ← denotation_cast h3 (hn := by omega) (hm := by omega)]
-    apply h1
-  · tauto
-
-/-- If two `BDD` have the same `denotation` with respect to some input size `n`, then they have the same `denotation` with respect to any other input size `m` as well. -/
 lemma denotation_eq_of_denotation_eq {B C : BDD} (hn : B.nvars ⊔ C.nvars ≤ n) (hm : B.nvars ⊔ C.nvars ≤ m) :
     (∀ I : Vector Bool n, B[I] = C[I]) → (∀ I : Vector Bool m, B[I] = C[I]) := fun h ↦
     if hleq : n ≤ m
     then denotation_eq_of_denotation_eq_leq B C hn hleq h
     else denotation_eq_of_denotation_eq_geq _ _ hm hn (le_of_not_ge hleq) h
 
-lemma getElem_congr {B : BDD}
+lemma getElem_congr_dependsOn {B : BDD}
     {I : Vector Bool n} {J : Vector Bool m} {hn : B.nvars ≤ n} {hm : B.nvars ≤ m} :
     (∀ i : Fin B.nvars, B.DependsOn i → I[i] = J[i]) → B[I] = B[J] := by
   intro h1
@@ -168,15 +149,22 @@ lemma getElem_congr {B : BDD}
     grind only [= Fin.getElem_fin, = Vector.getElem_take]
   _ = J[j] := by
     simp only [lift, Lift.olift_trivial_eq] at h4
-    simp only [Fin.is_lt, dependsOn_iff, denotation_eq_evaluate] at h1
+    simp only [Fin.is_lt, dependsOn_iff_evaluate] at h1
     exact h1 j h4
   _ = (J.take B.nvars)[↑j] := by
     grind only [= Fin.getElem_fin, = Vector.getElem_take]
 
-lemma getElem_congr' {B : BDD}
+lemma getElem_congr {B : BDD}
     {I : Vector Bool n} {J : Vector Bool m} {hn : B.nvars ≤ n} {hm : B.nvars ≤ m} :
     (∀ i : Fin B.nvars, I[i] = J[i]) → B[I] = B[J] := by
-  grind only [getElem_congr]
+  grind only [getElem_congr_dependsOn]
+
+lemma ne_implies_dependency_getElem_ne {B : BDD}
+    {I : Vector Bool n} {J : Vector Bool m} {hn : B.nvars ≤ n} {hm : B.nvars ≤ m} :
+    B[I] ≠ B[J] → ∃ i : Fin B.nvars, B.DependsOn i ∧ I[i] ≠ J[i] := by
+  contrapose
+  simp only [Fin.getElem_fin, ne_eq, not_exists, not_and, Decidable.not_not]
+  exact getElem_congr_dependsOn
 
 /-- `SemanticEquiv` is an equivalence relation on `BDD`. -/
 theorem SemanticEquiv.equivalence : Equivalence SemanticEquiv :=
@@ -468,7 +456,7 @@ private def relabel' (B : BDD) (f : Nat → Nat)
       intro i i' hii' hi hi'
       rw [OBdd.usesVar_iff_dependsOn_of_reduced B.hred] at hi
       rw [OBdd.usesVar_iff_dependsOn_of_reduced B.hred] at hi'
-      grind only [Fin.is_lt, dependsOn_iff, denotation_eq_evaluate, Evaluate.evaluate_evaluate]),
+      grind only [Fin.is_lt, dependsOn_iff_evaluate, Evaluate.evaluate_evaluate]),
     Relabel.orelabel_reduced B.hred
   ⟩
 
@@ -476,7 +464,7 @@ private def relabel_wrap (m n : Nat) (f : Fin m → Fin n) : Nat → Nat :=
   fun i ↦ if h : i < m then f ⟨i, h⟩ else n
 
 @[simp]
-private lemma relabel_helper_aux : relabel_wrap m n f m = n := by
+private lemma relabel_helper_aux  : relabel_wrap m n f m = n := by
   simp [relabel_wrap]
 
 @[simp]
@@ -502,94 +490,90 @@ private lemma relabel''_denotation {B : BDD} {f : Nat → Nat} {hf} {hu} {I : Ve
   grind only [Vector.getElem_extract]
 
 @[simp]
-lemma relabel_denotation {B : BDD} {f} {hf} {I : Vector Bool n} {h} :
-    (relabel B f hf)[I] = B[Vector.ofFn (fun i ↦ I[f i])] := by
-  simp [relabel]
+lemma relabel_denotation {B : BDD} {n} {f : Fin B.nvars → Fin n} {hf} {m}
+    (h1 : n ≤ m := by grind [relabel_nvars])
+    (h2 : (B.relabel f hf).nvars ≤ m := by grind [relabel_nvars])
+    {I : Vector Bool m} : (relabel B f hf)[I] = B[Vector.ofFn (I[f ·])] := by
+  simp only [relabel, relabel''_denotation, relabel_helper_aux', Fin.getElem_fin]
 
 lemma relabel_dependsOn {n} {B : BDD} {f : Fin B.nvars → Fin n} {hf} {i : Fin n} :
     (B.relabel f hf).DependsOn i ↔ ∃ j, i = f j ∧ B.DependsOn j := by
   have h1 : ∀ i i' : Fin B.nvars, B.DependsOn i → B.DependsOn i' →  (f i = f i' ↔ i = i') := by
     grind only
   simp only [relabel_nvars, Fin.is_lt, dependsOn_iff, Nary.DependsOn, Nary.IndependentOf,
-    denotation_eq_getElem, Bool.forall_bool, not_and, not_forall]
-  sorry
-  /-constructor
+    le_refl, relabel_denotation, Bool.forall_bool, not_and, not_forall]
+  constructor
   · intro h2
     rw [imp_iff_not_or, not_forall] at h2
     rcases h2 with ⟨v, h2⟩ | ⟨v, h2⟩
-    · obtain ⟨⟨⟨j, hj⟩, h3⟩, h4⟩ := Nary.ne_implies_dependency_getElem_ne h2
-      simp only [Fin.getElem_fin, Vector.getElem_set, Bool.if_false_left, ne_eq, Bool.eq_and_self,
-        Bool.not_eq_eq_eq_not, Bool.not_true, decide_eq_false_iff_not, Classical.not_imp,
-        Decidable.not_not] at h4
-
-      use ⟨j, by grind [relabel_nvars]; simp [relabel_nvars]; sorry⟩
-      use h4.2
+    · obtain ⟨⟨j, hj⟩, h3⟩ := Nary.ne_implies_dependency_getElem_ne h2
+      simp only [Fin.getElem_fin, Vector.getElem_ofFn, Vector.getElem_set, Bool.if_false_left,
+        ne_eq, Bool.eq_and_self, Bool.not_eq_eq_eq_not, Bool.not_true, decide_eq_false_iff_not,
+        Classical.not_imp, Decidable.not_not, Fin.val_inj] at h3
+      use j, h3.2
       intro h4
       use Vector.ofFn fun j ↦ (v.set i false)[f j]
-      simp only [denotation_eq_getElem] at *
+      simp only [Fin.is_lt, dependsOn_iff, Fin.eta, Fin.getElem_fin] at *
       apply ne_of_ne_of_eq (ne_comm.1 h2)
       apply Nary.eq_of_forall_dependency_getElem_eq
-      intro j'
-      specialize h1 j j'
+      rintro ⟨j', hj'⟩
+      specialize h1 j j' hj hj'
       simp only [Fin.getElem_fin, Vector.getElem_ofFn, Fin.eta, Vector.getElem_set,
         Bool.if_false_left, Bool.if_true_left]
-      grind only [= Lean.Grind.toInt_fin, Vector.getElem_set]
-    · have h3 := Nary.ne_implies_dependency_getElem_ne h2
-      rcases h3 with ⟨j, h3⟩
+      grind only
+    · obtain ⟨⟨j, hj⟩, h3⟩ := Nary.ne_implies_dependency_getElem_ne h2
       simp only [Fin.getElem_fin, Vector.getElem_ofFn, Fin.eta, Vector.getElem_set, Fin.val_inj,
         Bool.if_true_left, ne_eq, Bool.eq_or_self, decide_eq_true_eq, Classical.not_imp,
         Bool.not_eq_true] at h3
-      use j.val, h3.1
+      use j, h3.1
       intro h4
       use Vector.ofFn fun j ↦ v[f j]
+      simp only [Fin.is_lt, dependsOn_iff, Fin.eta, Fin.getElem_fin] at *
       apply ne_of_ne_of_eq h2
       apply Nary.eq_of_forall_dependency_getElem_eq
-      rintro j'
-      specialize h1 j j'
+      rintro ⟨j', hj'⟩
+      specialize h1 j j' hj hj'
       simp only [h3, Vector.getElem_set, Bool.if_true_left, Fin.getElem_fin, Vector.getElem_ofFn,
         Fin.eta]
-      grind only [= Lean.Grind.toInt_fin]
+      grind only
   · rintro ⟨j, rfl, h2⟩ h3
     simp_all only [Vector.set_set, not_true_eq_false, exists_const, imp_false, not_forall]
     rcases h2 with ⟨I, h2⟩
     apply h2
-    have : ∀ i, Decidable (∃ j : Nary.Dependency B.denotation, i = f j.val) := by
+    have : ∀ i, Decidable (∃ j : Fin B.nvars, B.DependsOn j ∧ i = f j) := by
       intro i
       apply Classical.propDecidable
-    let g := fun i ↦ if h : ∃ j : Nary.Dependency B.denotation, i = f j.val then I[h.choose.val] else false
-    have hg : ∀ j' : Nary.Dependency B.denotation, g (f j'.val) = I[j'.val] := by
-      rintro ⟨j', hj'⟩
-      simp [g]
+    let g := fun i ↦ if h : ∃ j : Fin B.nvars, B.DependsOn j ∧ i = f j then I[h.choose.val] else false
+    have hg : ∀ j' : Fin B.nvars, B.DependsOn j' → g (f j') = I[j'] := by
+      intro j' hj'
+      simp only [g]
       split
       next h =>
-        obtain ⟨j'', h⟩ := h
-        simp_all only [Classical.choose_eq']
-        specialize h1 ⟨j', hj'⟩ j''
-        simp [h] at h1
-        rcases h1 with rfl
-        simp
+        grind only [= Fin.getElem_fin, usr Exists.choose_spec]
       next h =>
-        rw [not_exists] at h
-        specialize h ⟨j', hj'⟩
-        simp at h
-    specialize h3 (Vector.ofFn g)
-    simp only [Vector.getElem_ofFn, Fin.eta, Vector.getElem_set, Fin.val_inj,
-      Bool.if_false_left] at h3
+        grind only
+    specialize h3 ((Vector.ofFn g).cast relabel_nvars.symm)
+    simp only [Fin.getElem_fin, Vector.getElem_cast, Vector.getElem_ofFn, Fin.eta,
+      Vector.getElem_set, Fin.val_inj, Bool.if_false_left] at h3
     calc
       B[I]
       _ = B[Vector.ofFn fun i ↦ g (f i)] := by
-        apply Nary.eq_of_forall_dependency_getElem_eq
-        simp only [Fin.getElem_fin, Vector.getElem_ofFn, Fin.eta, hg, implies_true]
+        apply BDD.getElem_congr_dependsOn
+        simp only [Fin.getElem_fin, Vector.getElem_ofFn, Fin.eta]
+        grind only [= Fin.getElem_fin]
       _ = B[Vector.ofFn fun i ↦ !decide (f j = f i) && g (f i)] := h3
       _ = B[I.set j.val false _] := by
-        apply Nary.eq_of_forall_dependency_getElem_eq
-        simp only [Nary.DependsOn, Nary.IndependentOf, Fin.getElem_fin,
-          Vector.getElem_ofFn, Fin.eta, Vector.getElem_set, Fin.val_inj, Bool.if_false_left, hg]
-        apply Nary.ne_implies_dependency_getElem_ne at h2
-        simp [Vector.getElem_set, Fin.val_inj] at h2
-        rcases h2 with ⟨j, h2, rfl⟩
-        intro j'
-        grind only [Subtype.val_inj, usr Subtype.property, h1 j j']-/
+        apply BDD.getElem_congr_dependsOn
+        simp only [Fin.getElem_fin, Vector.getElem_ofFn, Fin.eta, Vector.getElem_set, Fin.val_inj,
+          Bool.if_false_left]
+        apply ne_implies_dependency_getElem_ne at h2
+        simp only [Fin.getElem_fin, Vector.getElem_set, Fin.val_inj, Bool.if_false_left, ne_eq,
+          Bool.eq_and_self, Bool.not_eq_eq_eq_not, Bool.not_true, decide_eq_false_iff_not,
+          Classical.not_imp, Decidable.not_not] at h2
+        rcases h2 with ⟨j, hj, h2, rfl⟩
+        intro j' hj'
+        specialize h1 j j' hj hj'
+        grind only [= Fin.getElem_fin]
 
 /-- Return an input vector that satisfies the denotation of a given `BDD`, under the assumption that its denotation is satisfiable.
 
@@ -702,7 +686,7 @@ instance instDecidableDependsOn (B : BDD) : DecidablePred B.DependsOn :=
   fun i ↦
     if hi : i < B.nvars then
       decidable_of_iff (B.obdd.val.usesVar ⟨i, hi⟩) (by
-        rw [dependsOn_iff, denotation_eq_evaluate, Evaluate.evaluate_evaluate]
+        rw [dependsOn_iff_evaluate, Evaluate.evaluate_evaluate]
         exact OBdd.usesVar_iff_dependsOn_of_reduced B.hred)
     else
       isFalse (not_dependsOn_of_ge (by omega))

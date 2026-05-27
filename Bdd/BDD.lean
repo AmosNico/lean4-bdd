@@ -477,7 +477,7 @@ lemma relabel_dependsOn {n} {B : BDD} {f : Fin B.nvars → Fin n} {hf h i} :
     · intro h2
       rw [imp_iff_not_or, not_forall] at h2
       rcases h2 with ⟨v, h2⟩ | ⟨v, h2⟩
-      · have h3 := Nary.ne_implies_dependency_getElem_ne h2
+      · have h3 := Nary.ne_implies_dependency_getElem_ne h2 (f := B.denotation')
         rcases h3 with ⟨j, h3⟩
         simp only [Fin.getElem_fin, Vector.getElem_ofFn, Vector.getElem_set, Bool.if_false_left,
           ne_eq, Bool.eq_and_self, Bool.not_eq_eq_eq_not, Bool.not_true, decide_eq_false_iff_not,
@@ -520,7 +520,7 @@ lemma relabel_dependsOn {n} {B : BDD} {f : Fin B.nvars → Fin n} {hf h i} :
         simp [g]
         split
         next h =>
-          obtain ⟨j'', h⟩ := h
+          rcases h with ⟨j'', h⟩
           simp_all only [Classical.choose_eq']
           specialize h1 ⟨j', hj'⟩ j''
           simp [h] at h1
