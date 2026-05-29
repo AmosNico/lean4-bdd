@@ -27,7 +27,7 @@ private lemma inv_initial {b} {i} {O : OBdd n m} : Invariant b i O initial := by
   · intro k p hp
     simp only [initial, Std.HashMap.getElem?_emptyWithCapacity, reduceCtorEq] at hp
   · rintro ⟨_, c⟩
-    simp only [initial, not_lt_zero'] at c
+    simp only [initial, not_lt_zero] at c
 
 private lemma heap_push_aux (s : State n m) (inv : Invariant b i O s)
     (hNl : ∃ k : Pointer m, s.cache[k]? = some N.lo)

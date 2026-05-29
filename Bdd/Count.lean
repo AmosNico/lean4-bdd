@@ -134,15 +134,10 @@ private def PostCond (O : OBdd n m) (s r : Std.HashMap (Pointer m) Nat) :=
     (r[p]? = none → s[p]? = none) ∧
     (s[p]? = none → (∃ i, r[p]? = some i) → Pointer.Reachable O.1.heap O.1.root p))
 
-private lemma postCond_refl : Reflexive (PostCond O) := by
-  intro _ _
-  constructor
-  · simp_all
-  · constructor
-    · simp_all
-    · rintro _ ⟨_, _⟩
-      simp_all
-
+instance postCond_refl : Std.Refl (PostCond O) where
+  refl := by
+    intro _ _
+    grind only
 
 private lemma postCond_terminal (hr : s[O.1.root]? = none) (h : O.1.root = Pointer.terminal b) :
     PostCond O s (s.insert (Pointer.terminal b) i) := by
@@ -240,7 +235,7 @@ private def count_helper (O : OBdd n m) (s : Std.HashMap (Pointer m) Nat ) (inv 
       PostCond O s r
     } :=
   match hr : s[O.1.root]? with
-  | some i => ⟨s, inv, by apply Std.HashMap.isSome_getElem?_iff_mem.mp; simp_all only [Option.isSome_some], postCond_refl s⟩
+  | some i => ⟨s, inv, by apply Std.HashMap.isSome_getElem?_iff_mem.mp; simp_all only [Option.isSome_some], refl s⟩
   | none =>
     match h : O.1.root with
     | .terminal false => ⟨s.insert (.terminal false) 0, invariant_false O s inv, by simp only [Std.HashMap.mem_insert, BEq.rfl, true_or], postCond_terminal hr h⟩

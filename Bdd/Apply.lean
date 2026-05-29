@@ -39,7 +39,7 @@ private lemma inv_initial {op} {O : OBdd n m} {U : OBdd n' m'} : Invariant op O 
   · intro k p hp
     simp only [initial, Std.HashMap.getElem?_emptyWithCapacity, reduceCtorEq] at hp
   · rintro ⟨_, c⟩
-    simp only [initial, not_lt_zero'] at c
+    simp only [initial, not_lt_zero] at c
 
 private def cache_get (O_root : Pointer m) (U_root : Pointer m') (s : (State n n' m m')) : (Option RawPointer) :=
   s.cache[(⟨O_root, U_root⟩ : (Pointer m × Pointer m'))]?
