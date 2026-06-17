@@ -1,4 +1,4 @@
-BDD_LEAN_FILES := $(wildcard Bdd/*.lean)
+BDD_LEAN_FILES := $(shell find Bdd -name '*.lean')
 
 BASE = https://eshelyaron.com/man/lean4-bdd/Bdd/
 
@@ -9,11 +9,11 @@ dependencies.dot: $(BDD_LEAN_FILES)
 	@echo "digraph {" > $@
 	@$(foreach file, $^ ,\
 		if grep -q "sorry" "$(file)"; then \
-			echo "$(basename $(notdir $(file))) [ label = \"$(basename $(notdir $(file)))\", color="red", href = \"$(BASE)$(basename $(notdir $(file))).html\" ]" >> $@; \
+			echo "\"$(patsubst Bdd/%.lean,%,$(file))\" [ label = \"$(patsubst Bdd/%.lean,%,$(file))\", color="red", href = \"$(BASE)$(patsubst Bdd/%.lean,%,$(file)).html\" ]" >> $@; \
 		else \
-			echo "$(basename $(notdir $(file))) [ label = \"$(basename $(notdir $(file)))\", color="green", href = \"$(BASE)$(basename $(notdir $(file))).html\" ]" >> $@; \
+			echo "\"$(patsubst Bdd/%.lean,%,$(file))\" [ label = \"$(patsubst Bdd/%.lean,%,$(file))\", color="green", href = \"$(BASE)$(patsubst Bdd/%.lean,%,$(file)).html\" ]" >> $@; \
 		fi;)
-	@(grep -nr "import Bdd" Bdd/*.lean | awk -F '[./]' '{print $$4 " -> " $$2}') >> $@
+	@(grep -rn --include='*.lean' "^import Bdd" Bdd | awk -F: '{ imp=$$1; sub(/^Bdd\//,"",imp); sub(/\.lean$$/,"",imp); mod=$$3; sub(/^import Bdd\.?/,"",mod); gsub(/\./,"/",mod); if (mod != "" && mod != imp) print "\"" mod "\" -> \"" imp "\"" }') >> $@
 	@echo "}" >> $@
 
 doc:

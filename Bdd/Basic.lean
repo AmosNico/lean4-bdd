@@ -2101,6 +2101,13 @@ lemma RawPointer.cook_equiv {h1 : RawPointer.Bounded m1 p} {h2 : RawPointer.Boun
       use ⟨j.1, h2 rfl⟩
       simp [RawPointer.cook]
 
+/-- `cook` ignores the `Bounded` witness: the bound is a `Prop`, so two cooks of the same
+raw pointer at the same heap size are equal. -/
+lemma RawPointer.cook_eq {p : RawPointer} {h1 h2 : p.Bounded m} : p.cook h1 = p.cook h2 := by
+  cases p with
+  | inl _ => rfl
+  | inr i => exact congrArg Pointer.node (Fin.ext rfl)
+
 def RawPointer.fromPointer : Pointer m → RawPointer
   | .terminal b => .inl b
   | .node j => .inr j.1

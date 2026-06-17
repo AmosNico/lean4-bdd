@@ -293,7 +293,8 @@ def var (n : Nat) : BDD :=
 
 See also `apply_denotation`. -/
 def apply : (Bool → Bool → Bool) → BDD → BDD → BDD := fun op B C ↦
-  ⟨_, _, (Reduce.oreduce (Apply.oapply op B.obdd C.obdd).2.1).2, Reduce.oreduce_reduced⟩
+  let r := Reduce.oreduce (Apply.oapply op B.obdd C.obdd).2.1
+  ⟨_, _, r.1.2, r.2.1⟩
 
 @[simp]
 lemma apply_nvars {B C : BDD} {o} : (apply o B C).nvars = B.nvars ⊔ C.nvars := by
@@ -605,7 +606,8 @@ lemma find_some {B : BDD} {I} : B.find = some I → B.denotation' I = true := by
   next hf => injection h with heq; simp [← heq]
 
 private def restrict' (B : BDD) (b : Bool) (i : Fin B.nvars) : BDD :=
-  ⟨_, _, (Reduce.oreduce (Restrict.orestrict b i B.obdd).2.1).2, Reduce.oreduce_reduced⟩
+  let r := Reduce.oreduce (Restrict.orestrict b i B.obdd).2.1
+  ⟨_, _, r.1.2, r.2.1⟩
 
 /-- Return a `BDD` denoting the restriction of a given `BDD` at an index `i` to a Boolean `b`.
 
