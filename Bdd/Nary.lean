@@ -16,6 +16,23 @@ def IndependentOf (f : Func n α β) (i : Fin n) := ∀ a v, f v = f (Vector.set
 @[simp, expose]
 def DependsOn (f : Func n α β) (i : Fin n) := ¬ IndependentOf f i
 
+-- TODO : use this as the definition instead?
+lemma dependsOn_iff {n α β} {f : Func n α β} {i : Fin n} :
+    DependsOn f i ↔ ∃ v1 v2, (∀ i' ≠ i, v1[i'] = v2[i']) ∧ f v1 ≠ f v2 := by
+  simp only [DependsOn, IndependentOf, not_forall, ne_eq, Fin.getElem_fin]
+  constructor
+  · grind only [= Vector.getElem_set]
+  · contrapose
+    simp only [not_exists, not_not, not_and]
+    intro h1 v1 v2 h2
+    rw[h1 v2[i] v1]
+    congr
+    ext i' hi'
+    by_contra h
+    simp at h
+    specialize h2 ⟨i', hi'⟩
+    grind only [= Vector.getElem_set]
+
 /-- The type of indices that a given function depends on. -/
 @[expose]
 def Dependency (f : Func n α β) := { i // DependsOn f i }
