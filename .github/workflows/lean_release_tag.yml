@@ -1,0 +1,23 @@
+name: Lean release tag
+
+# Create a git tag whenever the Lean toolchain is bumped (i.e. `lean-toolchain` changes
+# on the default branch). Set `do-release: true` below to also publish a GitHub Release.
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - lean-toolchain
+
+jobs:
+  lean-release-tag:
+    name: Add Lean release tag
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: lean-release-tag action
+        uses: leanprover-community/lean-release-tag@v1
+        with:
+          do-release: false
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
