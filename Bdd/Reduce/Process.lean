@@ -41,9 +41,9 @@ lemma keyLE_sentinel (a : RawPointer × RawPointer) :
     · exact Sum.Lex.inl (by cases b <;> decide)
     · exact Sum.Lex.sep _ _
   unfold KeyLE leKeyPair
-  by_cases h : (.inl false : RawPointer) = a.1
-  · rw [if_pos h]; exact decide_eq_true (hbot a.2)
-  · rw [if_neg h]; exact decide_eq_true (hbot a.1)
+  split
+  · exact decide_eq_true (hbot a.2)
+  · exact decide_eq_true (hbot a.1)
 
 /-- Pushing a new node to the heap preserves reducedness of existing sub-BDDs,
 because old reachable nodes are unchanged. -/
@@ -404,7 +404,10 @@ lemma push_node_correct' {n m : Nat} {i : Nat}
   -- ho_final: ordered proof with ptr.cook hp
   have ho_final : Bdd.Ordered ⟨cook_heap (ps.state.heap.push N) hh',
       (push_node ps N hN).2.cook hp⟩ := by
-    rw [hptr_cook]; exact ho
+    generalize h : (push_node ps N hN).2.cook hp = root_val
+    rw [← h, hptr_cook] at *
+    clear h
+    exact ho
   -- OBdd equality: since ptr.cook hp = .node ⟨s,⋯⟩, the two OBdds are propositionally equal.
   have hO_eq : (⟨⟨cook_heap (ps.state.heap.push N) hh', (push_node ps N hN).2.cook hp⟩,
       ho_final⟩ : OBdd n (s + 1)) =
@@ -458,7 +461,7 @@ lemma push_node_correct' {n m : Nat} {i : Nat}
         ho_hi'⟩ I = OBdd.evaluate ⟨⟨O.1.heap, O.1.heap[entry.2].high⟩, hhi_ord⟩ I := by
       rw [push_evaluate (hu := ho_hi)]; exact heval_hi I
     simp only [OBdd.evaluate_node]
-    rw [hMs_var]
+    simp only [hMs_var]
     by_cases hI : I[O.1.heap[entry.2].var] = true
     · simp only [if_pos hI]
       exact (congr_arg (OBdd.evaluate · I)
@@ -1054,7 +1057,7 @@ private lemma process_record_curptr_sem {n m : Nat} {i : Nat} (O : OBdd n m)
     have heval_eq : ∀ I, OBdd.evaluate ⟨⟨O.1.heap, .node head.2⟩, hj_h⟩ I =
                          OBdd.evaluate ⟨⟨O.1.heap, .node entry.2⟩, hj_entry⟩ I := fun I => by
       simp only [OBdd.evaluate_node]
-      rw [hvar_eq]
+      simp only [hvar_eq]
       split_ifs
       · exact eval_child_eq head.1.2
             (O.1.heap[head.2].high) (O.1.heap[entry.2].high)

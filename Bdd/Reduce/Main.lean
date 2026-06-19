@@ -155,8 +155,9 @@ private def loop_helper {n m : Nat} (O : OBdd n m) (r : Fin m)
   | Nat.zero =>
     have hi_eq  : O.1.heap[r].var = i :=
       Fin.ext (Nat.le_antisymm h_le (Nat.le_of_sub_eq_zero h))
-    have hr_in  : r ∈ vlist[i] :=
-      hi_eq ▸ hdiscover r (by rw [← hr]; exact .refl)
+    have hr_in  : r ∈ vlist[i] := by
+      simp only [← hi_eq]
+      exact hdiscover r (by rw [← hr]; exact .refl)
     have hrisSome : (ps₁.state.ids[r]).isSome :=
       hset₁ r hr_in (by rw [← hr]; exact .refl)
     ⟨ps₁, hrisSome, fun ptr hkptr =>
