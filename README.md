@@ -3,14 +3,6 @@
 This repository contains a Binary Decision Diagrams (BDD)
 implementation and formalization in Lean 4.
 
-## Status
-
-The library is ready for use, but there is one file that is still not
-`sorry`-free, as indicated by the red circle in the following
-file-level dependencies graph of the library:
-
-![Dependency graph](./dependencies.svg)
-
 ## Usage
 
 To use this library in you project, add something like the following
@@ -58,3 +50,7 @@ For example:
 $ .lake/build/bin/SatSolver 40 /path/to/input/file/in/DIMACS/format
 SAT
 ```
+
+## Inter-file dependencies
+
+![Dependency graph](./dependencies.svg)
