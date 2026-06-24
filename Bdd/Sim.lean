@@ -175,8 +175,7 @@ decreasing_by
   · simp [OBdd.size_node, OBdd.low, Bdd.low]; omega
   · simp [OBdd.size_node, OBdd.high, Bdd.high]; omega
 
-@[no_expose]
-public instance instDecidableRobddHSimilar
+public def decidableRobddHSimilar
     (O : OBdd n m) (hO : O.Reduced)
     (U : OBdd n m') (hU : U.Reduced) :
     Decidable (O.HSimilar U) :=
