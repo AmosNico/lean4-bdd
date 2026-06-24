@@ -522,28 +522,26 @@ def restrict_helper (O : OBdd n m) (b : Bool) (i : Fin n) (s0 : State n m) (inv 
                 omega
               )
               (by
-                intro j' hj1
-                simp only [Fin.getElem_fin]
-                intro hj2
-                have := (hhp _).1 _ hl
-                simp only at this
-                rw [hj2] at this
-                have that := (invh.2 _ (.inr j') this).1 _ hj1 rfl
-                simp only at that
+                intro j' hj1 hj2
+                have h1 := (hhp _).1 _ hl
+                simp only at h1 hj2
+                rw [hj2] at h1
+                have h2 := (invh.2 _ (.inr j') h1).1 _ hj1 rfl
+                simp only at h2
                 have hll : O.1.heap[j.1].var.1 < (Pointer.toVar O.1.heap (O.low O_root_def).1.root).1 := by
-                  have := OBdd.var_lt_low_var (O := O) (h := O_root_def)
+                  have h3 := OBdd.var_lt_low_var (O := O) (h := O_root_def)
                   simp only [OBdd.var, Nat.succ_eq_add_one, Bdd.var, OBdd.low_heap_eq_heap,
-                    Fin.val_fin_lt] at this
-                  rw [O_root_def] at this
-                  simp_rw [Fin.lt_def, Pointer.toVar_node_eq] at this
-                  convert this using 1
-                split at that
+                    Fin.val_fin_lt] at h3
+                  rw [O_root_def] at h3
+                  simp_rw [Fin.lt_def, Pointer.toVar_node_eq] at h3
+                  grind only [= Fin.getElem_fin]
+                split at h2
                 next =>
                   trans (Pointer.toVar O.1.heap (O.low O_root_def).1.root).1
                   · exact hll
-                  · exact that
+                  · exact h2
                 next =>
-                  rw [that]
+                  rw [h2]
                   exact hll
               )
               (by
@@ -557,7 +555,7 @@ def restrict_helper (O : OBdd n m) (b : Bool) (i : Fin n) (s0 : State n m) (inv 
                     Fin.val_fin_lt] at this
                   rw [O_root_def] at this
                   simp_rw [Fin.lt_def, Pointer.toVar_node_eq] at this
-                  convert this using 1
+                  grind only [= Fin.getElem_fin]
                 split at that
                 next =>
                   trans (Pointer.toVar O.1.heap (O.high O_root_def).1.root).1

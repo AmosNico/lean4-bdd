@@ -45,7 +45,7 @@ lemma eq_of_forall_dependency_getElem_eq {f : Func n α β} {I J : Vector α n} 
     by_cases hf : DependsOn f ⟨n, Nat.lt_add_one n⟩
     · have h1 := h ⟨⟨n, Nat.lt_add_one n⟩, hf⟩
       rw [h2 I rfl]
-      rw [h2 J (by convert h1)]
+      rw [h2 J h1]
       apply ih
       rintro ⟨x, hx⟩
       simp only [g] at hx

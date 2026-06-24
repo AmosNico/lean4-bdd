@@ -172,7 +172,7 @@ public theorem SemanticEquiv.equivalence : Equivalence SemanticEquiv :=
 
 instance instDecidableSimilar : DecidableRel Similar
   | B, C =>
-    Sim.instDecidableRobddHSimilar
+    Sim.decidableRobddHSimilar
       (Lift.olift (Nat.le_max_left  ..) B.obdd) (Lift.olift_reduced B.hred)
       (Lift.olift (Nat.le_max_right ..) C.obdd) (Lift.olift_reduced C.hred)
 

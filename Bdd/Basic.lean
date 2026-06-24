@@ -501,8 +501,8 @@ def OBdd.size {n m} (O : OBdd n m) := Fintype.card { j // Reachable O.1.heap O.1
 instance OBdd.instFintypeRelevantPointer {n m} (O : OBdd n m) : Fintype (O.1.RelevantPointer) := by
   convert Subtype.fintype _ <;> infer_instance
 
-@[no_expose]
-instance Pointer.instDecidableEitherReachable {n m} (O U : OBdd n m) (h : O.1.heap = U.1.heap) :
+@[implicit_reducible]
+def Pointer.decidableEitherReachable {n m} (O U : OBdd n m) (h : O.1.heap = U.1.heap) :
     DecidablePred (fun q ↦ (Reachable O.1.heap O.1.root q) ∨ (Reachable O.1.heap U.1.root q)) := by
   intro p
   simp
@@ -519,9 +519,11 @@ instance Pointer.instDecidableEitherReachable {n m} (O U : OBdd n m) (h : O.1.he
     apply isTrue
     simp_all only [true_or]
 
-instance OBdd.instFintypeEitherRelevantPointer (O U : OBdd n m) (h : O.1.heap = U.1.heap) : Fintype {q // Reachable O.1.heap O.1.root q ∨ Reachable O.1.heap U.1.root q} := by
+@[implicit_reducible]
+def OBdd.fintypeEitherRelevantPointer (O U : OBdd n m) (h : O.1.heap = U.1.heap) :
+    Fintype { q // Reachable O.1.heap O.1.root q ∨ Reachable O.1.heap U.1.root q } := by
   convert Subtype.fintype _
-  · exact instDecidableEitherReachable O U h
+  · exact decidableEitherReachable O U h
   · infer_instance
 
 /-- The inverse image of a decidable relation is decidable. -/
@@ -570,7 +572,7 @@ decreasing_by
   · constructor
     · simp
     · convert Edge.low rfl
-  · simp only [flip, Ordered, Fin.getElem_fin, OEdge, true_and]; convert Edge.high rfl
+  · simp only [flip, Ordered, OEdge, true_and]; convert Edge.high rfl
 
 @[expose]
 def OBdd.isTerminal {n m} (O : OBdd n m) := ∃ b, O.1.root = terminal b
@@ -1238,7 +1240,7 @@ lemma OBdd.card_reachable_node {O : OBdd n m} (h : O.1.root = node j) :
   rw [@Fintype.card_subtype_or_disjoint _ _ _ (eq_root_disjoint_reachable_low_or_high h) ..]
   · simp only [Fintype.card_unique, low_heap_eq_heap, add_right_inj]
     apply @Fintype.card_congr' ..
-    · apply instFintypeEitherRelevantPointer (O.low h) (O.high h); simp
+    · apply fintypeEitherRelevantPointer (O.low h) (O.high h); simp
     · simp
   · exact Fintype.subtypeEq O.1.root
 
@@ -1391,7 +1393,7 @@ lemma OBdd.reduced_var_dependent {O : OBdd n m} {p : Fin n} :
   intro hr hp
   cases O_root_def : O.1.root with
   | terminal _ =>
-    simp only [Nat.succ_eq_add_one, Bdd.var, Bdd.Ordered.eq_1, O_root_def, Pointer.toVar_terminal_eq]
+    simp only [Nat.succ_eq_add_one, Bdd.var, O_root_def, Pointer.toVar_terminal_eq]
     exact Fin.le_last p.castSucc
   | node j =>
     by_contra c
@@ -1404,7 +1406,7 @@ lemma OBdd.reduced_var_dependent {O : OBdd n m} {p : Fin n} :
       apply OBdd.Canonicity (OBdd.high_reduced hr) (OBdd.low_reduced hr) s
     ext I
     trans O.evaluate I
-    · simp only [Bdd.Ordered.eq_1, Bdd.var, O_root_def, Pointer.toVar_node_eq, Fin.eta] at this
+    · simp only [Bdd.var, O_root_def, Pointer.toVar_node_eq, Fin.eta] at this
       have := this true I
       rw [this]
       rw [OBdd.evaluate_node'' O_root_def]
@@ -1415,7 +1417,7 @@ lemma OBdd.reduced_var_dependent {O : OBdd n m} {p : Fin n} :
       convert OBdd.var_lt_high_var
       simp [O_root_def]
     · symm
-      simp only [Bdd.Ordered.eq_1, Bdd.var, O_root_def, Pointer.toVar_node_eq, Fin.eta] at this
+      simp only [Bdd.var, O_root_def, Pointer.toVar_node_eq, Fin.eta] at this
       have := this false I
       rw [this]
       rw [OBdd.evaluate_node'' O_root_def]

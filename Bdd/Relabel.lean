@@ -22,8 +22,8 @@ lemma relabel_edge_iff {B : Bdd n m} {x y : Pointer m} {f : Nat → Nat} {hf : �
     | high _ => right; simpa [relabel, relabel_heap]
   · intro e
     cases e with
-    | low  _ => left;  simp_all [relabel, relabel_heap, relabel_node]; assumption
-    | high _ => right; simp_all [relabel, relabel_heap, relabel_node]; assumption
+    | low  _ => left;  simp_all [relabel, relabel_heap, relabel_node]
+    | high _ => right; simp_all [relabel, relabel_heap, relabel_node]
 
 lemma relabel_reachable_iff {B : Bdd n m} : Pointer.Reachable B.heap B.root x ↔ Pointer.Reachable (relabel h B).heap (relabel h B).root x := by
   constructor
@@ -59,7 +59,7 @@ lemma relabel_relevantMayPrecede {B : Bdd n m} {f : Nat → Nat} {hf : ∀ i : F
     | node j' =>
       simp only [Pointer.MayPrecede, Nat.succ_eq_add_one, Fin.lt_def, Pointer.toVar_node_eq] at h
       simp only [Pointer.MayPrecede, relabel, relabel_heap, Fin.lt_def, Pointer.toVar_node_eq]
-      simp only [Fin.getElem_fin, Vector.getElem_map, relabel_node, Fin.eta]
+      simp only [Fin.getElem_fin, Vector.getElem_map, relabel_node]
       apply hu
       · exact h
       · use j
@@ -81,12 +81,10 @@ lemma relabel_relevantEdge {B : Bdd n m} {f : Nat → Nat} {hf : ∀ i : Fin n, 
   cases h with
   | low _ =>
     left
-    simp_all [relabel_node]
-    assumption
+    simp_all only [Fin.getElem_fin, Vector.getElem_map, relabel_node]
   | high _ =>
     right
-    simp_all [relabel_node]
-    assumption
+    simp_all only [Fin.getElem_fin, Vector.getElem_map, relabel_node]
 
 lemma relabel_ordered {B : Bdd n m} {f : Nat → Nat} {hf : ∀ i : Fin n, f i < f n} :
     (∀ i i' : Fin n, i < i' → B.usesVar i → B.usesVar i' → f i < f i') → Bdd.Ordered B → Bdd.Ordered (relabel hf B) := by
@@ -160,9 +158,7 @@ public theorem orelabel_evaluate (O : OBdd n m) {f : Nat → Nat} {hf : ∀ i : 
     congr 1
     · simp only [eq_iff_iff, Bool.coe_iff_coe]
       simp only [relabel, relabel_heap, Fin.getElem_fin, Vector.getElem_map, relabel_node]
-      simp only [Fin.eta]
       simp_all only [Vector.getElem_ofFn]
-      rfl
     · have := orelabel_evaluate
         (hu := (fun i i' hii' hi hi' ↦ hu i i' hii' (OBdd.usesVar_of_high_usesVar hi) (OBdd.usesVar_of_high_usesVar hi')))
         (hf := hf)
@@ -214,9 +210,7 @@ lemma relabel_toTree_relabel (O : OBdd n m) {f : Nat → Nat} (hf : ∀ i : Fin 
     rw [OBdd.toTree_node (by trans O.1.root; rfl; exact O_root_def)]
     simp only [Fin.getElem_fin]
     congr 1
-    · simp only [relabel, relabel_heap, Vector.getElem_map, relabel_node, Fin.eta,
-      Bdd.Ordered.eq_1, Fin.mk.injEq]
-      rfl
+    · simp only [relabel, relabel_heap, Vector.getElem_map, relabel_node]
     · have := relabel_toTree_relabel (O := (O.low O_root_def)) hf (fun i i' hii' hi hi' ↦ hu i i' hii' (OBdd.usesVar_of_low_usesVar hi) (OBdd.usesVar_of_low_usesVar hi'))
       rw [← orelabel_low] at this
       exact this
@@ -261,7 +255,7 @@ lemma orelabel_preserves_similarRP {O : OBdd n m} {f : Nat → Nat} {hf : ∀ i 
         rw [OBdd.toTree_node rfl]
       injection sim with ha hb hc
       simp only [Fin.getElem_fin] at ha
-      simp only [orelabel, relabel, relabel_heap, Vector.getElem_map, relabel_node, Fin.eta,
+      simp only [orelabel, relabel, relabel_heap, Vector.getElem_map, relabel_node,
         Fin.mk.injEq] at ha
       conv =>
         lhs
@@ -418,7 +412,6 @@ lemma relabel_id {B : Bdd n m} : relabel (f := id) (by simp) B = B := by
   congr
   ext i hi
   simp only [Vector.getElem_map, relabel_node, id_eq, Fin.eta]
-  rfl
 
 @[simp]
 public lemma orelabel_id {O : OBdd n m} : orelabel O (f := id) (by simp) (fun _ _ _ _ _ ↦ by simpa) = O := by
