@@ -37,8 +37,8 @@ lemma collect_helper_node {v : Vector (Node n m) m} {h : Bdd.Ordered {heap := v,
     collect_helper ⟨{heap := v, root := .node j}, h⟩ I =
       if I.1[j]
       then I
-      else collect_helper ⟨⟨v, v[j].high⟩, Bdd.ordered_of_relevant ⟨⟨v, .node j⟩, h⟩ ⟨v[j].high, Bdd.reachable_of_edge (Edge.high rfl)⟩⟩
-                          (collect_helper ⟨{heap := v, root := v[j].low}, Bdd.ordered_of_relevant ⟨{heap := v, root := .node j}, h⟩ ⟨v[j].low, Bdd.reachable_of_edge (Edge.low rfl)⟩⟩
+      else collect_helper ⟨⟨v, v[j].high⟩, Bdd.ordered_of_relevant ⟨⟨v, .node j⟩, h⟩ ⟨v[j].high, Bdd.reachable_of_edge Edge.high⟩⟩
+                          (collect_helper ⟨{heap := v, root := v[j].low}, Bdd.ordered_of_relevant ⟨{heap := v, root := .node j}, h⟩ ⟨v[j].low, Bdd.reachable_of_edge Edge.low⟩⟩
                                           ⟨I.1.set j true, j :: I.2⟩) := by
   conv =>
     lhs
