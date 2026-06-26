@@ -15,17 +15,10 @@ def relabel {f : Nat → Nat} (hf : ∀ i : Fin n, f i < f n) : Bdd n m → Bdd 
 
 lemma relabel_edge_iff {B : Bdd n m} {x y : Pointer m} {f : Nat → Nat} {hf : ∀ i : Fin n, f i < f n} :
     Edge B.heap x y ↔ Edge (relabel hf B).heap x y := by
-  constructor
-  · intro e
-    cases e with
-    | low  _ => left;  simpa [relabel, relabel_heap]
-    | high _ => right; simpa [relabel, relabel_heap]
-  · intro e
-    cases e with
-    | low  _ => left;  simp_all [relabel, relabel_heap, relabel_node]
-    | high _ => right; simp_all [relabel, relabel_heap, relabel_node]
+  simp only [edge_iff, Fin.getElem_fin, relabel, relabel_heap, Vector.getElem_map, relabel_node]
 
-lemma relabel_reachable_iff {B : Bdd n m} : Pointer.Reachable B.heap B.root x ↔ Pointer.Reachable (relabel h B).heap (relabel h B).root x := by
+lemma relabel_reachable_iff {B : Bdd n m} : Pointer.Reachable B.heap B.root x ↔
+    Pointer.Reachable (relabel h B).heap (relabel h B).root x := by
   constructor
   · intro r
     induction r with
@@ -77,14 +70,8 @@ lemma relabel_relevantEdge {B : Bdd n m} {f : Nat → Nat} {hf : ∀ i : Fin n, 
     {hy : Pointer.Reachable (relabel hf B).heap (relabel hf B).root y} :
     (relabel hf B).RelevantEdge ⟨x, hx⟩ ⟨y, hy⟩ → B.RelevantEdge ⟨x, relabel_reachable_iff.mpr hx⟩ ⟨y, relabel_reachable_iff.mpr hy⟩ := by
   intro h
-  simp_all only [Bdd.RelevantEdge, relabel, relabel_heap]
-  cases h with
-  | low _ =>
-    left
-    simp_all only [Fin.getElem_fin, Vector.getElem_map, relabel_node]
-  | high _ =>
-    right
-    simp_all only [Fin.getElem_fin, Vector.getElem_map, relabel_node]
+  simp_all only [Bdd.RelevantEdge, relabel, relabel_heap, edge_iff, Fin.getElem_fin,
+    Vector.getElem_map, relabel_node]
 
 lemma relabel_ordered {B : Bdd n m} {f : Nat → Nat} {hf : ∀ i : Fin n, f i < f n} :
     (∀ i i' : Fin n, i < i' → B.usesVar i → B.usesVar i' → f i < f i') → Bdd.Ordered B → Bdd.Ordered (relabel hf B) := by

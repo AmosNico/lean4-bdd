@@ -1158,8 +1158,8 @@ public def process_queue {n m : Nat} {i : Nat} (O : OBdd n m)
             (O.1.heap[e.2].low = .node l ∨ O.1.heap[e.2].high = .node l) → l ≠ head.2 := by
           intro l hedge h_eq
           have hedge' : O.1.RelevantEdge ⟨.node e.2, hr⟩
-              ⟨.node l, .tail hr (hedge.elim (Edge.low ·) (Edge.high ·))⟩ :=
-            hedge.elim (Edge.low ·) (Edge.high ·)
+              ⟨.node l, .tail hr (hedge.elim (· ▸ Edge.low) (· ▸ Edge.high))⟩ := by
+            grind only [edge_iff]
           have hmay : O.1.heap[e.2].var.1 < O.1.heap[l].var.1 := by
             have h := O.2 hedge'
             simp only [RelevantMayPrecede, MayPrecede, Fin.lt_def, toVar_node_eq] at h
