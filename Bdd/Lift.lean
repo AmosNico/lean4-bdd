@@ -14,15 +14,7 @@ def lift (h : n ≤ n') (B : Bdd n m) : Bdd n' m :=
 
 lemma lift_edge_iff {h : n ≤ n'} {B : Bdd n m} {p q : Pointer m} :
     Edge B.heap p q ↔ Edge (lift h B).heap p q := by
-  constructor
-  · intro e
-    cases e with
-    | low  _ => left;  simpa
-    | high _ => right; simpa
-  · intro e
-    cases e with
-    | low  _ => left;  simp_all
-    | high _ => right; simp_all
+  simp_all only [edge_iff, Fin.getElem_fin, lift, Vector.getElem_map]
 
 lemma lift_reachable_iff {h : n ≤ n'} {B : Bdd n m} {p : Pointer m} :
     Pointer.Reachable B.heap B.root p ↔ Pointer.Reachable (lift h B).heap (lift h B).root p := by
@@ -79,15 +71,11 @@ lemma lift_preserves_RelevantEdge {h : n ≤ n'} {B : Bdd n m} {p q : Pointer m}
   · rintro ⟨hp, hq, hr⟩
     use (lift_reachable_iff.mpr hp)
     use (lift_reachable_iff.mpr hq)
-    cases hr with
-    | low  hl => simp at hl; left ; assumption
-    | high hh => simp at hh; right; assumption
+    simp_all only [Bdd.RelevantEdge, lift, edge_iff, Fin.getElem_fin, Vector.getElem_map]
   · rintro ⟨hp, hq, hr⟩
     use (lift_reachable_iff.mp hp)
     use (lift_reachable_iff.mp hq)
-    cases hr with
-    | low  hl => simp at hl; left ; simpa
-    | high hh => simp at hh; right; simpa
+    simp_all only [Bdd.RelevantEdge, lift, edge_iff, Fin.getElem_fin, Vector.getElem_map]
 
 lemma lift_ordered {h : n ≤ n'} {B : Bdd n m} : B.Ordered → (lift h B).Ordered := by
   rintro ho ⟨x, hx⟩ ⟨y, hy⟩ e

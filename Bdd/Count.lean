@@ -289,7 +289,6 @@ def count_helper (O : OBdd n m) (s : Std.HashMap (Pointer m) Nat ) (inv : Invari
                     rfl
                     simp only [h, OBdd.high, Bdd.high, Fin.getElem_fin]
                     right
-                    rfl
                   · exact (hh2 _).2.2 hm ⟨_, hp2⟩
                 | some val =>
                   trans (O.low h).1.root
@@ -297,7 +296,6 @@ def count_helper (O : OBdd n m) (s : Std.HashMap (Pointer m) Nat ) (inv : Invari
                     rfl
                     simp only [h, OBdd.low, Bdd.low, Fin.getElem_fin]
                     left
-                    rfl
                   · exact (hl2 _).2.2 hp1 ⟨_, hm⟩
       ⟩
 termination_by O
