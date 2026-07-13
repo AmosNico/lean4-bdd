@@ -6,26 +6,28 @@ public import Bdd.BDD
 import all Bdd.BDD
 import Bdd.Reduce
 
-def unexpectedLine (line : String) : String := s!"Unexpected line \"{line}\" while parsing the BDD."
+def unexpectedLine (expected found : String) : String :=
+  s!"Expected {expected}, but found {found} while parsing the BDD."
 
-def throwUnexpectedLine {α} (line : String) : IO α :=
-  throw <| IO.userError <| unexpectedLine line
+def throwUnexpectedLine {α} (expected found : String) : IO α :=
+  throw <| IO.userError <| unexpectedLine expected found
 
 def checkLine (h : IO.FS.Handle) (s : String) : IO Unit := do
   let line ← h.getLine
   if line.trimAscii == s then
     return
   else
-    throwUnexpectedLine line
+    throwUnexpectedLine (repr s).pretty s!"{repr line} {repr (← h.readToEnd)}"
 
 def readNamedLine (h : IO.FS.Handle) (name : String) : IO (List String) := do
   let line ← h.getLine
   let line := line.trimAscii.copy
-  let x :: xs := line.splitOn | throwUnexpectedLine line
+  let x :: xs := line.splitOn
+    | throwUnexpectedLine s!"{repr name} followed by something" (repr line).pretty
   if x == name then
     return xs
   else
-    throwUnexpectedLine line
+    throwUnexpectedLine (repr name).pretty (repr x).pretty
 
 def readNamedNat (h : IO.FS.Handle) (name : String) : IO Nat := do
   let l ←  readNamedLine h name
@@ -36,7 +38,7 @@ def readNamedNat (h : IO.FS.Handle) (name : String) : IO Nat := do
 
 def readNamedPos (h : IO.FS.Handle) (name : String) : IO { n : Nat // 0 < n } := do
   let l ←  readNamedLine h name
-  let e := IO.userError s!"{name} should be followed by a single natural number."
+  let e := IO.userError s!"{name} should be followed by a single positive number."
   let [s] := l | throw e
   let some n := s.toNat? | throw e
   if h : 0 < n then
@@ -47,6 +49,16 @@ def readNamedPos (h : IO.FS.Handle) (name : String) : IO { n : Nat // 0 < n } :=
 def String.toFin? (n : ℕ) (s : String) : Option (Fin n) := do
   let i ← s.toNat?
   if h : i < n then some ⟨i, h⟩ else none
+
+def readNamedVectorFin (h : IO.FS.Handle) (name : String) (n m : ℕ) : IO (Vector (Fin n) m) := do
+  let l ←  readNamedLine h name
+  let e := IO.userError s!"{name} should be followed by {m} natural numbers smaller then {n}."
+  let as := l.toArray
+  let some as := as.mapM (String.toFin? n) | throw e
+  if h : as.size = m then
+    return ⟨as, h⟩
+  else
+    throw e
 
 /--
 The DDDMP library uses a node for representing `⊤`. In contrast, in this bdd library there is
@@ -90,19 +102,32 @@ def String.toPointer? (s : String) (nNodes : ℕ) :
   | .ofNat 0 => throw e
 
 /--
+The DDDMP format makes a distiction between variables and support variables. For each bdd,
+the support variables are the variables actually occuring in the (internal representation of) the
+bdd (listed in `support_ids`). When representing the nodes in the DDDMP file, the support varibles
+are used, where each of the support variables is identified by its position in `support_ids`.
+-/
+def String.toVar? {nVars nSupportVars} (support_ids : Vector (Fin nVars) nSupportVars)
+    (s : String) : Except IO.Error (Fin nVars) := do
+  let some i := s.toFin? nSupportVars
+    | throw <| IO.userError s!"Expected a natural number less then {nSupportVars}, but got {s}."
+  return support_ids[i]
+
+/--
 Read the node with the given id. Each node is expected to be on a separate line in the following
 format: `<id> <var-extrainfo> <var-index> <index-high> <index-low>`.
 -/
 -- TODO : <var-extrainfo> should be optional
-def readNode (h : IO.FS.Handle) (nNodes nVars id : ℕ) : IO (Node nVars (2 * (nNodes - 1))) := do
-    let l ← readNamedLine h (toString id)
-    let [_, var, high, low] := l | throw (IO.userError
-      s!"Expected \"{id} <var-extrainfo> <var-index> <index-high> <index-low>\"")
-    let some var := var.toFin? nVars | throw (IO.userError "The variable id is not valid.")
-    let .ok high := high.toPointer? nNodes | throw (IO.userError "The then-index is not valid.")
-    let .ok low := low.toPointer? nNodes | throw (IO.userError "The else-index is not valid.")
-
-    return Node.mk var low high
+def readNode (h : IO.FS.Handle) (nNodes : ℕ) {nVars nSupportVars}
+    (support_ids : Vector (Fin nVars) nSupportVars) (id : ℕ) :
+    IO (Node nVars (2 * (nNodes - 1))) := do
+  let l ← readNamedLine h (toString id)
+  let [_, var, high, low] := l | throw (IO.userError
+    s!"Expected \"{id} <var-extrainfo> <var-index> <index-high> <index-low>\"")
+  let .ok var := var.toVar? support_ids | throw (IO.userError "The variable id is not valid.")
+  let .ok high := high.toPointer? nNodes | throw (IO.userError "The then-index is not valid.")
+  let .ok low := low.toPointer? nNodes | throw (IO.userError "The else-index is not valid.")
+  return Node.mk var low high
 
 def Pointer.compl {m} : Pointer (2 * m) → Pointer (2 * m)
   | terminal b => terminal (not b)
@@ -122,13 +147,15 @@ def parseBdd (h : IO.FS.Handle) : IO ((n m : ℕ) × Bdd n m) := do
   let n_nodes ← readNamedPos h ".nnodes"
   let n_vars ← readNamedNat h ".nvars"
   let n_supvars ← readNamedNat h ".nsuppvars"
-  let ids ← readNamedLine h ".ids"
-  let perm_ids ← readNamedLine h ".permids"
+  let ids ← readNamedVectorFin h ".ids" n_vars n_supvars
+  let perm_ids ← readNamedVectorFin h ".permids" n_vars n_supvars
+  if ids ≠ perm_ids then
+    throw <| IO.userError "Permutations of variables are currently not supported."
   let n_roots ← readNamedNat h ".nroots"
   let root_ids ← List.mapM (String.toPointer? · n_nodes) <$> readNamedLine h ".rootids"
   checkLine h ".nodes"
   checkTopNode h
-  let pos_nodes ← (Vector.range' 2 (n_nodes - 1)).mapM (readNode h n_nodes n_vars ·)
+  let pos_nodes ← (Vector.range' 2 (n_nodes - 1)).mapM (readNode h n_nodes ids ·)
   checkLine h ".end"
   let .ok [root] := root_ids | throw (IO.userError "Expected a single root node.")
   let nodes := (pos_nodes.flatMap fun N ↦ #v[N, N.compl]).cast (by omega)
@@ -140,7 +167,7 @@ An incomplete test to check whether a `Bdd` is ordered.
 def Bdd.isOrdered {n m} (B : Bdd n m) : Bool :=
   B.heap.all fun N =>  N.var.val < N.low.toVar B.heap ∧ N.var.val < N.high.toVar B.heap
 
-lemma Bdd.Orderd_of_isOrderd {B : Bdd n m} (h1 : B.isOrdered) : B.Ordered := by
+lemma Bdd.Orderd_of_isOrderd {n m} {B : Bdd n m} (h1 : B.isOrdered) : B.Ordered := by
   simp only [isOrdered, Nat.succ_eq_add_one, Bool.decide_and, Vector.all_eq_true, Bool.and_eq_true,
     decide_eq_true_eq] at h1
   rintro ⟨p, _⟩  ⟨q, _⟩ ⟨⟩
