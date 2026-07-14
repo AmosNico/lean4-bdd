@@ -1,10 +1,11 @@
 module
 
 public import Mathlib.Data.Fintype.Sum
-import Init.Data.ToString.Basic
 public import Mathlib.Tactic.DeriveFintype
+import Init.Data.ToString.Basic
 import Mathlib.Data.Fintype.Vector
 import Mathlib.Tactic.Linarith
+import Std.Data.HashSet.Lemmas
 public import Bdd.Nary
 public import Bdd.DecisionTree
 
@@ -358,7 +359,7 @@ instance OBdd.instDecidableSimilarRP : Decidable (OBdd.SimilarRP O l r) := by
   simp only [OBdd.SimilarRP]; infer_instance
 
 /-- Isomorphism of `Ordered` BDDs is an equivalence relation. -/
-def OBdd.Similar.instEquivalence {n m} : Equivalence (α := OBdd n m) OBdd.Similar := by
+lemma OBdd.Similar.instEquivalence {n m} : Equivalence (α := OBdd n m) OBdd.Similar := by
   apply InvImage.equivalence
   constructor <;> simp_all [HSimilar]
 
@@ -621,16 +622,19 @@ lemma OBdd.reduced_of_relevant {O : OBdd n m} (S : O.1.RelevantPointer):
     apply eq_terminal_of_relevant rfl
   case step j _ _ _ _ o =>
     constructor
-    · intro p; apply R.1 ⟨p.1, Relation.instIsTransReflTransGen.trans _ _ _ S.2 p.2⟩
+    · intro p; apply R.1 ⟨p.1, Reachable.trans S.2 p.2⟩
     · intro q p _
       have : SimilarRP ⟨{ heap := O.1.heap, root := node j }, o⟩
-              ⟨q.1, Relation.instIsTransReflTransGen.trans _ _ _ S.2 q.2⟩
-              ⟨p.1, Relation.instIsTransReflTransGen.trans _ _ _ S.2 p.2⟩ := by
+              ⟨q.1, Reachable.trans S.2 q.2⟩
+              ⟨p.1, Reachable.trans S.2 p.2⟩ := by
         simp_all only [SimilarRP, Similar]
       apply R.2 this
 
-lemma OBdd.reachable_of_edge : Edge w p q → Reachable w p q := Relation.ReflTransGen.tail Relation.ReflTransGen.refl
-lemma OBdd.ordered_of_edge {O : OBdd n m} {h : O.1.heap = v} {r : O.1.root = q} (p) : Edge v q p → Bdd.Ordered {heap := v, root := p} := by
+lemma OBdd.reachable_of_edge : Edge w p q → Reachable w p q :=
+  Relation.ReflTransGen.tail Relation.ReflTransGen.refl
+
+lemma OBdd.ordered_of_edge {O : OBdd n m} {h : O.1.heap = v} {r : O.1.root = q} (p) :
+    Edge v q p → Bdd.Ordered {heap := v, root := p} := by
   rw [← h]
   rw [← r]
   intro e
@@ -1652,11 +1656,11 @@ lemma OBdd.usesVar_iff (i : Fin n) (O : OBdd n m) : O.1.usesVar i ↔ (∃ j, �
     simp_all
     cases root with
     | terminal _ =>
-      cases Relation.ReflTransGen.swap hj with
+      cases Relation.ReflTransGen.swap _ _ hj with
       | tail _ e => exact False.elim (not_terminal_edge e)
     | node j' =>
       use j', rfl
-      cases Relation.ReflTransGen.swap hj with
+      cases Relation.ReflTransGen.swap _ _ hj with
       | refl => left; assumption
       | tail r e =>
         cases e with
@@ -1667,7 +1671,7 @@ lemma OBdd.usesVar_iff (i : Fin n) (O : OBdd n m) : O.1.usesVar i ↔ (∃ j, �
           simp only [Fin.getElem_fin] at hl
           simp only [Fin.getElem_fin, low, Bdd.low, hl]
           constructor
-          · exact Relation.ReflTransGen.swap r
+          · exact Relation.ReflTransGen.swap _ _ r
           · exact hi
         | high hh =>
           right
@@ -1676,7 +1680,7 @@ lemma OBdd.usesVar_iff (i : Fin n) (O : OBdd n m) : O.1.usesVar i ↔ (∃ j, �
           simp only [Fin.getElem_fin] at hh
           simp only [Fin.getElem_fin, high, Bdd.high, hh]
           constructor
-          · exact Relation.ReflTransGen.swap r
+          · exact Relation.ReflTransGen.swap _ _ r
           · exact hi
   · rintro ⟨j, hj, h⟩
     cases h with
@@ -1779,8 +1783,8 @@ private def usesVar_helper
   StateM
     { s : Std.HashSet (Fin m) //
       ∀ j ∈ s, Pointer.Reachable O.1.heap O.1.root (.node j) ∧ ¬ Bdd.usesVar ⟨O.1.heap, .node j⟩ i }
-    (Decidable (Bdd.usesVar ⟨O.1.heap, p⟩ i)) := do
-  match hp : p with
+    (Decidable (Bdd.usesVar ⟨O.1.heap, p⟩ i)) :=
+  match p with
   | .terminal b => return isFalse not_usesVar_of_terminal
   | .node j =>
     if hgt : O.1.heap[j].var > i
@@ -1788,7 +1792,7 @@ private def usesVar_helper
     else
     if hv : O.1.heap[j].var = i
       then return isTrue ⟨j, .refl, hv⟩
-      else
+      else do
         let s ← get
         if hh : j ∈ s.1
         then return isFalse (s.2 j hh).2
@@ -1803,7 +1807,6 @@ private def usesVar_helper
             | isFalse hff =>
               have : ¬ Bdd.usesVar { heap := O.1.heap, root := node j } i := by
                 intro contra
-                subst hp
                 rw [OBdd.usesVar_iff (O := ⟨⟨O.1.heap, .node j⟩, Bdd.ordered_of_reachable hpr⟩)] at contra
                 rcases contra with ⟨j', hj', c⟩
                 simp only [node.injEq] at hj'
@@ -2086,7 +2089,7 @@ structure RawNode (n) where
 @[expose]
 def RawPointer.Bounded (m : Nat) (p : RawPointer) := ∀ {i}, p = .inr i → i < m
 
-def RawPointer.bounded_of_le {p : RawPointer} (hm : p.Bounded m) (h : m ≤ m') : p.Bounded m' := by
+lemma RawPointer.bounded_of_le {p : RawPointer} (hm : p.Bounded m) (h : m ≤ m') : p.Bounded m' := by
   intro i hi
   cases hp : p with
   | inl val => simp_all
@@ -2134,7 +2137,7 @@ def RawPointer.fromPointer : Pointer m → RawPointer
 @[expose]
 def RawNode.Bounded (m : Nat) (N : RawNode n) := N.lo.Bounded m ∧ N.hi.Bounded m
 
-def RawNode.bounded_of_le {N : RawNode n} (hm : N.Bounded m) (h : m ≤ m') : N.Bounded m' :=
+lemma RawNode.bounded_of_le {N : RawNode n} (hm : N.Bounded m) (h : m ≤ m') : N.Bounded m' :=
   ⟨RawPointer.bounded_of_le hm.1 h, RawPointer.bounded_of_le hm.2 h⟩
 
 @[expose]

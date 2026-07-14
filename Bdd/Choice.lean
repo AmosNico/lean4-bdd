@@ -31,7 +31,7 @@ lemma Vector.get_set_ne {xs : Vector α n} {x : α} (hi : i < n) {j : Fin n} (h 
   simp only [Vector.get]
   aesop
 
-def choice_helper_spec' {O : OBdd n m} (hr : O.Reduced) (hj : O.1.root = .node j) (i : Fin n) :
+lemma choice_helper_spec' {O : OBdd n m} (hr : O.Reduced) (hj : O.1.root = .node j) (i : Fin n) :
     i < O.1.heap[j].var → (choice_helper O hj (Vector.replicate n false)).get i = false := by
   intro hi
   unfold choice_helper
@@ -62,12 +62,12 @@ def choice_helper_spec' {O : OBdd n m} (hr : O.Reduced) (hj : O.1.root = .node j
       · omega
 termination_by O
 
-def choice_helper_spec'' {O : OBdd n m} (hr : O.Reduced) (hj : O.1.root = node j) (i : Fin n) :
+lemma choice_helper_spec'' {O : OBdd n m} (hr : O.Reduced) (hj : O.1.root = node j) (i : Fin n) :
     i < O.1.heap[j].var → (choice_helper O hj (Vector.replicate n false))[i] = false := by
   have := choice_helper_spec' hr hj i
   exact this
 
-def choice_helper_spec {O : OBdd n m} (hr : O.Reduced) (hj : O.1.root = node j) :
+lemma choice_helper_spec {O : OBdd n m} (hr : O.Reduced) (hj : O.1.root = node j) :
     O.evaluate (choice_helper O hj (Vector.replicate n false)) := by
   unfold choice_helper
   split
@@ -111,7 +111,7 @@ def choice_helper_spec {O : OBdd n m} (hr : O.Reduced) (hj : O.1.root = node j) 
 termination_by O
 
 @[simp]
-public def choice_evaluate {O : OBdd n m} (hr : O.Reduced) (ht : ∃ I, O.evaluate I) : O.evaluate (choice O ht) = true := by
+public lemma choice_evaluate {O : OBdd n m} (hr : O.Reduced) (ht : ∃ I, O.evaluate I) : O.evaluate (choice O ht) = true := by
   simp only [choice]
   split
   next O_root_def => rw [evaluate_terminal' O_root_def]; simp

@@ -25,7 +25,7 @@ public structure StepInv {n m : Nat} (O : OBdd n m) (ps : ProvedState n m) (i : 
   hpushed_le : ∀ k : Fin ps.state.size, s₀ ≤ k.1 →
                  KeyLE (ps.state.heap[k].lo, ps.state.heap[k].hi) curkey
 
-def StepInv.hbnd {n m : Nat} {O : OBdd n m} {ps : ProvedState n m} {i s₀ : Nat}
+lemma StepInv.hbnd {n m : Nat} {O : OBdd n m} {ps : ProvedState n m} {i s₀ : Nat}
     {curkey : RawPointer × RawPointer} {curptr : RawPointer}
     {Q : List ((RawPointer × RawPointer) × Fin m)}
     (si : StepInv O ps i s₀ curkey curptr Q) {e : (RawPointer × RawPointer) × Fin m}
@@ -687,7 +687,7 @@ lemma node_fresh {n m : Nat} {ps : ProvedState n m} {i s₀ : Nat}
     exact hKne (keyLE_antisymm hKcur hle).symm
 
 /-- Pushing a fresh node for a non-matching queue entry is correct. -/
-def StepInv.nc {n m : Nat} {O : OBdd n m} {ps : ProvedState n m} {i s₀ : Nat}
+lemma StepInv.nc {n m : Nat} {O : OBdd n m} {ps : ProvedState n m} {i s₀ : Nat}
     {curkey : RawPointer × RawPointer} {curptr : RawPointer}
     {Q : List ((RawPointer × RawPointer) × Fin m)}
     (si : StepInv O ps i s₀ curkey curptr Q) (inv : Invariant O ps i)

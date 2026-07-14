@@ -31,7 +31,7 @@ def sim_helper
     (Decidable
       (OBdd.HSimilar
         ⟨⟨O.1.heap, p⟩, Bdd.ordered_of_reachable hpr⟩
-        ⟨⟨U.1.heap, q⟩, Bdd.ordered_of_reachable hqr⟩)) := do
+        ⟨⟨U.1.heap, q⟩, Bdd.ordered_of_reachable hqr⟩)) :=
   match hp : p with
   | .terminal b =>
     match hq : q with
@@ -45,7 +45,7 @@ def sim_helper
     | .terminal b' => return isFalse (by simp [OBdd.HSimilar, OBdd.toTree_terminal', OBdd.toTree_node])
     | .node j' =>
       if hv : O.1.heap[j].var = U.1.heap[j'].var
-      then
+      then do
         let s ← get
         match hl : s.lr[j]? with
         | none =>
