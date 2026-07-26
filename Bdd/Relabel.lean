@@ -89,8 +89,7 @@ private lemma relabel_relevantEdge {B : Bdd n m} {f : Nat → Nat} {hf : ∀ i :
 
 private lemma relabel_ordered {B : Bdd n m} {f : Nat → Nat} {hf : ∀ i : Fin n, f i < f n} :
     (∀ i i' : Fin n, i < i' → B.usesVar i → B.usesVar i' → f i < f i') → Bdd.Ordered B → Bdd.Ordered (relabel hf B) := by
-  intro hu ho
-  rintro _ _ hxy
+  intro hu ho _ _ hxy
   apply relabel_relevantMayPrecede
   exact hu
   apply ho

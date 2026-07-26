@@ -78,7 +78,9 @@ instance instDecidableUnsat {n} (C : Std.Sat.CNF (Fin n)) : Decidable (Std.Sat.C
       simp only [BDD.const_nvars, Nat.zero_le, sup_of_le_left, BDD_of_CNF_correct] at h2
       refine Eq.trans ?_ h2
       apply BDD.denotation_congr
-      grind only [= Fin.getElem_fin, usr Fin.isLt, = Vector.getElem_ofFn]
+      intro i
+      simp
+      rfl
 
 -- #eval Std.Sat.CNF.eval (fun _ : Nat ↦ true) ⟨#[]⟩
 -- #eval Std.Sat.CNF.eval (fun _ : Nat ↦ true) ⟨#[]⟩

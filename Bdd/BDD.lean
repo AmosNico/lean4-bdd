@@ -571,7 +571,9 @@ lemma relabel_dependsOn {n} {B : BDD} {f : Fin B.nvars → Fin n} {hf h i} :
           simp [Vector.getElem_set, Fin.val_inj] at h2
           rcases h2 with ⟨j, h2, rfl⟩
           intro j'
-          grind only [Subtype.val_inj, usr Subtype.property, h1 j j']
+          specialize h1 j j'
+          simp only [Nary.DependsOn, Nary.IndependentOf] at *
+          grind only [usr Subtype.property, Subtype.val_inj]
 
 /-- Return an input vector that satisfies the denotation of a given `BDD`, under the assumption that its denotation is satisfiable.
 
