@@ -170,6 +170,18 @@ def Bdd.RelevantMayPrecede (B : Bdd n m) (p q : B.RelevantPointer) := MayPrecede
 @[expose]
 def Bdd.Ordered (B : Bdd n m) := Subrelation (RelevantEdge B) (RelevantMayPrecede B)
 
+lemma Bdd.ordered_iff {n m} {B : Bdd n m} : B.Ordered ↔
+    ∀ p q, Reachable B.heap B.root p → Edge B.heap p q → toVar B.heap p < toVar B.heap q := by
+  simp [Ordered, RelevantEdge, RelevantMayPrecede, Subrelation]
+  constructor
+  · intro h1 p q h2 h3
+    have h4 : Reachable B.heap B.root q := by
+      trans p
+      · exact h2
+      · exact h3
+    exact h1 p h2 q h4 h3
+  · grind only
+
 /-- Terminals induce `Ordered` BDDs. -/
 lemma Bdd.Ordered_of_terminal : Bdd.Ordered ⟨M, terminal b⟩ := by
   rintro ⟨p, hp⟩ ⟨q, hq⟩ h
