@@ -13,7 +13,7 @@ abbrev Func n α β := Vector α n → β
 def IndependentOf (f : Func n α β) (i : Fin n) := ∀ a v, f v = f (Vector.set v i a)
 
 /-- `DependsOn f i` if the output of `f` depends on the value of the `i`th input. -/
-@[simp, expose]
+@[expose]
 def DependsOn (f : Func n α β) (i : Fin n) := ¬ IndependentOf f i
 
 -- TODO : use this as the definition instead?
@@ -105,7 +105,7 @@ lemma ne_implies_dependency_getElem_ne {f : Func n α β} {I J : Vector α n} :
 def restrict (f : Func n α β) : α → Fin n → Func n α β := fun a i I ↦ f (I.set i a)
 
 @[simp]
-lemma restrict_const : restrict (Function.const _ b) c i = (Function.const _ b) := by ext; simp
+lemma restrict_const : restrict (fun _ ↦ b) c i = (fun _ ↦ b) := by ext; simp
 
 lemma restrict_independentOf : IndependentOf (restrict f c i) i := by simp
 

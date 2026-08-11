@@ -162,46 +162,34 @@ lemma structural_canonical_key {n s : Nat} {M : Vector (Node n s) s}
       OBdd.toTree P = OBdd.toTree Q → P.1.root = Q.1.root := by
   intro P
   induction P using OBdd.init_inductionOn with
-  | base b =>
+  | base b O h1 h2 =>
     intro Q hP_heap hQ_heap htree_eq
-    simp [OBdd.toTree_terminal] at htree_eq
+    rw [OBdd.toTree_terminal h2] at htree_eq
     cases hQ : Q.1.root with
     | terminal bq =>
-      rw [OBdd.toTree_terminal' hQ] at htree_eq
-      injection htree_eq with htree_eq
-      exact congrArg _ htree_eq
+      rw [OBdd.toTree_terminal hQ] at htree_eq
+      grind only
     | node jq =>
       rw [OBdd.toTree_node hQ] at htree_eq
       exact absurd htree_eq (by simp)
-  | step jp hl_ord ih_lo hh_ord ih_hi hj_ord =>
+  | step P' jp h1 hP' ih_low ih_high =>
     intro Q hP_heap hQ_heap htree_eq
     cases hQ : Q.1.root with
     | terminal bq =>
-      rw [OBdd.toTree_node (O := ⟨_, hj_ord⟩) rfl, OBdd.toTree_terminal' hQ] at htree_eq
-      exact absurd htree_eq (by simp)
+      rw [← OBdd.toTree_eq_leaf_iff_terminal] at hQ
+      grind only [OBdd.toTree_node hP']
     | node jq =>
       have hQ_ord : Bdd.Ordered ⟨Q.1.heap, Pointer.node jq⟩ := by
         rcases Q with ⟨⟨qheap, qroot⟩, qord⟩; simp only at hQ; subst hQ; exact qord
-      rw [OBdd.toTree_node (O := ⟨_, hj_ord⟩) rfl,
-          OBdd.toTree_node (O := Q) hQ] at htree_eq
+      rw [OBdd.toTree_node hP', OBdd.toTree_node hQ] at htree_eq
       injection htree_eq with hvar hlo_tree hhi_tree
-      have hlo_eq_root := ih_lo
-        ⟨⟨Q.1.heap, Q.1.heap[jq].low⟩, OBdd.ordered_of_low_edge hQ_ord⟩
-        hP_heap hQ_heap hlo_tree
-      have hhi_eq_root := ih_hi
-        ⟨⟨Q.1.heap, Q.1.heap[jq].high⟩, OBdd.ordered_of_high_edge hQ_ord⟩
-        hP_heap hQ_heap hhi_tree
-      have hlo_eq : M[jp].low = M[jq].low := by
-        have h1 : P.1.heap[jp].low = Q.1.heap[jq].low := hlo_eq_root
-        rw [hP_heap] at h1; rw [hQ_heap] at h1; exact h1
-      have hhi_eq : M[jp].high = M[jq].high := by
-        have h1 : P.1.heap[jp].high = Q.1.heap[jq].high := hhi_eq_root
-        rw [hP_heap] at h1; rw [hQ_heap] at h1; exact h1
-      have hvar_eq : M[jp].var = M[jq].var := by
-        have h1 : P.1.heap[jp].var = Q.1.heap[jq].var :=
-          Fin.ext (congrArg Fin.val hvar)
-        rw [hP_heap] at h1; rw [hQ_heap] at h1; exact h1
-      exact congrArg _ (node_inj jp jq hvar_eq hlo_eq hhi_eq)
+      specialize ih_low (Q.low hQ) (by simp [hP_heap]) (by simp [hQ_heap]) hlo_tree
+      specialize ih_high (Q.high hQ) (by simp [hP_heap]) (by simp [hQ_heap]) hhi_tree
+      simp [OBdd.low_root_eq_low] at ih_low
+      simp [OBdd.high_root_eq_high] at ih_high
+      rw [hP_heap, hQ_heap] at ih_high ih_low hvar
+      specialize node_inj jp jq hvar ih_low ih_high
+      rw [hP', node_inj]
 
 /-- In a structurally canonical heap (no two positions have the same raw node),
     any ordered BDD is reduced. -/
@@ -250,6 +238,7 @@ public lemma structural_canonical_reduced {n s : Nat}
       Bdd.ordered_of_reachable (O := O) hp_reach
     have hoq : Bdd.Ordered ⟨M, q⟩ :=
       Bdd.ordered_of_reachable (O := O) hq_reach
+    rw [OBdd.similarRP_iff] at hsim
     exact key ⟨⟨M, p⟩, hop⟩ ⟨⟨M, q⟩, hoq⟩ rfl rfl hsim
 
 @[expose]

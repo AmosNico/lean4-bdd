@@ -40,7 +40,7 @@ lemma get_id_semantic {n m : Nat} {O : OBdd n m} {ps : ProvedState n m} {i : Nat
            OBdd.evaluate ⟨⟨O.1.heap, p⟩, hp⟩ I := by
   cases p with
   | terminal b =>
-    refine ⟨fun h => absurd h (by simp [get_id]), Bdd.Ordered_of_terminal,
+    refine ⟨fun h => absurd h (by simp [get_id]), Bdd.ordered_of_terminal rfl,
              Bdd.reduced_of_terminal, fun I => ?_⟩
     change OBdd.evaluate ⟨⟨cook_heap ps.state.heap ps.hh, .terminal b⟩, _⟩ I =
            OBdd.evaluate ⟨⟨O.1.heap, .terminal b⟩, hp⟩ I
@@ -101,15 +101,13 @@ public def populate_queue {n m : Nat} (O : OBdd n m)
       -- Proof: orderness gives var[j] < var[k]; completeness then gives isSome.
       have hchild : ∀ (p : Pointer m), Edge O.1.heap (.node j) p →
           ∀ k, p = .node k → (ps.state.ids[k]).isSome := by
-        intro p hedgep k hk; subst hk
-        have hreach_k : Reachable O.1.heap O.1.root (.node k) := .tail hreach_j hedgep
+        intro p hedgep k rfl
+        have hreach_k : Reachable O.1.heap O.1.root (.node k) := .snoc hreach_j hedgep
         apply inv.ids_isSome _ hreach_k
-        have hmay := O.2
-          (show O.1.RelevantEdge ⟨.node j, hreach_j⟩ ⟨.node k, hreach_k⟩ from hedgep)
-        -- Unfold the ordered-edge condition to get a Nat inequality.
-        simp only [RelevantMayPrecede, MayPrecede, Fin.lt_def, toVar_node_eq] at hmay
+        have hmay := Bdd.ordered_iff.1 O.2 (node j) (node k) hreach_j hedgep
+        rw [mayPrecede_node] at hmay
         -- hmay : var[j].1 < var[k].1;  hvar_j : var[j].1 = i.1
-        linarith [hvar_j]
+        lia
       let lid := get_id ps O.1.heap[j].low  (hchild _ Edge.low)
       let hid := get_id ps O.1.heap[j].high (hchild _ Edge.high)
       -- Helpers for reasoning about set_id without ps' aliasing issues.
@@ -135,9 +133,9 @@ public def populate_queue {n m : Nat} (O : OBdd n m)
               have hj : Bdd.Ordered ⟨O.1.heap, Pointer.node k⟩ :=
                 Bdd.ordered_of_reachable hreach_j
               have hlow_ord : Bdd.Ordered ⟨O.1.heap, O.1.heap[k].low⟩ :=
-                Bdd.ordered_of_reachable (Relation.ReflTransGen.tail hreach_j Edge.low)
+                Bdd.ordered_of_reachable (.snoc hreach_j Edge.low)
               have hhigh_ord : Bdd.Ordered ⟨O.1.heap, O.1.heap[k].high⟩ :=
-                Bdd.ordered_of_reachable (Relation.ReflTransGen.tail hreach_j Edge.high)
+                Bdd.ordered_of_reachable (.snoc hreach_j Edge.high)
               obtain ⟨hptr, ho, hred, heval_low⟩ :=
                 get_id_semantic inv _ hlow_ord (hchild _ Edge.low)
               obtain ⟨hptr_h, ho_h, _, heval_high⟩ :=
@@ -154,8 +152,7 @@ public def populate_queue {n m : Nat} (O : OBdd n m)
               have heval_hid_eq_lid :
                   OBdd.evaluate ⟨⟨cook_heap ps.state.heap ps.hh, hid.cook hptr_h⟩, ho_h⟩ I =
                   OBdd.evaluate ⟨⟨cook_heap ps.state.heap ps.hh, lid.cook hptr⟩, ho⟩ I :=
-                congrArg (OBdd.evaluate · I)
-                  (Subtype.ext (by simp [hcook_eq]))
+                congrArg (OBdd.evaluate · I) (by simp [hcook_eq])
               -- eval(high in old) = eval(low in old): both children reduce to lid = hid.
               have branches_eq :
                   OBdd.evaluate ⟨⟨O.1.heap, O.1.heap[k].high⟩, hhigh_ord⟩ I =
@@ -164,7 +161,7 @@ public def populate_queue {n m : Nat} (O : OBdd n m)
               -- Proof of ordered-proof-irrelevance for evaluate.
               have eval_pi : ∀ (B : Bdd n m) (h1 h2 : B.Ordered) (I : Vector Bool n),
                   OBdd.evaluate ⟨B, h1⟩ I = OBdd.evaluate ⟨B, h2⟩ I :=
-                fun B h1 h2 I => congrArg (OBdd.evaluate · I) (Subtype.ext rfl)
+                fun B h1 h2 I => congrArg (OBdd.evaluate · I) rfl
               calc OBdd.evaluate ⟨⟨cook_heap ps.state.heap ps.hh, lid.cook hptr⟩, ho⟩ I
                   = OBdd.evaluate ⟨⟨O.1.heap, O.1.heap[k].low⟩, hlow_ord⟩ I :=
                     heval_low I
@@ -173,7 +170,8 @@ public def populate_queue {n m : Nat} (O : OBdd n m)
                       else OBdd.evaluate ⟨⟨O.1.heap, O.1.heap[k].low⟩, hlow_ord⟩ I := by
                     rw [branches_eq]; simp
                 _ = OBdd.evaluate ⟨⟨O.1.heap, Pointer.node k⟩, hj⟩ I := by
-                    symm; rw [OBdd.evaluate_node]
+                    symm; rw [OBdd.evaluate_node rfl]
+                    simp only [OBdd.high_eq, OBdd.low_eq, Bdd.high_eq, Bdd.low_eq]
             · rw [ids_set_ne k hkj] at hkptr
               exact inv.2 k ptr hkptr
         -- EntryCorrect is preserved through set_id ps j lid for acc entries.
@@ -183,23 +181,17 @@ public def populate_queue {n m : Nat} (O : OBdd n m)
           refine ⟨hr, hv, fun l hl => ?_, fun l hl => ?_, hlo_t, hhi_t⟩
           · -- l is a child of entry.2, so var[l] > i = var[j], hence l ≠ j
             have hord_j' : Bdd.Ordered ⟨O.1.heap, .node entry.2⟩ := Bdd.ordered_of_reachable hr
-            have hreach_l : Reachable O.1.heap O.1.root (.node l) :=
-              .tail hr (hl ▸ Edge.low)
-            have hrel : O.1.RelevantEdge ⟨.node entry.2, hr⟩ ⟨.node l, hreach_l⟩ := by
-              convert Edge.low
-              rw [hl]
-            have hmay := O.2 hrel
-            simp only [RelevantMayPrecede, MayPrecede, Fin.lt_def, toVar_node_eq] at hmay
-            have hlj : l ≠ j := fun h => by subst h; linarith [hv]
+            have hedge : Edge O.1.heap (node entry.2) (node l) := by
+              convert Edge.low; rw [hl]
+            have hmay := Bdd.ordered_iff.1 O.2 (node entry.2) (node l) hr hedge
+            rw [mayPrecede_node] at hmay
+            have hlj : l ≠ j := fun h => by lia
             rw [ids_set_ne l hlj]; exact hlo l hl
-          · have hreach_l : Reachable O.1.heap O.1.root (.node l) :=
-              .tail hr (hl ▸ Edge.high)
-            have hrel : O.1.RelevantEdge ⟨.node entry.2, hr⟩ ⟨.node l, hreach_l⟩ := by
-              convert Edge.high
-              rw [hl]
-            have hmay := O.2 hrel
-            simp only [RelevantMayPrecede, MayPrecede, Fin.lt_def, toVar_node_eq] at hmay
-            have hlj : l ≠ j := fun h => by subst h; linarith [hv]
+          · have hedge : Edge O.1.heap (node entry.2) (node l) := by
+              convert Edge.high; rw [hl]
+            have hmay := Bdd.ordered_iff.1 O.2 (node entry.2) (node l) hr hedge
+            rw [mayPrecede_node] at hmay
+            have hlj : l ≠ j := fun h => by lia
             rw [ids_set_ne l hlj]; exact hhi l hl
         -- VarInvariant is preserved through set_id ps j lid.
         have hvarinv' : VarInvariant O (set_id ps j lid) := by
@@ -230,11 +222,8 @@ public def populate_queue {n m : Nat} (O : OBdd n m)
                 rw [hlid_eq] at hids₀
                 exact (Option.some_get _).symm.trans (congrArg some hids₀)
             have hvi := hvarinv l k₀ hids_l
-            have hrel : O.1.RelevantEdge ⟨.node j, hreach_j⟩ ⟨.node l, .tail hreach_j (hlow ▸ Edge.low)⟩ := by
-              convert Edge.low
-              exact hlow.symm
-            have hmay := O.2 hrel
-            simp only [RelevantMayPrecede, MayPrecede, Fin.lt_def, toVar_node_eq] at hmay
+            have hmay := Bdd.ordered_iff.1 O.2 (node j) (node l) hreach_j (hlow ▸ Edge.low)
+            rw [mayPrecede_node] at hmay
             exact Nat.le_trans (Nat.le_of_lt hmay) hvi
           · rw [ids_set_ne j₀ hjj₀] at hids₀
             exact hvarinv j₀ k₀ hids₀
@@ -355,7 +344,7 @@ public lemma push_back_lt {n s : Nat} {v : Vector (RawNode n) s} {N : RawNode n}
     have hcook : p.cook hp = .node ⟨j.1, hj_lt⟩ := by
       subst hp_eq; simp [RawPointer.cook]
     exact ⟨hj_lt, hcook ▸ .refl⟩
-  | tail hprev edge ih =>
+  | snoc hprev edge ih =>
     intro j hj; subst hj
     rw [edge_iff] at edge
     rcases edge with ⟨k, rfl, h⟩
@@ -373,6 +362,6 @@ public lemma push_back_lt {n s : Nat} {v : Vector (RawNode n) s} {N : RawNode n}
         Vector.getElem_ofFn, exists_eq_left']
       simp_rw [Vector.getElem_push_lt hk_lt] at h
       grind only [cook_aux]
-    exact ⟨hj_lt, .tail hk_reach edge⟩
+    exact ⟨hj_lt, .snoc hk_reach edge⟩
 
 end Reduce

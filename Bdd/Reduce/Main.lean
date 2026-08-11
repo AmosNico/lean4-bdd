@@ -167,9 +167,7 @@ def loop_helper {n m : Nat} (O : OBdd n m) (r : Fin m)
     ⟨ps₁, hrisSome, fun ptr hkptr =>
       let ⟨hj, hptr, ho, hred, heval⟩ := inv₁.2 r ptr hkptr
       ⟨hptr, ho, hred, fun I => (heval I).trans
-        (congrArg (OBdd.evaluate · I)
-          (Subtype.ext
-            (congrArg (fun root => ({ heap := O.1.heap, root } : Bdd n m)) hr.symm)))⟩⟩
+        (congrArg (OBdd.evaluate · I) (by congr; exact hr.symm))⟩⟩
   | Nat.succ j =>
     have hlt    : j + O.1.heap[r].var.1 < n := by
       have := i.isLt; simp only [Nat.succ_eq_add_one] at h; omega
@@ -208,16 +206,16 @@ public def oreduce (O : OBdd n m) :
   | .zero =>
     match hroot : O.1.root with
     | .terminal b =>
-      ⟨⟨0, ⟨⟨Vector.emptyWithCapacity 0, .terminal b⟩, Bdd.Ordered_of_terminal⟩⟩,
+      ⟨⟨0, ⟨⟨Vector.emptyWithCapacity 0, .terminal b⟩, Bdd.ordered_of_terminal rfl⟩⟩,
        Bdd.reduced_of_terminal,
-       by simp [OBdd.evaluate_terminal, OBdd.evaluate_terminal' hroot]⟩
+       by simp [OBdd.evaluate_terminal, OBdd.evaluate_terminal hroot]⟩
     | .node j => absurd O.1.heap[j].var.isLt (Nat.not_lt_zero _)
   | .succ nn =>
     match hroot : O.1.root with
     | .terminal b =>
-      ⟨⟨0, ⟨⟨Vector.emptyWithCapacity 0, .terminal b⟩, Bdd.Ordered_of_terminal⟩⟩,
+      ⟨⟨0, ⟨⟨Vector.emptyWithCapacity 0, .terminal b⟩, Bdd.ordered_of_terminal rfl⟩⟩,
        Bdd.reduced_of_terminal,
-       by simp [OBdd.evaluate_terminal, OBdd.evaluate_terminal' hroot]⟩
+       by simp [OBdd.evaluate_terminal, OBdd.evaluate_terminal hroot]⟩
     | .node r =>
       let ⟨ps, hrisSome, hcorr⟩ :=
         loop_helper O r hroot (OBdd.discover O)

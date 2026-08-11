@@ -1,6 +1,8 @@
 module
 
 public import Bdd.Basic
+-- TODO : remove
+import all Bdd.Basic
 import Std.Data.HashMap.Lemmas
 
 namespace Sim
@@ -37,12 +39,12 @@ def sim_helper
     match hq : q with
     | .terminal b' =>
       if hb : b = b'
-      then return isTrue (by simpa [OBdd.HSimilar, OBdd.toTree_terminal, OBdd.toTree_terminal'])
-      else return isFalse (by simpa [OBdd.HSimilar, OBdd.toTree_terminal', OBdd.toTree_terminal'])
-    | .node j' => return isFalse (by simp [OBdd.HSimilar, OBdd.toTree_terminal', OBdd.toTree_node])
+      then return isTrue (by simpa [OBdd.HSimilar, OBdd.toTree_terminal])
+      else return isFalse (by simpa [OBdd.HSimilar, OBdd.toTree_terminal])
+    | .node j' => return isFalse (by simp [OBdd.HSimilar, OBdd.toTree_terminal, OBdd.toTree_node])
   | .node j =>
     match hq : q with
-    | .terminal b' => return isFalse (by simp [OBdd.HSimilar, OBdd.toTree_terminal', OBdd.toTree_node])
+    | .terminal b' => return isFalse (by simp [OBdd.HSimilar, OBdd.toTree_terminal, OBdd.toTree_node])
     | .node j' =>
       if hv : O.1.heap[j].var = U.1.heap[j'].var
       then do
@@ -52,15 +54,15 @@ def sim_helper
           match hr : s.rl[j']? with
           | none =>
             let hll ← sim_helper O hO U hU
-              O.1.heap[j].low (.tail hpr .low)
-              U.1.heap[j'].low (.tail hqr .low)
+              O.1.heap[j].low (Pointer.Reachable.snoc hpr .low)
+              U.1.heap[j'].low (Pointer.Reachable.snoc hqr .low)
             match hll with
             | isTrue ht =>
               -- TODO : why is type declaration needed? Note that only `←` does not work, for some reason `:= ←` is needed
-              let hhh : Decidable (OBdd.HSimilar ⟨Bdd.mk O.val.heap O.val.heap[j].high, _⟩ ⟨Bdd.mk U.val.heap U.val.heap[j'].high, _⟩) :=
+              let hhh : Decidable (OBdd.HSimilar ⟨Bdd.mk O.bdd.heap O.bdd.heap[j].high, _⟩ ⟨Bdd.mk U.bdd.heap U.bdd.heap[j'].high, _⟩) :=
                 ← sim_helper O hO U hU
-                O.1.heap[j].high (.tail hpr .high)
-                U.1.heap[j'].high (.tail hqr .high)
+                O.1.heap[j].high (Pointer.Reachable.snoc hpr .high)
+                U.1.heap[j'].high (Pointer.Reachable.snoc hqr .high)
               match hhh with
               | isTrue ht' =>
                 set
@@ -149,9 +151,9 @@ def sim_helper
               simp only [OBdd.HSimilar] at contra h5
               rw [← contra] at h5
               rcases s.hl i j' h1 with ⟨h1', h2', h3', h4', h5'⟩
-              have := @hO.2 ⟨(Pointer.node i), h2'⟩ ⟨(Pointer.node j), hpr⟩ h5
-              simp [InvImage] at this
-              subst this
+              have h := @hO.2 ⟨(Pointer.node i), h2'⟩ ⟨(Pointer.node j), hpr⟩ h5
+              simp [InvImage] at h
+              subst h
               rw [h1] at hl
               contradiction
             )
@@ -173,7 +175,7 @@ def sim_helper
 termination_by OBdd.size' (⟨⟨O.1.heap, p⟩, Bdd.ordered_of_reachable hpr⟩ : OBdd n m)
 decreasing_by
   · simp [OBdd.size_node, OBdd.low, Bdd.low]; omega
-  · simp [OBdd.size_node, OBdd.high, Bdd.high]; omega
+  · simp [OBdd.size_node, OBdd.high, Bdd.high]
 
 public def decidableRobddHSimilar
     (O : OBdd n m) (hO : O.Reduced)

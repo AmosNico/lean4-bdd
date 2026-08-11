@@ -279,7 +279,7 @@ lemma zero_vars_to_bool_spec {B : BDD} (h : B.nvars = 0) :
 public def const (b : Bool) : BDD :=
   { nvars := 0,
     nheap := 0,
-    obdd  := ⟨⟨Vector.emptyWithCapacity 0, .terminal b⟩, Bdd.Ordered_of_terminal⟩,
+    obdd  := ⟨⟨Vector.emptyWithCapacity 0, .terminal b⟩, Bdd.ordered_of_terminal rfl⟩,
     hred  := Bdd.reduced_of_terminal
   }
 
@@ -300,25 +300,25 @@ abbrev var_raw (n : Nat) : Bdd (n+1) 1 :=
 
 lemma var_ordered : Bdd.Ordered (var_raw n) := by
   apply Bdd.ordered_of_low_high_ordered rfl
-  · simp only [Bdd.low]
+  · simp only [Bdd.low_eq]
     conv =>
       congr
       right
       rw [Vector.singleton_def]
       simp [Vector.getElem_singleton (show 0 < 1 by omega)]
-    apply Bdd.Ordered_of_terminal
-  · simp [Bdd.low]
+    exact Bdd.ordered_of_terminal rfl
+  · simp [Bdd.low_eq, Bdd.var_eq]
     apply Fin.lt_def.mpr
     refine Nat.lt_succ_of_le ?_
     simp
-  · simp only [Bdd.high]
+  · simp only [Bdd.high_eq]
     conv =>
       congr
       right
       rw [Vector.singleton_def]
       simp [Vector.getElem_singleton (show 0 < 1 by omega)]
-    apply Bdd.Ordered_of_terminal
-  · simp [Bdd.high]
+    exact Bdd.ordered_of_terminal rfl
+  · simp [Bdd.high_eq, Bdd.var_eq]
     apply Fin.lt_def.mpr
     refine Nat.lt_succ_of_le ?_
     simp
@@ -331,7 +331,7 @@ lemma var_reduced : OBdd.Reduced ⟨(var_raw n), var_ordered⟩ := by
     simp_all
   · rintro ⟨x, hx⟩ ⟨y, hy⟩ hxy
     simp only [InvImage]
-    simp only [OBdd.SimilarRP] at hxy
+    simp only [OBdd.similarRP_iff] at hxy
     cases Pointer.Reachable_iff.mp hx with
     | inl hh =>
       simp at hh
@@ -346,12 +346,10 @@ lemma var_reduced : OBdd.Reduced ⟨(var_raw n), var_ordered⟩ := by
         simp only at hhh
         rw [← hj] at hhh
         simp at hhh
-        rcases hhh with hhh | hhh <;>
-        apply Pointer.eq_terminal_of_reachable at hhh <;>
-        simp_rw [← hh, hhh] at hxy <;>
-        simp only [OBdd.Similar, OBdd.HSimilar] at hxy <;>
-        unfold OBdd.toTree at hxy <;>
-        simp at hxy
+        rcases hhh with rfl | rfl <;>
+        simp only [Vector.singleton_def, Pointer.terminal.injEq, Bool.true_eq, OBdd.toTree_terminal,
+          OBdd.toTree_eq_leaf_iff_terminal] at hxy <;>
+        exact hxy
     | inr hh =>
       simp only at hh
       rcases hh with ⟨j, hj, hh⟩
@@ -361,42 +359,22 @@ lemma var_reduced : OBdd.Reduced ⟨(var_raw n), var_ordered⟩ := by
       cases Pointer.Reachable_iff.mp hy with
       | inl hhh =>
         simp only at hhh
-        rcases hh with hh | hh <;>
-        apply Pointer.eq_terminal_of_reachable at hh <;>
-        simp_rw [hh, ← hhh] at hxy <;>
-        simp only [OBdd.Similar, OBdd.HSimilar] at hxy <;>
-        unfold OBdd.toTree at hxy <;>
-        simp at hxy
+        symm at hxy
+        rcases hh with rfl | rfl <;>
+        simp [Vector.singleton_def, Pointer.terminal.injEq, Bool.true_eq, OBdd.toTree_terminal,
+          OBdd.toTree_eq_leaf_iff_terminal] at hxy <;>
+        exact hxy.symm
       | inr hhh =>
         simp only at hhh
         rcases hhh with ⟨i, hi, hhh⟩
         injection hi with hi
         rw [← hi] at hhh
         simp at hhh
-        cases hh with
-        | inl hh =>
-          apply Pointer.eq_terminal_of_reachable at hh
-          cases hhh with
-          | inl hhh =>
-            apply Pointer.eq_terminal_of_reachable at hhh
-            simp_all
-          | inr hhh =>
-            apply Pointer.eq_terminal_of_reachable at hhh
-            simp_rw [hh, hhh] at hxy
-            simp [OBdd.Similar, OBdd.HSimilar] at hxy
-        | inr hh =>
-          cases hhh with
-          | inl hhh =>
-            apply Pointer.eq_terminal_of_reachable at hh
-            apply Pointer.eq_terminal_of_reachable at hhh
-            simp_rw [hh, hhh] at hxy
-            simp only [OBdd.Similar, OBdd.HSimilar] at hxy
-            unfold OBdd.toTree at hxy
-            simp at hxy
-          | inr hhh =>
-            apply Pointer.eq_terminal_of_reachable at hh
-            apply Pointer.eq_terminal_of_reachable at hhh
-            rw [hh, hhh]
+        rcases hh with (rfl | rfl) <;>
+        · symm at hxy
+          simp only [Vector.singleton_def, Pointer.terminal.injEq, Bool.false_eq,
+            OBdd.toTree_terminal, OBdd.toTree_eq_leaf_iff_terminal] at hxy
+          exact hxy.symm
 
 /-- Return the `BDD` representing the `n`th projection function. -/
 public def var (n : Nat) : BDD :=
@@ -412,7 +390,13 @@ public lemma var_nvars {i} : (var i).nvars = i + 1 := (rfl)
 @[simp]
 public lemma getElem_var {i n} {h : i < n} :
     ∀ I : Vector Bool n, (var i)[I]'(by rw [var_nvars]; omega) = I[i] := by
-  simp [var, getElem_eq_evaluate, lift, Evaluate.evaluate_evaluate, -Vector.take_eq_extract]
+  intro I
+  simp only [var, Vector.singleton_def, getElem_eq_evaluate, lift,
+    Evaluate.evaluate_evaluate, Lift.olift_evaluate, Pointer.node.injEq,
+    OBdd.evaluate_node, Fin.getElem_fin, Fin.val_eq_zero, Vector.getElem_mk, List.getElem_toArray,
+    List.getElem_cons_zero, Vector.getElem_cast, OBdd.high_root_eq_high, Pointer.terminal.injEq,
+    Bool.true_eq, OBdd.evaluate_terminal, OBdd.low_root_eq_low, Bool.false_eq, Bool.if_false_right,
+    Bool.decide_eq_true, Bool.and_true, Vector.getElem_take]
 
 @[simp]
 public lemma var_dependsOn {n i} :
@@ -736,7 +720,7 @@ public lemma restrict_dependsOn {B : BDD} {b i j} {hi : i < B.nvars} :
 public instance instDecidableDependsOn (B : BDD) : DecidablePred B.DependsOn :=
   fun i ↦
     if hi : i < B.nvars then
-      decidable_of_iff (B.obdd.val.usesVar ⟨i, hi⟩) (by
+      decidable_of_iff (B.obdd.bdd.usesVar ⟨i, hi⟩) (by
         rw [dependsOn_iff_evaluate, Evaluate.evaluate_evaluate]
         exact OBdd.usesVar_iff_dependsOn_of_reduced B.hred)
     else
