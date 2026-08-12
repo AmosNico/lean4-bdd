@@ -230,7 +230,7 @@ def heap_push (N : RawNode n) (s : (State n m)) (inv : Invariant b i O s)
             · rintro hk ⟨q, hq⟩
               simp only [Std.HashMap.getElem?_insert, beq_iff_eq] at hq
               split at hq
-              next heqq => subst heqq; constructor
+              next heqq => subst heqq; exact Pointer.Reachable.refl
               next heqq => rw [hk] at hq; contradiction
   ⟩
 
@@ -254,7 +254,7 @@ lemma insert_terminal_invariant (s0 : State n m) (inv : Invariant b i O s0) (ho 
     injection hp with hpe
     subst hpe
     use (fun contra ↦ by contradiction)
-    simp [RawPointer.cook, ho, Bdd.Ordered_of_terminal]
+    simp [RawPointer.cook, ho, Bdd.Ordered_of_terminal, OBdd.evaluate_terminal]
   next =>
     constructor
     · exact (inv.2 _ _ hp).1
@@ -316,7 +316,7 @@ def restrict_helper (O : OBdd n m) (b : Bool) (i : Fin n) (s0 : State n m) (inv 
                     next heq =>
                       subst heq
                       simp only [O_root_def]
-                      constructor
+                      exact Pointer.Reachable.refl
                     next heq => rw [h1] at hp; contradiction
         ⟩
     | .node j =>
@@ -405,12 +405,12 @@ def restrict_helper (O : OBdd n m) (b : Bool) (i : Fin n) (s0 : State n m) (inv 
                       subst heq
                       rw [hc]
                       simp only [Option.some.injEq, exists_eq', forall_const, O_root_def]
-                      left
+                      exact Pointer.Reachable.refl
                     next =>
                       intro hkn hhh
                       rw [← O_root_def]
                       trans (O.high O_root_def).1.root
-                      · exact OBdd.reachable_of_edge (Bdd.edge_of_high O.1 (h := O_root_def))
+                      · exact Pointer.Reachable.ofEdge (Bdd.edge_of_high O.1 (h := O_root_def))
                       · exact (hlp k).2.2 hkn hhh
             ⟩
           else
@@ -493,12 +493,12 @@ def restrict_helper (O : OBdd n m) (b : Bool) (i : Fin n) (s0 : State n m) (inv 
                       subst heq
                       rw [hc]
                       simp only [Option.some.injEq, exists_eq', forall_const, O_root_def]
-                      left
+                      exact Pointer.Reachable.refl
                     next =>
                       intro hkn hhh
                       rw [← O_root_def]
                       trans (O.low O_root_def).1.root
-                      · exact OBdd.reachable_of_edge (Bdd.edge_of_low O.1 (h := O_root_def))
+                      · exact Pointer.Reachable.ofEdge (Bdd.edge_of_low O.1 (h := O_root_def))
                       · exact (hlp k).2.2 hkn hhh
           ⟩
         else
@@ -659,14 +659,12 @@ def restrict_helper (O : OBdd n m) (b : Bool) (i : Fin n) (s0 : State n m) (inv 
                     | none =>
                       have := (hhp _).2.2 heqq ⟨_, heq⟩
                       · trans (O.high O_root_def).1.root
-                        · apply OBdd.reachable_of_edge
-                          exact oedge_of_high.2
+                        · exact .ofEdge oedge_of_high.2
                         · exact this
                     | some ww =>
                       have := (hlp _).2.2 hk ⟨_, heqq⟩
                       · trans (O.low O_root_def).1.root
-                        · apply OBdd.reachable_of_edge
-                          exact oedge_of_low.2
+                        · exact .ofEdge oedge_of_low.2
                         · exact this
           ⟩
 termination_by O

@@ -165,7 +165,7 @@ lemma postCond_terminal (hr : s[O.1.root]? = none) (h : O.1.root = Pointer.termi
         subst hpi
         subst heq
         rw [h]
-        left
+        exact Pointer.Reachable.refl
       next => simp_all
 
 lemma invariant_false (O : OBdd n m) (s : Std.HashMap (Pointer m) Nat ) (inv : Invariant O s) :
@@ -280,20 +280,18 @@ def count_helper (O : OBdd n m) (s : Std.HashMap (Pointer m) Nat ) (inv : Invari
                 subst hpi
                 subst heq
                 rw [h]
-                left
+                exact Pointer.Reachable.refl
               next i _ =>
                 cases hm : sl[p]? with
                 | none =>
                   trans (O.high h).1.root
-                  · right
-                    rfl
+                  · apply Pointer.Reachable.ofEdge
                     simp only [h, OBdd.high, Bdd.high, Fin.getElem_fin]
                     right
                   · exact (hh2 _).2.2 hm ⟨_, hp2⟩
                 | some val =>
                   trans (O.low h).1.root
-                  · right
-                    rfl
+                  · apply Pointer.Reachable.ofEdge
                     simp only [h, OBdd.low, Bdd.low, Fin.getElem_fin]
                     left
                   · exact (hl2 _).2.2 hp1 ⟨_, hm⟩

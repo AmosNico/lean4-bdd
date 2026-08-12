@@ -22,8 +22,8 @@ public def choice (O : OBdd n m) : (∃ I, O.evaluate I) → Vector Bool n := fu
   | .terminal true => Vector.replicate n false
   | .terminal false => by
     absurd ht
-    rw [OBdd.evaluate_terminal' O_root_def]
-    simp only [Function.const_apply, Bool.false_eq_true, exists_const, not_false_eq_true]
+    rw [OBdd.evaluate_terminal O_root_def]
+    simp only [Bool.false_eq_true, exists_const, not_false_eq_true]
   | .node j => choice_helper O O_root_def (Vector.replicate n false)
 
 lemma Vector.get_set_ne {xs : Vector α n} {x : α} (hi : i < n) {j : Fin n} (h : i ≠ j) :
@@ -85,7 +85,7 @@ lemma choice_helper_spec {O : OBdd n m} (hr : O.Reduced) (hj : O.1.root = node j
   next hl =>
     rw [evaluate_node'' hj]
     have : (O.low hj).1.root = terminal true := by simp only [low, Bdd.low, hl]
-    simp [evaluate_terminal' this]
+    simp [evaluate_terminal this]
   next hl =>
     split
     next bh hh =>
@@ -95,9 +95,9 @@ lemma choice_helper_spec {O : OBdd n m} (hr : O.Reduced) (hj : O.1.root = node j
         rw [hh]
         congr
         cases bh with
-        | false => exact False.elim (hr.1 ⟨node j, by simp_all; left⟩ ⟨by simp_all⟩)
+        | false => exact False.elim (hr.1 ⟨node j, by simp_all; exact Pointer.Reachable.refl⟩ ⟨by simp_all⟩)
         | true => rfl
-      simp [evaluate_terminal' this]
+      simp [evaluate_terminal this]
     next jh hh =>
       rw [evaluate_node'' hj]
       simp only [Fin.getElem_fin, Vector.getElem_set_self, ↓reduceIte]
@@ -114,11 +114,11 @@ termination_by O
 public lemma choice_evaluate {O : OBdd n m} (hr : O.Reduced) (ht : ∃ I, O.evaluate I) : O.evaluate (choice O ht) = true := by
   simp only [choice]
   split
-  next O_root_def => rw [evaluate_terminal' O_root_def]; simp
+  next O_root_def => rw [evaluate_terminal O_root_def]
   next O_root_def =>
     absurd ht
-    rw [evaluate_terminal' O_root_def]
-    simp only [Function.const_apply, Bool.false_eq_true, exists_const, not_false_eq_true]
+    rw [evaluate_terminal O_root_def]
+    simp only [Bool.false_eq_true, exists_const, not_false_eq_true]
   next j O_root_def => exact choice_helper_spec hr O_root_def
 
 end Choice

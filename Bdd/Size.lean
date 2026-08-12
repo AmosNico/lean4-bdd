@@ -14,7 +14,7 @@ public lemma isTerminal_iff_size_eq_zero {n m} {O : OBdd n m} : size O = 0 ↔ O
     cases O_root_def : O.1.root with
     | terminal b => use b
     | node j =>
-      have := Collect.collect_spec (j := j) (by rw [O_root_def]; exact Relation.ReflTransGen.refl)
+      have := Collect.collect_spec (j := j) (by rw [O_root_def]; exact Pointer.Reachable.refl)
       rw [h] at this
       contradiction
   · rintro ⟨b, hb⟩

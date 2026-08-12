@@ -237,7 +237,7 @@ def heap_push (N : RawNode (n ⊔ n')) (s : (State n n' m m')) (inv : Invariant 
             · rintro hk ⟨q, hq⟩
               simp only [Std.HashMap.getElem?_insert, beq_iff_eq] at hq
               split at hq
-              next heqq => subst heqq; constructor <;> left
+              next heqq => subst heqq; constructor <;> exact .refl
               next heqq => rw [hk] at hq; contradiction
   ⟩
 
@@ -460,10 +460,7 @@ def apply_helper (op : (Bool → Bool → Bool)) (O : OBdd n m) (U : OBdd n' m')
                     split at hp
                     next heq =>
                       subst heq
-                      simp only [O_root_def, U_root_def]
-                      constructor
-                      · left
-                      · left
+                      simp only [O_root_def, Pointer.Reachable.refl, U_root_def, and_self]
                     next heq => rw [h1] at hp; contradiction
         ⟩
       | .node j' =>
@@ -599,16 +596,14 @@ def apply_helper (op : (Bool → Bool → Bool)) (O : OBdd n m) (U : OBdd n' m')
                     constructor
                     · exact this.1
                     · trans (U.high U_root_def).1.root
-                      · apply OBdd.reachable_of_edge
-                        exact oedge_of_high.2
+                      · exact .ofEdge oedge_of_high.2
                       · exact this.2
                   | some ww =>
                     have := (hlp _).2.2 hk ⟨_, heqq⟩
                     constructor
                     · exact this.1
                     · trans (U.low U_root_def).1.root
-                      · apply OBdd.reachable_of_edge
-                        exact oedge_of_low.2
+                      · exact .ofEdge oedge_of_low.2
                       · exact this.2
         ⟩
     | .node j =>
@@ -740,16 +735,14 @@ def apply_helper (op : (Bool → Bool → Bool)) (O : OBdd n m) (U : OBdd n' m')
                     have := (hhp _).2.2 heqq ⟨_, heq⟩
                     constructor
                     · trans (O.high O_root_def).1.root
-                      · apply OBdd.reachable_of_edge
-                        exact oedge_of_high.2
+                      · exact .ofEdge oedge_of_high.2
                       · exact this.1
                     · exact this.2
                   | some ww =>
                     have := (hlp _).2.2 hk ⟨_, heqq⟩
                     constructor
                     · trans (O.low O_root_def).1.root
-                      · apply OBdd.reachable_of_edge
-                        exact oedge_of_low.2
+                      · exact .ofEdge oedge_of_low.2
                       · exact this.1
                     · exact this.2
         ⟩
@@ -883,16 +876,14 @@ def apply_helper (op : (Bool → Bool → Bool)) (O : OBdd n m) (U : OBdd n' m')
                       have := (hhp _).2.2 heqq ⟨_, heq⟩
                       constructor
                       · trans (O.high O_root_def).1.root
-                        · apply OBdd.reachable_of_edge
-                          exact oedge_of_high.2
+                        · exact .ofEdge oedge_of_high.2
                         · exact this.1
                       · exact this.2
                     | some ww =>
                       have := (hlp _).2.2 hk ⟨_, heqq⟩
                       constructor
                       · trans (O.low O_root_def).1.root
-                        · apply OBdd.reachable_of_edge
-                          exact oedge_of_low.2
+                        · exact .ofEdge oedge_of_low.2
                         · exact this.1
                       · exact this.2
           ⟩
@@ -1027,16 +1018,14 @@ def apply_helper (op : (Bool → Bool → Bool)) (O : OBdd n m) (U : OBdd n' m')
                         constructor
                         · exact this.1
                         · trans (U.high U_root_def).1.root
-                          · apply OBdd.reachable_of_edge
-                            exact oedge_of_high.2
+                          · exact .ofEdge oedge_of_high.2
                           · exact this.2
                       | some ww =>
                         have := (hlp _).2.2 hk ⟨_, heqq⟩
                         constructor
                         · exact this.1
                         · trans (U.low U_root_def).1.root
-                          · apply OBdd.reachable_of_edge
-                            exact oedge_of_low.2
+                          · exact .ofEdge oedge_of_low.2
                           · exact this.2
             ⟩
           else
@@ -1189,23 +1178,19 @@ def apply_helper (op : (Bool → Bool → Bool)) (O : OBdd n m) (U : OBdd n' m')
                       have := (hhp _).2.2 heqq ⟨_, heq⟩
                       constructor
                       · trans (O.high O_root_def).1.root
-                        · apply OBdd.reachable_of_edge
-                          exact oedge_of_high.2
+                        · exact .ofEdge oedge_of_high.2
                         · exact this.1
                       · trans (U.high U_root_def).1.root
-                        · apply OBdd.reachable_of_edge
-                          exact oedge_of_high.2
+                        · exact .ofEdge oedge_of_high.2
                         · exact this.2
                     | some ww =>
                       have := (hlp _).2.2 hk ⟨_, heqq⟩
                       constructor
                       · trans (O.low O_root_def).1.root
-                        · apply OBdd.reachable_of_edge
-                          exact oedge_of_low.2
+                        · exact .ofEdge oedge_of_low.2
                         · exact this.1
                       · trans (U.low U_root_def).1.root
-                        · apply OBdd.reachable_of_edge
-                          exact oedge_of_low.2
+                        · exact .ofEdge oedge_of_low.2
                         · exact this.2
           ⟩
 termination_by (O, U)

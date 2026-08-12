@@ -52,15 +52,15 @@ def sim_helper
           match hr : s.rl[j']? with
           | none =>
             let hll ← sim_helper O hO U hU
-              O.1.heap[j].low (.tail hpr .low)
-              U.1.heap[j'].low (.tail hqr .low)
+              O.1.heap[j].low (Pointer.Reachable.tail hpr .low)
+              U.1.heap[j'].low (Pointer.Reachable.tail hqr .low)
             match hll with
             | isTrue ht =>
               -- TODO : why is type declaration needed? Note that only `←` does not work, for some reason `:= ←` is needed
-              let hhh : Decidable (OBdd.HSimilar ⟨Bdd.mk O.val.heap O.val.heap[j].high, _⟩ ⟨Bdd.mk U.val.heap U.val.heap[j'].high, _⟩) :=
+              let hhh : Decidable (OBdd.HSimilar ⟨Bdd.mk O.bdd.heap O.bdd.heap[j].high, _⟩ ⟨Bdd.mk U.bdd.heap U.bdd.heap[j'].high, _⟩) :=
                 ← sim_helper O hO U hU
-                O.1.heap[j].high (.tail hpr .high)
-                U.1.heap[j'].high (.tail hqr .high)
+                O.1.heap[j].high (Pointer.Reachable.tail hpr .high)
+                U.1.heap[j'].high (Pointer.Reachable.tail hqr .high)
               match hhh with
               | isTrue ht' =>
                 set
@@ -149,9 +149,9 @@ def sim_helper
               simp only [OBdd.HSimilar] at contra h5
               rw [← contra] at h5
               rcases s.hl i j' h1 with ⟨h1', h2', h3', h4', h5'⟩
-              have := @hO.2 ⟨(Pointer.node i), h2'⟩ ⟨(Pointer.node j), hpr⟩ h5
-              simp [InvImage] at this
-              subst this
+              have h := @hO.2 ⟨(Pointer.node i), h2'⟩ ⟨(Pointer.node j), hpr⟩ sorry -- h5
+              simp [InvImage] at h
+              subst h
               rw [h1] at hl
               contradiction
             )
@@ -165,7 +165,7 @@ def sim_helper
               simp only [OBdd.HSimilar] at c h5
               rw [c] at h5
               rcases s.hr j i' h1 with ⟨h1', h2', h3', h4', h5'⟩
-              have := @hU.2 ⟨.node j', hqr⟩ ⟨.node i', h2'⟩ h5
+              have := @hU.2 ⟨.node j', hqr⟩ ⟨.node i', h2'⟩ sorry -- h5
               simp [InvImage] at this
               exact this
             ))

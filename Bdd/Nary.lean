@@ -105,7 +105,7 @@ lemma ne_implies_dependency_getElem_ne {f : Func n α β} {I J : Vector α n} :
 def restrict (f : Func n α β) : α → Fin n → Func n α β := fun a i I ↦ f (I.set i a)
 
 @[simp]
-lemma restrict_const : restrict (Function.const _ b) c i = (Function.const _ b) := by ext; simp
+lemma restrict_const : restrict (fun _ ↦ b) c i = (fun _ ↦ b) := by ext; simp
 
 lemma restrict_independentOf : IndependentOf (restrict f c i) i := by simp
 
