@@ -11,10 +11,16 @@ deriving DecidableEq
 
 namespace DecisionTree
 
-@[expose]
 def evaluate : DecisionTree n → Vector Bool n → Bool
   | leaf b, _ => b
   | branch j l h, v => if v[j] then h.evaluate v else l.evaluate v
+
+@[simp]
+lemma evaluate_leaf {n : ℕ} {v : Vector Bool n} {b} : (leaf b).evaluate v = b := (rfl)
+
+@[simp]
+lemma evaluate_branch {n : ℕ} {v : Vector Bool n} {j l h} :
+    (branch j l h).evaluate v = if v[j] then h.evaluate v else l.evaluate v := (rfl)
 
 @[expose]
 def size {n} : DecisionTree n → Nat

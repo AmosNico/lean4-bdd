@@ -13,7 +13,7 @@ abbrev Func n α β := Vector α n → β
 def IndependentOf (f : Func n α β) (i : Fin n) := ∀ a v, f v = f (Vector.set v i a)
 
 /-- `DependsOn f i` if the output of `f` depends on the value of the `i`th input. -/
-@[simp, expose]
+@[expose]
 def DependsOn (f : Func n α β) (i : Fin n) := ¬ IndependentOf f i
 
 -- TODO : use this as the definition instead?

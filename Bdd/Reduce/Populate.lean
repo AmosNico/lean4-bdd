@@ -152,8 +152,7 @@ public def populate_queue {n m : Nat} (O : OBdd n m)
               have heval_hid_eq_lid :
                   OBdd.evaluate ⟨⟨cook_heap ps.state.heap ps.hh, hid.cook hptr_h⟩, ho_h⟩ I =
                   OBdd.evaluate ⟨⟨cook_heap ps.state.heap ps.hh, lid.cook hptr⟩, ho⟩ I :=
-                congrArg (OBdd.evaluate · I)
-                  (Subtype.ext (by simp [hcook_eq]))
+                congrArg (OBdd.evaluate · I) (by simp [hcook_eq])
               -- eval(high in old) = eval(low in old): both children reduce to lid = hid.
               have branches_eq :
                   OBdd.evaluate ⟨⟨O.1.heap, O.1.heap[k].high⟩, hhigh_ord⟩ I =
@@ -162,7 +161,7 @@ public def populate_queue {n m : Nat} (O : OBdd n m)
               -- Proof of ordered-proof-irrelevance for evaluate.
               have eval_pi : ∀ (B : Bdd n m) (h1 h2 : B.Ordered) (I : Vector Bool n),
                   OBdd.evaluate ⟨B, h1⟩ I = OBdd.evaluate ⟨B, h2⟩ I :=
-                fun B h1 h2 I => congrArg (OBdd.evaluate · I) (Subtype.ext rfl)
+                fun B h1 h2 I => congrArg (OBdd.evaluate · I) rfl
               calc OBdd.evaluate ⟨⟨cook_heap ps.state.heap ps.hh, lid.cook hptr⟩, ho⟩ I
                   = OBdd.evaluate ⟨⟨O.1.heap, O.1.heap[k].low⟩, hlow_ord⟩ I :=
                     heval_low I

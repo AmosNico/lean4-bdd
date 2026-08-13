@@ -68,7 +68,7 @@ lemma push_reduced {n s : Nat} {v : Vector (RawNode n) s} {N : RawNode n}
       ∃ hj : j.1 < s,
         Node.equiv (cook_heap v hh)[(⟨j.1, hj⟩ : Fin s)] (cook_heap (v.push N) hh')[j] := by
     intro q hq_root j hj_q
-    have hj_root := Relation.ReflTransGen.trans hq_root hj_q
+    have hj_root := Pointer.Reachable.trans hq_root hj_q
     obtain ⟨hj_lt, _⟩ := back j hj_root
     exact ⟨hj_lt, by
       simp only [cook_heap, Fin.getElem_fin, Vector.getElem_ofFn,
@@ -140,15 +140,15 @@ lemma push_reduced {n s : Nat} {v : Vector (RawNode n) s} {N : RawNode n}
       | terminal bq =>
         -- htree_sim was simplified by cases to: bp = bq (or leaf bp = leaf bq)
         -- Goal: ⟨terminal bp, _⟩ = ⟨terminal bq, _⟩
-        simp [OBdd.toTree_terminal'] at htree_sim
+        simp [OBdd.toTree_terminal.1] at htree_sim
         subst htree_sim
         rfl
       | node jq =>
-        exact absurd htree_sim (by simp [OBdd.toTree_terminal', OBdd.toTree_node])
+        exact absurd htree_sim (by simp [OBdd.toTree_terminal.1, OBdd.toTree_node])
     | node jp =>
       cases rq with
       | terminal bq =>
-        exact absurd htree_sim (by simp [OBdd.toTree_terminal', OBdd.toTree_node])
+        exact absurd htree_sim (by simp [OBdd.toTree_terminal.1, OBdd.toTree_node])
       | node jq =>
         -- Both nodes: use push_ordered_aux and toTree transfer
         obtain ⟨hjp_lt, hjp_reach_old⟩ := back jp hrp_reach
@@ -270,7 +270,7 @@ lemma push_node_correct' {n m : Nat} {i : Nat}
       intro hlo_ord
       obtain ⟨_, hptr_lo, ho_lo, hred_lo, heval_lo⟩ := inv.2 l entry.1.1 (hec.2.2.1 l hlow)
       exact ⟨hptr_lo, ho_lo, hred_lo, fun I => (heval_lo I).trans
-        (congrArg (OBdd.evaluate · I) (Subtype.ext (by simp)))⟩
+        (congrArg (OBdd.evaluate · I) (by simp))⟩
   -- Inline child semantics for high child
   obtain ⟨hptr_hi, ho_hi, hred_hi, heval_hi⟩ :
       ∃ (hptr_hi : entry.1.2.Bounded s),
@@ -290,7 +290,7 @@ lemma push_node_correct' {n m : Nat} {i : Nat}
       intro hhi_ord
       obtain ⟨_, hptr_hi, ho_hi, hred_hi, heval_hi⟩ := inv.2 l entry.1.2 (hec.2.2.2.1 l hhigh)
       exact ⟨hptr_hi, ho_hi, hred_hi, fun I => (heval_hi I).trans
-        (congrArg (OBdd.evaluate · I) (Subtype.ext (by simp)))⟩
+        (congrArg (OBdd.evaluate · I) (by simp))⟩
   -- Lift child ordered BDDs to the new heap
   have hb1 : entry.1.1.Bounded (s + 1) := RawPointer.bounded_of_le hptr_lo (Nat.le_succ s)
   have hb2 : entry.1.2.Bounded (s + 1) := RawPointer.bounded_of_le hptr_hi (Nat.le_succ s)
@@ -1019,7 +1019,7 @@ lemma process_record_curptr_sem {n m : Nat} {i : Nat} (O : OBdd n m)
       cases p1 with
       | terminal b1 =>
         have hlid1 : lid = .inl b1 := h1t b1 rfl
-        simp only [OBdd.evaluate_terminal]
+        simp only [OBdd.evaluate_terminal.1]
         cases p2 with
         | terminal b2 =>
           have hlid2 : lid = .inl b2 := h2t b2 rfl
@@ -1042,7 +1042,7 @@ lemma process_record_curptr_sem {n m : Nat} {i : Nat} (O : OBdd n m)
           have hlid2 : lid = .inl b2 := h2t b2 rfl
           subst hlid2
           have hb2 : OBdd.evaluate ⟨⟨cook_heap ps.state.heap ps.hh, RawPointer.cook (.inl b2) hbnd1⟩, ho1⟩ =
-                     Function.const _ b2 := OBdd.evaluate_terminal' rfl
+                     Function.const _ b2 := OBdd.evaluate_terminal rfl
           simp only [OBdd.evaluate_terminal, Function.const_apply]
           have h := heval1 I
           rw [hb2, Function.const_apply] at h
@@ -1052,8 +1052,7 @@ lemma process_record_curptr_sem {n m : Nat} {i : Nat} (O : OBdd n m)
           obtain ⟨_, hbnd2, ho2, _, heval2⟩ := inv.2 l2 lid hids2
           have hOBdd_eq : (⟨⟨cook_heap ps.state.heap ps.hh, lid.cook hbnd1⟩, ho1⟩ : OBdd n _) =
                            ⟨⟨cook_heap ps.state.heap ps.hh, lid.cook hbnd2⟩, ho2⟩ := by
-            apply Subtype.ext
-            simp only []
+            simp only
           rw [hOBdd_eq] at heval1
           exact (heval1 I).symm.trans (heval2 I)
     -- head.2 and entry.2 evaluate equally in O
@@ -1157,13 +1156,8 @@ public def process_queue {n m : Nat} {i : Nat} (O : OBdd n m)
         have child_ne : ∀ l : Fin m,
             (O.1.heap[e.2].low = .node l ∨ O.1.heap[e.2].high = .node l) → l ≠ head.2 := by
           intro l hedge h_eq
-          have hedge' : O.1.RelevantEdge ⟨.node e.2, hr⟩
-              ⟨.node l, .tail hr (hedge.elim (· ▸ Edge.low) (· ▸ Edge.high))⟩ := by
-            grind only [edge_iff]
-          have hmay : O.1.heap[e.2].var.1 < O.1.heap[l].var.1 := by
-            have h := O.2 hedge'
-            simp only [RelevantMayPrecede, MayPrecede, Fin.lt_def, toVar_node_eq] at h
-            exact h
+          have hmay := Bdd.ordered_iff.1 O.2 (node e.2) (node l) hr (by grind only [edge_iff])
+          rw [mayPrecede_node] at hmay
           have h_var_l : O.1.heap[l].var.1 = i := h_eq ▸ hec_hd.2.1
           omega
         exact ⟨hr, hv,
