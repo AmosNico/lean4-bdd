@@ -343,8 +343,8 @@ lemma push_node_correct' {n m : Nat} {i : Nat}
             fun p h hp => by subst hp; rfl
           exact key entry.1.1 hb1 h11
         simp only [Bdd.var, Bdd.low_root_eq_low, Bdd.low_heap_eq_heap]
-        rw [hMs_low, hcook, Pointer.toVar_terminal_eq]
-        simp only [Fin.lt_def, Pointer.toVar_node_eq]
+        rw [hMs_low, hcook, Pointer.toVar_terminal]
+        simp only [Fin.lt_def, Pointer.toVar_node]
         exact Fin.isLt _
       | inr j =>
         have hjlt0 : j < s₀ := hbound0.1 h11
@@ -355,7 +355,7 @@ lemma push_node_correct' {n m : Nat} {i : Nat}
           exact key entry.1.1 hb1 h11
         simp only [Bdd.var, Bdd.low_root_eq_low, Bdd.low_heap_eq_heap]
         rw [hMs_low, hcook]
-        simp only [Pointer.toVar_node_eq, Fin.lt_def]
+        simp only [Pointer.toVar_node, Fin.lt_def]
         rw [show (⟨j, hb1 h11⟩ : Fin (s + 1)) =
               ⟨j, Nat.lt_trans hjlt (Nat.lt_succ_self s)⟩ from Fin.ext rfl]
         rw [hMs_var, hMj_var ⟨j, hjlt⟩]
@@ -372,8 +372,8 @@ lemma push_node_correct' {n m : Nat} {i : Nat}
             fun p h hp => by subst hp; rfl
           exact key entry.1.2 hb2 h12
         simp only [Bdd.var, Bdd.high_root_eq_high, Bdd.high_heap_eq_heap]
-        rw [hMs_high, hcook, Pointer.toVar_terminal_eq]
-        simp only [Fin.lt_def, Pointer.toVar_node_eq]
+        rw [hMs_high, hcook, Pointer.toVar_terminal]
+        simp only [Fin.lt_def, Pointer.toVar_node]
         exact Fin.isLt _
       | inr j =>
         have hjlt0 : j < s₀ := hbound0.2 h12
@@ -384,7 +384,7 @@ lemma push_node_correct' {n m : Nat} {i : Nat}
           exact key entry.1.2 hb2 h12
         simp only [Bdd.var, Bdd.high_root_eq_high, Bdd.high_heap_eq_heap]
         rw [hMs_high, hcook]
-        simp only [Pointer.toVar_node_eq, Fin.lt_def]
+        simp only [Pointer.toVar_node, Fin.lt_def]
         rw [show (⟨j, hb2 h12⟩ : Fin (s + 1)) =
               ⟨j, Nat.lt_trans hjlt (Nat.lt_succ_self s)⟩ from Fin.ext rfl]
         rw [hMs_var, hMj_var ⟨j, hjlt⟩]

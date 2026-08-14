@@ -38,7 +38,7 @@ lemma choice_helper_spec' {O : OBdd n m} (hr : O.Reduced) (hj : O.1.root = .node
   split
   next jl hl =>
     have := var_lt_low_var (h := hj)
-    simp only [var, Nat.succ_eq_add_one, Bdd.var, hj, low, Bdd.low, hl, toVar_node_eq] at this
+    simp only [var, Nat.succ_eq_add_one, Bdd.var, hj, low, Bdd.low, hl, toVar_node] at this
     apply choice_helper_spec' (low_reduced hr)
     simp_all
     omega
@@ -54,7 +54,7 @@ lemma choice_helper_spec' {O : OBdd n m} (hr : O.Reduced) (hj : O.1.root = .node
         exact hi
     next jh hh =>
       have := var_lt_high_var (h := hj)
-      simp only [var, Nat.succ_eq_add_one, Bdd.var, hj, high, Bdd.high, hh, toVar_node_eq] at this
+      simp only [var, Nat.succ_eq_add_one, Bdd.var, hj, high, Bdd.high, hh, toVar_node] at this
       rw [Vector.get_set_ne]
       apply choice_helper_spec' (high_reduced hr)
       · simp_all
@@ -80,7 +80,7 @@ lemma choice_helper_spec {O : OBdd n m} (hr : O.Reduced) (hj : O.1.root = node j
       apply choice_helper_spec (low_reduced hr)
     rw [choice_helper_spec'' (low_reduced hr) hl]
     have := var_lt_low_var (h := hj)
-    simp only [var, Nat.succ_eq_add_one, Bdd.var, toVar_node_eq, hj, hl, low, Bdd.low] at this
+    simp only [var, Nat.succ_eq_add_one, Bdd.var, toVar_node, hj, hl, low, Bdd.low] at this
     simp_all
   next hl =>
     rw [evaluate_node'' hj]

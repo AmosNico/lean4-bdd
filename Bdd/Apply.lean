@@ -111,8 +111,8 @@ lemma heap_push_aux (s : (State n n' m m')) (inv : Invariant op O U s)
         | inl val =>
           rw [← cook_low]
           simp_rw [heq]
-          · simp only [RawNode.cook, RawPointer.cook, Pointer.toVar_terminal_eq,
-              Nat.succ_eq_add_one, Fin.lt_def, Pointer.toVar_node_eq, Fin.getElem_fin,
+          · simp only [RawNode.cook, RawPointer.cook, Pointer.toVar_terminal,
+              Nat.succ_eq_add_one, Fin.lt_def, Pointer.toVar_node, Fin.getElem_fin,
               Vector.getElem_ofFn, Vector.getElem_push_eq, lt_sup_iff]
             omega
           · apply RawPointer.bounded_of_le (inv.2 kl N.lo hkl).2.2.2.1
@@ -123,7 +123,7 @@ lemma heap_push_aux (s : (State n n' m m')) (inv : Invariant op O U s)
           rw [← cook_low]
           simp_rw [heq]
           · simp only [RawNode.cook, RawPointer.cook, Fin.lt_def, Nat.succ_eq_add_one,
-              Pointer.toVar_node_eq, Fin.getElem_fin, Vector.getElem_ofFn, Vector.getElem_push_eq]
+              Pointer.toVar_node, Fin.getElem_fin, Vector.getElem_ofFn, Vector.getElem_push_eq]
             rw [Vector.getElem_push_lt]
             · have hvs : val < s.size := by
                 apply RawPointer.bounded_of_le (inv.2 kl N.lo hkl).2.2.2.1 .refl heq
@@ -145,9 +145,9 @@ lemma heap_push_aux (s : (State n n' m m')) (inv : Invariant op O U s)
         | inl val =>
           rw [← cook_high]
           simp_rw [heq]
-          simp only [RawPointer.cook, Fin.lt_def, Nat.succ_eq_add_one, Pointer.toVar_node_eq]
+          simp only [RawPointer.cook, Fin.lt_def, Nat.succ_eq_add_one, Pointer.toVar_node]
           simp only [RawNode.cook, Fin.getElem_fin, Vector.getElem_ofFn, Vector.getElem_push_eq,
-            Pointer.toVar_terminal_eq, Nat.succ_eq_add_one, lt_sup_iff]
+            Pointer.toVar_terminal, Nat.succ_eq_add_one, lt_sup_iff]
           omega
           apply RawPointer.bounded_of_le (inv.2 kh N.hi hkh).2.2.2.1
           simp
@@ -157,7 +157,7 @@ lemma heap_push_aux (s : (State n n' m m')) (inv : Invariant op O U s)
           rw [← cook_high]
           simp_rw [heq]
           simp only [RawNode.cook, RawPointer.cook]
-          simp_rw [Fin.lt_def, Nat.succ_eq_add_one, Pointer.toVar_node_eq, Fin.getElem_fin,
+          simp_rw [Fin.lt_def, Nat.succ_eq_add_one, Pointer.toVar_node, Fin.getElem_fin,
             Vector.getElem_ofFn, Vector.getElem_push_eq]
           rw [Vector.getElem_push_lt]
           exact hxh _ hvs heq

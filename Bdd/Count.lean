@@ -81,7 +81,7 @@ lemma aux_low {O : OBdd n m} {h : O.1.root = .node j}: (O.low h).evaluate (I.set
     have := OBdd.var_lt_low_var (O := O) (h := h)
     conv at this =>
       lhs
-      simp [h, Pointer.toVar_node_eq]
+      simp [h, Pointer.toVar_node]
     exact this
   simp_all
 
@@ -91,7 +91,7 @@ lemma aux_high {O : OBdd n m} {h : O.1.root = .node j}: (O.high h).evaluate (I.s
     have := OBdd.var_lt_high_var (O := O) (h := h)
     conv at this =>
       lhs
-      simp [h, Pointer.toVar_node_eq]
+      simp [h, Pointer.toVar_node]
     exact this
   simp_all
 
