@@ -164,10 +164,10 @@ lemma structural_canonical_key {n s : Nat} {M : Vector (Node n s) s}
   induction P using OBdd.init_inductionOn with
   | base b O h1 h2 =>
     intro Q hP_heap hQ_heap htree_eq
-    rw [OBdd.toTree_terminal.1 h2] at htree_eq
+    rw [OBdd.toTree_terminal h2] at htree_eq
     cases hQ : Q.1.root with
     | terminal bq =>
-      rw [OBdd.toTree_terminal.1 hQ] at htree_eq
+      rw [OBdd.toTree_terminal hQ] at htree_eq
       grind only
     | node jq =>
       rw [OBdd.toTree_node hQ] at htree_eq
@@ -175,7 +175,9 @@ lemma structural_canonical_key {n s : Nat} {M : Vector (Node n s) s}
   | step P' jp h1 hP' ih_low ih_high =>
     intro Q hP_heap hQ_heap htree_eq
     cases hQ : Q.1.root with
-    | terminal bq => grind only [!OBdd.toTree_terminal]
+    | terminal bq =>
+      rw [← OBdd.toTree_eq_leaf_iff_terminal] at hQ
+      grind only [OBdd.toTree_node hP']
     | node jq =>
       have hQ_ord : Bdd.Ordered ⟨Q.1.heap, Pointer.node jq⟩ := by
         rcases Q with ⟨⟨qheap, qroot⟩, qord⟩; simp only at hQ; subst hQ; exact qord

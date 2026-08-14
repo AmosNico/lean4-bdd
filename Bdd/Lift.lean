@@ -58,17 +58,15 @@ public lemma olift_preserves_root {n n' m} {h : n ≤ n'} {O : OBdd n m} :
 
 lemma olift_low {h : n ≤ n'} {O : OBdd n m} {j : Fin m} (hr : O.1.root = .node j):
     (olift h O).low hr = olift h (O.low hr) := by
-  simp only [OBdd.low, olift, lift]
-  simp_rw [Bdd.low_heap_eq_heap]
-  simp_rw [hr]
-  simp [Bdd.low]
+  simp only [olift, lift]
+  simp only [OBdd.low_heap_eq_heap, OBdd.low_root_eq_low, Fin.getElem_fin, OBdd.eq_iff_bdd_eq,
+    Vector.getElem_map, and_self]
 
 lemma olift_high {h : n ≤ n'} {O : OBdd n m} {j : Fin m} (hr : O.1.root = .node j):
     (olift h O).high hr = olift h (O.high hr) := by
-  simp only [OBdd.high, olift, lift]
-  simp_rw [Bdd.high_heap_eq_heap]
-  simp_rw [hr]
-  simp [Bdd.high]
+  simp only [olift, lift]
+  simp only [OBdd.high_heap_eq_heap, OBdd.high_root_eq_high, Fin.getElem_fin, OBdd.eq_iff_bdd_eq,
+    Vector.getElem_map, and_self]
 
 lemma NoRedundancy_of_olift {h : n ≤ n'} {O : OBdd n m} :
     O.1.NoRedundancy → (olift h O).1.NoRedundancy := by
@@ -92,8 +90,10 @@ lemma olift_preserves_toTree {n n' m} {h : n ≤ n'} {O : OBdd n m} :
     (olift h O).toTree = DecisionTree.lift h O.toTree := by
   cases O_root_def : O.1.root with
   | terminal b =>
-    simp only [OBdd.toTree_terminal.1 O_root_def, DecisionTree.lift]
-    sorry
+    simp only [OBdd.toTree_terminal O_root_def, DecisionTree.lift]
+    have h1 : (olift h O).bdd.root = Pointer.terminal b := by
+      rw [olift_preserves_root, O_root_def]
+    rw [OBdd.toTree_terminal h1]
   | node j =>
     simp only [OBdd.toTree_node O_root_def, DecisionTree.lift]
     rw [← olift_preserves_toTree (h := h) (O := (O.low  O_root_def))]
@@ -111,7 +111,7 @@ termination_by O
 @[simp]
 public lemma olift_evaluate {n n' m} {h : n ≤ n'} {O : OBdd n m} {I : Vector Bool n'} :
     (olift h O).evaluate I = O.evaluate (Vector.cast (by simpa) (I.take n)) := by
-  simp only [OBdd.evaluate, Function.comp_apply, olift_preserves_toTree]
+  simp only [OBdd.evaluate_def, olift_preserves_toTree]
   rw [DecisionTree.lift_evaluate]
 
 lemma olift_SimilarRP {h : n ≤ n'} {O : OBdd n m} {p q : Pointer m}

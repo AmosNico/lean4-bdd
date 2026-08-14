@@ -40,7 +40,7 @@ lemma get_id_semantic {n m : Nat} {O : OBdd n m} {ps : ProvedState n m} {i : Nat
            OBdd.evaluate ⟨⟨O.1.heap, p⟩, hp⟩ I := by
   cases p with
   | terminal b =>
-    refine ⟨fun h => absurd h (by simp [get_id]), Bdd.Ordered_of_terminal,
+    refine ⟨fun h => absurd h (by simp [get_id]), Bdd.ordered_of_terminal rfl,
              Bdd.reduced_of_terminal, fun I => ?_⟩
     change OBdd.evaluate ⟨⟨cook_heap ps.state.heap ps.hh, .terminal b⟩, _⟩ I =
            OBdd.evaluate ⟨⟨O.1.heap, .terminal b⟩, hp⟩ I
@@ -170,7 +170,8 @@ public def populate_queue {n m : Nat} (O : OBdd n m)
                       else OBdd.evaluate ⟨⟨O.1.heap, O.1.heap[k].low⟩, hlow_ord⟩ I := by
                     rw [branches_eq]; simp
                 _ = OBdd.evaluate ⟨⟨O.1.heap, Pointer.node k⟩, hj⟩ I := by
-                    symm; rw [OBdd.evaluate_node]
+                    symm; rw [OBdd.evaluate_node rfl]
+                    simp only [OBdd.high_eq, OBdd.low_eq, Bdd.high_eq, Bdd.low_eq]
             · rw [ids_set_ne k hkj] at hkptr
               exact inv.2 k ptr hkptr
         -- EntryCorrect is preserved through set_id ps j lid for acc entries.

@@ -67,7 +67,7 @@ public lemma size_node_le {O : OBdd n m} {h : O.1.root = .node j} :
             subst that
             cases hjj2 with
             | inl hhh => simp_all
-            | inr hhh => exact hhh
+            | inr hhh => simp_all
           ⟩
         )
   · intro x y hxy
@@ -97,14 +97,14 @@ lemma size_le_helper {O : OBdd n m} : size O ≤ 2 ^ (n - O.1.var.1) - 1 := by
         rw [Nat.sub_add_cancel (by exact Nat.one_le_two_pow)]
         apply Nat.pow_le_pow_right (by simp)
         have := OBdd.var_lt_low_var (h := O_root_def)
-        simp only [OBdd.var] at this
+        simp only [OBdd.var_eq_bdd_var] at this
         omega
       _ ≤ 1 + (2 ^ (n - (O.1.var.1 + 1)) - 1) + (2 ^ (n - (O.1.var.1 + 1)) - 1) := by
         simp only [Nat.succ_eq_add_one, Nat.add_le_add_iff_left, Nat.sub_le_iff_le_add]
         rw [Nat.sub_add_cancel (by exact Nat.one_le_two_pow)]
         apply Nat.pow_le_pow_right (by simp)
         have := OBdd.var_lt_high_var (h := O_root_def)
-        simp only [OBdd.var] at this
+        simp only [OBdd.var_eq_bdd_var] at this
         omega
       _ ≤ 1 + (2 ^ ((n - O.1.var.1) - 1) - 1) + (2 ^ (n - (O.1.var.1 + 1)) - 1) := by
         simp only [Nat.succ_eq_add_one, Nat.add_le_add_iff_right, Nat.add_le_add_iff_left, Nat.sub_le_iff_le_add]
@@ -125,7 +125,7 @@ lemma size_le_helper {O : OBdd n m} : size O ≤ 2 ^ (n - O.1.var.1) - 1 := by
         refine Nat.sub_le_sub_right ?_ 1
         apply le_of_eq
         refine mul_pow_sub_one ?_ 2
-        simp [O_root_def]
+        simp only [Bdd.var_node O_root_def, Fin.val_castSucc]
         omega
 termination_by O
 

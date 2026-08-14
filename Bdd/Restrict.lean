@@ -1,6 +1,8 @@
 module
 
 public import Bdd.Basic
+-- TODO : remove
+import all Bdd.Basic
 import Std.Data.HashMap.Lemmas
 
 namespace Restrict
@@ -97,7 +99,7 @@ lemma heap_push_aux (s : State n m) (inv : Invariant b i O s)
     use hb
     have hoo : Bdd.Ordered ⟨cook_heap (s.heap.push N) this, RawPointer.cook (Sum.inr s.size) hb⟩ := by
       apply Bdd.ordered_of_low_high_ordered rfl
-      · simp only [Bdd.low, cook_heap]
+      · simp only [Bdd.low_eq, cook_heap]
         simp only [Fin.getElem_fin, Vector.getElem_ofFn, Vector.getElem_push_eq]
         rw [← cook_low]
         swap; apply RawPointer.bounded_of_le (inv.2 kl N.lo hkl).2.2.1; omega
@@ -106,7 +108,7 @@ lemma heap_push_aux (s : State n m) (inv : Invariant b i O s)
         · exact this
         · exact that.1
       ·
-        simp [Nat.succ_eq_add_one, Bdd.var, cook_heap, Bdd.low, RawPointer.cook]
+        simp [Nat.succ_eq_add_one, Bdd.var_eq, cook_heap, Bdd.low_eq, RawPointer.cook]
         cases heq : N.lo with
         | inl val =>
           rw [← cook_low]
@@ -128,7 +130,7 @@ lemma heap_push_aux (s : State n m) (inv : Invariant b i O s)
             rw [Vector.getElem_push_lt hvs]
             exact hxl _ hvs heq
           · apply RawPointer.bounded_of_le (inv.2 kl N.lo hkl).2.2.1; omega
-      · simp only [Bdd.high, cook_heap]
+      · simp only [Bdd.high_eq, cook_heap]
         simp only [Fin.getElem_fin, Vector.getElem_ofFn, Vector.getElem_push_eq]
         rw [← cook_high]
         swap; apply RawPointer.bounded_of_le (inv.2 kh N.hi hkh).2.2.1; omega
@@ -137,7 +139,7 @@ lemma heap_push_aux (s : State n m) (inv : Invariant b i O s)
         · exact this
         · exact that.1
       ·
-        simp [Nat.succ_eq_add_one, Bdd.var, cook_heap, Bdd.high, RawPointer.cook]
+        simp [Nat.succ_eq_add_one, Bdd.var_eq, cook_heap, Bdd.high_eq, RawPointer.cook]
         cases heq : N.hi with
         | inl val =>
           rw [← cook_high]
@@ -254,7 +256,7 @@ lemma insert_terminal_invariant (s0 : State n m) (inv : Invariant b i O s0) (ho 
     injection hp with hpe
     subst hpe
     use (fun contra ↦ by contradiction)
-    simp [RawPointer.cook, ho, Bdd.Ordered_of_terminal, OBdd.evaluate_terminal]
+    simp [RawPointer.cook, ho, Bdd.ordered_of_terminal, OBdd.evaluate_terminal]
   next =>
     constructor
     · exact (inv.2 _ _ hp).1
@@ -324,7 +326,8 @@ def restrict_helper (O : OBdd n m) (b : Bool) (i : Fin n) (s0 : State n m) (inv 
         then
           if hb : b
           then
-            let ⟨⟨sl, rl⟩, ⟨invl, hl, hsl, hlp⟩⟩ := restrict_helper (O.high O_root_def) b i s0 inv
+            let ⟨⟨sl, rl⟩, ⟨invl, hl, hsl, hlp⟩⟩ :=
+              restrict_helper (O.high O_root_def) b i s0 inv
             ⟨ ⟨⟨sl.size, sl.heap, sl.cache.insert O.1.root rl⟩, rl⟩,
               by
                 subst hlt
@@ -343,10 +346,7 @@ def restrict_helper (O : OBdd n m) (b : Bool) (i : Fin n) (s0 : State n m) (inv 
                       subst hrj
                       have that : O.1.heap[j].var.1 < (Pointer.toVar O.1.heap (O.high O_root_def).1.root).1 := by
                         have := OBdd.var_lt_high_var (O := O) (h := O_root_def)
-                        simp only [OBdd.var, Nat.succ_eq_add_one, Bdd.var, OBdd.high_heap_eq_heap,
-                          Fin.val_fin_lt] at this
-                        rw [O_root_def] at this
-                        simp only [Fin.lt_def, Nat.succ_eq_add_one, Pointer.toVar_node] at this
+                        simp only [OBdd.var_node O_root_def, OBdd.var_eq, OBdd.high_heap_eq_heap] at this
                         exact this
                       have := (invl.2 _ _ hl).1 _ hj1 rfl
                       split at this
@@ -368,7 +368,7 @@ def restrict_helper (O : OBdd n m) (b : Bool) (i : Fin n) (s0 : State n m) (inv 
                       rw [this.2.2]
                       have triv {ho} : ⟨{ heap := O.1.heap, root := O.1.root }, ho⟩ = O := rfl
                       rw [triv]
-                      have that := OBdd.evaluate_node'' O_root_def
+                      have that := OBdd.evaluate_node' O_root_def
                       rw [that]
                       rw [Nary.restrict_if]
                       simp only [OBdd.high_heap_eq_heap, hb, Fin.getElem_fin]
@@ -409,8 +409,8 @@ def restrict_helper (O : OBdd n m) (b : Bool) (i : Fin n) (s0 : State n m) (inv 
                     next =>
                       intro hkn hhh
                       rw [← O_root_def]
-                      trans (O.high O_root_def).1.root
-                      · exact Pointer.Reachable.ofEdge (Bdd.edge_of_high O.1 (h := O_root_def))
+                      trans (O.bdd.high O_root_def).root
+                      · exact O.bdd.reachable_high O_root_def
                       · exact (hlp k).2.2 hkn hhh
             ⟩
           else
@@ -456,7 +456,7 @@ def restrict_helper (O : OBdd n m) (b : Bool) (i : Fin n) (s0 : State n m) (inv 
                       rw [this.2.2]
                       have triv {ho} : ⟨{ heap := O.1.heap, root := O.1.root }, ho⟩ = O := rfl
                       rw [triv]
-                      have that := OBdd.evaluate_node'' O_root_def
+                      have that := OBdd.evaluate_node' O_root_def
                       rw [that]
                       rw [Nary.restrict_if]
                       simp only [OBdd.low_heap_eq_heap, hb, Fin.getElem_fin]
@@ -497,9 +497,10 @@ def restrict_helper (O : OBdd n m) (b : Bool) (i : Fin n) (s0 : State n m) (inv 
                     next =>
                       intro hkn hhh
                       rw [← O_root_def]
-                      trans (O.low O_root_def).1.root
-                      · exact Pointer.Reachable.ofEdge (Bdd.edge_of_low O.1 (h := O_root_def))
-                      · exact (hlp k).2.2 hkn hhh
+                      trans O.bdd.heap[j].low
+                      · exact O.bdd.reachable_low O_root_def
+                      · have := (hlp k).2.2 hkn hhh
+                        simp_all only [OBdd.low_root_eq_low, OBdd.low_heap_eq_heap]
           ⟩
         else
           let ⟨⟨sl, rl⟩, ⟨invl, hl, hsl, hlp⟩⟩ := restrict_helper (O.low O_root_def) b i s0 inv
@@ -530,8 +531,7 @@ def restrict_helper (O : OBdd n m) (b : Bool) (i : Fin n) (s0 : State n m) (inv 
                 simp only at h2
                 have hll : O.1.heap[j.1].var.1 < (Pointer.toVar O.1.heap (O.low O_root_def).1.root).1 := by
                   have h3 := OBdd.var_lt_low_var (O := O) (h := O_root_def)
-                  simp only [OBdd.var, Nat.succ_eq_add_one, Bdd.var, OBdd.low_heap_eq_heap,
-                    Fin.val_fin_lt] at h3
+                  simp only [OBdd.var_eq, OBdd.low_heap_eq_heap,Fin.val_fin_lt] at h3
                   rw [O_root_def] at h3
                   simp_rw [Fin.lt_def, Pointer.toVar_node] at h3
                   grind only [= Fin.getElem_fin]
@@ -551,10 +551,7 @@ def restrict_helper (O : OBdd n m) (b : Bool) (i : Fin n) (s0 : State n m) (inv 
                 have that := (invh.2 _ _ hh).1 _ hj1 hj2
                 have hll : O.1.heap[j.1].var.1 < (Pointer.toVar O.1.heap (O.high O_root_def).1.root).1 := by
                   have := OBdd.var_lt_high_var (O := O) (h := O_root_def)
-                  simp only [OBdd.var, Nat.succ_eq_add_one, Bdd.var, OBdd.high_heap_eq_heap,
-                    Fin.val_fin_lt] at this
-                  rw [O_root_def] at this
-                  simp_rw [Fin.lt_def, Pointer.toVar_node] at this
+                  simp only [OBdd.var_node O_root_def, OBdd.var_eq, OBdd.high_heap_eq_heap] at this
                   grind only [= Fin.getElem_fin]
                 split at that
                 next =>
@@ -568,7 +565,7 @@ def restrict_helper (O : OBdd n m) (b : Bool) (i : Fin n) (s0 : State n m) (inv 
               (by
                 intro h0 h1
                 symm
-                rw [OBdd.evaluate_node'' O_root_def]
+                rw [OBdd.evaluate_node' O_root_def]
                 rw [Nary.restrict_if]
                 conv =>
                   rhs
@@ -587,13 +584,20 @@ def restrict_helper (O : OBdd n m) (b : Bool) (i : Fin n) (s0 : State n m) (inv 
                     rfl
                     simp [cook_heap, RawNode.cook]
                     rfl
-                    rfl
                   symm
                   have h := invh.2 (O.high O_root_def).1.root rh hh
                   rcases h with ⟨h1, h2, h3, h4, h5⟩
                   simp only [OBdd.high_heap_eq_heap] at h5
-                  rw [push_evaluate (ho := push_ordered h4) (hu := h4), h5]
-                  rfl
+                  simp only [OBdd.high_eq, Bdd.high_eq]
+                  rw [push_evaluate' (v := sh.heap) (hu := h4), h5]
+                  rw [push_evaluate (by rw [OBdd.bdd_high, Bdd.high_heap_eq_heap]) (ho := h4)]
+                  · rw [h5]
+                    rfl
+                  ·
+                    simp_all
+                    sorry
+                  · exact h3
+                    sorry
                 · conv =>
                     rhs
                     congr
@@ -602,7 +606,6 @@ def restrict_helper (O : OBdd n m) (b : Bool) (i : Fin n) (s0 : State n m) (inv 
                     rfl
                     simp [cook_heap, RawNode.cook]
                     rfl
-                    rfl
                   symm
                   have : sh.cache[(O.low O_root_def).1.root]? = some rl := by
                     apply (hhp _).1
@@ -610,7 +613,7 @@ def restrict_helper (O : OBdd n m) (b : Bool) (i : Fin n) (s0 : State n m) (inv 
                   have h := invh.2 (O.low O_root_def).1.root rl this
                   rcases h with ⟨h1, h2, h3, h4, h5⟩
                   simp only [OBdd.high_heap_eq_heap] at h5
-                  rw [push_evaluate (ho := push_ordered h4) (hu := h4), h5]
+                  rw [push_evaluate (ho := h4), h5]
                   rfl
               )
               (by
@@ -658,14 +661,16 @@ def restrict_helper (O : OBdd n m) (b : Bool) (i : Fin n) (s0 : State n m) (inv 
                     cases heqq : sl.cache[k]? with
                     | none =>
                       have := (hhp _).2.2 heqq ⟨_, heq⟩
-                      · trans (O.high O_root_def).1.root
-                        · exact .ofEdge oedge_of_high.2
-                        · exact this
+                      · trans O.bdd.heap[j].high
+                        · exact O.bdd.reachable_high O_root_def
+                        · rw [OBdd.high_heap_eq_heap, OBdd.high_root_eq_high] at this
+                          exact this
                     | some ww =>
                       have := (hlp _).2.2 hk ⟨_, heqq⟩
-                      · trans (O.low O_root_def).1.root
-                        · exact .ofEdge oedge_of_low.2
-                        · exact this
+                      · trans O.bdd.heap[j].low
+                        · exact O.bdd.reachable_low O_root_def
+                        · rw [OBdd.low_heap_eq_heap, OBdd.low_root_eq_low] at this
+                          exact this
           ⟩
 termination_by O
 

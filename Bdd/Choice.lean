@@ -7,14 +7,15 @@ namespace Choice
 open Pointer
 open OBdd
 
-def choice_helper (O : OBdd n m) : O.1.root = .node j → Vector Bool n → Vector Bool n := fun hj I ↦
+def choice_helper (O : OBdd n m) : O.1.root = .node j → Vector Bool n → Vector Bool n :=
+  fun hj I ↦
   match hl : O.1.heap[j].low with
-  | .node j => choice_helper (O.low hj) hl I
+  | .node j => choice_helper (O.low hj) (O.low_root_eq_low hj ▸ hl) I
   | .terminal true => I.set O.1.heap[j].var false
   | .terminal false =>
     match hh : O.1.heap[j].high with
     | .terminal _ => I.set O.1.heap[j].var true
-    | .node j' => (choice_helper (O.high hj) hh I).set O.1.heap[j].var true
+    | .node j' => (choice_helper (O.high hj) (O.high_root_eq_high hj ▸ hh) I).set O.1.heap[j].var true
 termination_by O
 
 public def choice (O : OBdd n m) : (∃ I, O.evaluate I) → Vector Bool n := fun ht ↦
@@ -38,7 +39,7 @@ lemma choice_helper_spec' {O : OBdd n m} (hr : O.Reduced) (hj : O.1.root = .node
   split
   next jl hl =>
     have := var_lt_low_var (h := hj)
-    simp only [var, Nat.succ_eq_add_one, Bdd.var, hj, low, Bdd.low, hl, toVar_node] at this
+    simp only [var_eq, hj, toVar_node, low_heap_eq_heap, low_root_eq_low] at this
     apply choice_helper_spec' (low_reduced hr)
     simp_all
     omega
@@ -54,7 +55,7 @@ lemma choice_helper_spec' {O : OBdd n m} (hr : O.Reduced) (hj : O.1.root = .node
         exact hi
     next jh hh =>
       have := var_lt_high_var (h := hj)
-      simp only [var, Nat.succ_eq_add_one, Bdd.var, hj, high, Bdd.high, hh, toVar_node] at this
+      simp only [var_eq, hj, toVar_node, high_heap_eq_heap, high_root_eq_high] at this
       rw [Vector.get_set_ne]
       apply choice_helper_spec' (high_reduced hr)
       · simp_all
@@ -72,7 +73,8 @@ lemma choice_helper_spec {O : OBdd n m} (hr : O.Reduced) (hj : O.1.root = node j
   unfold choice_helper
   split
   next jl hl =>
-    rw [evaluate_node'' hj]
+    rw [evaluate_node' hj]
+    rw [← low_root_eq_low hj] at hl
     simp only
     suffices s : (choice_helper (O.low hj) hl (Vector.replicate n false))[O.1.heap[j].var] = false by
       rw [s]
@@ -80,32 +82,32 @@ lemma choice_helper_spec {O : OBdd n m} (hr : O.Reduced) (hj : O.1.root = node j
       apply choice_helper_spec (low_reduced hr)
     rw [choice_helper_spec'' (low_reduced hr) hl]
     have := var_lt_low_var (h := hj)
-    simp only [var, Nat.succ_eq_add_one, Bdd.var, toVar_node, hj, hl, low, Bdd.low] at this
+    simp only [var_eq, hj, toVar_node, low_heap_eq_heap, low_root_eq_low] at this
     simp_all
   next hl =>
-    rw [evaluate_node'' hj]
-    have : (O.low hj).1.root = terminal true := by simp only [low, Bdd.low, hl]
+    rw [evaluate_node' hj]
+    have : (O.low hj).1.root = terminal true := by simp only [low_root_eq_low, hl]
     simp [evaluate_terminal this]
   next hl =>
     split
     next bh hh =>
-      rw [evaluate_node'' hj]
+      rw [evaluate_node' hj]
       have : (O.high hj).1.root = terminal true := by
-        simp only [high, Bdd.high]
-        rw [hh]
+        simp only [high_root_eq_high, hh]
         congr
         cases bh with
         | false => exact False.elim (hr.1 ⟨node j, by simp_all; exact Pointer.Reachable.refl⟩ ⟨by simp_all⟩)
         | true => rfl
       simp [evaluate_terminal this]
     next jh hh =>
-      rw [evaluate_node'' hj]
+      rw [evaluate_node' hj]
+      rw [← high_root_eq_high hj] at hh
       simp only [Fin.getElem_fin, Vector.getElem_set_self, ↓reduceIte]
       have : (O.high hj).evaluate ((choice_helper (O.high hj) hh (Vector.replicate n false)).set O.1.heap[j.1].var.1 true) =
              (O.high hj).evaluate (choice_helper (O.high hj) hh ((Vector.replicate n false))) := by
         rw [OBdd.independentOf_lt_root (O.high hj) ⟨O.1.heap[j.1].var.1, ?_⟩ true (choice_helper (O.high hj) hh (Vector.replicate n false))]
-        rw [show O.1.heap[j.1].var.1 = O.var by simp [hj]]
-        exact var_lt_high_var
+        · simp only [Fin.val_castLE]
+        · grind only [= Fin.getElem_fin, = Lean.Grind.toInt_fin, !var_lt_high_var, var_node hj]
       rw [this]
       apply choice_helper_spec (high_reduced hr)
 termination_by O

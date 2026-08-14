@@ -1,6 +1,8 @@
 module
 
 public import Bdd.Basic
+-- TODO : remove
+import all Bdd.Basic
 public import Mathlib.Data.Fintype.Vector
 import Mathlib.Data.Fintype.BigOperators
 import Std.Data.HashMap.Lemmas
@@ -79,9 +81,7 @@ lemma aux_low {O : OBdd n m} {h : O.1.root = .node j}: (O.low h).evaluate (I.set
   have : Nary.IndependentOf (O.low h).evaluate O.1.heap[j.1].var := by
     apply OBdd.independentOf_lt_root (O := (O.low h)) (i := ⟨O.1.heap[j.1].var.1, ?_⟩)
     have := OBdd.var_lt_low_var (O := O) (h := h)
-    conv at this =>
-      lhs
-      simp [h, Pointer.toVar_node]
+    simp [O.var_node, h] at this
     exact this
   simp_all
 
@@ -89,9 +89,7 @@ lemma aux_high {O : OBdd n m} {h : O.1.root = .node j}: (O.high h).evaluate (I.s
   have : Nary.IndependentOf (O.high h).evaluate O.1.heap[j.1].var := by
     apply OBdd.independentOf_lt_root (O := (O.high h)) (i := ⟨O.1.heap[j.1].var.1, ?_⟩)
     have := OBdd.var_lt_high_var (O := O) (h := h)
-    conv at this =>
-      lhs
-      simp [h, Pointer.toVar_node]
+    simp [O.var_node, h] at this
     exact this
   simp_all
 
@@ -175,7 +173,7 @@ lemma invariant_false (O : OBdd n m) (s : Std.HashMap (Pointer m) Nat ) (inv : I
   cases hp with
   | inl hp =>
     subst hp
-    simp [Bdd.Ordered_of_terminal, numSolutions, Solution]
+    simp [Bdd.ordered_of_terminal, numSolutions, Solution]
   | inr hp =>
     obtain ⟨ha, hb⟩ := inv p hp
     use ha
@@ -192,7 +190,7 @@ lemma invariant_true (O : OBdd n m) (s : Std.HashMap (Pointer m) Nat ) (inv : In
   cases hp with
   | inl hp =>
     subst hp
-    simp [Bdd.Ordered_of_terminal, numSolutions, Solution]
+    simp [Bdd.ordered_of_terminal, numSolutions, Solution]
   | inr hp =>
     obtain ⟨ha, hb⟩ := inv p hp
     use ha
@@ -284,17 +282,15 @@ def count_helper (O : OBdd n m) (s : Std.HashMap (Pointer m) Nat ) (inv : Invari
               next i _ =>
                 cases hm : sl[p]? with
                 | none =>
-                  trans (O.high h).1.root
-                  · apply Pointer.Reachable.ofEdge
-                    simp only [h, OBdd.high, Bdd.high, Fin.getElem_fin]
-                    right
-                  · exact (hh2 _).2.2 hm ⟨_, hp2⟩
+                  trans O.bdd.heap[j].high
+                  · exact O.bdd.reachable_high h
+                  · have := (hh2 p).2.2 hm ⟨i, hp2⟩
+                    simp_all only [OBdd.high_root_eq_high, OBdd.high_heap_eq_heap]
                 | some val =>
-                  trans (O.low h).1.root
-                  · apply Pointer.Reachable.ofEdge
-                    simp only [h, OBdd.low, Bdd.low, Fin.getElem_fin]
-                    left
-                  · exact (hl2 _).2.2 hp1 ⟨_, hm⟩
+                  trans O.bdd.heap[j].low
+                  · exact O.bdd.reachable_low h
+                  · have := (hl2 p).2.2 hp1 ⟨_, hm⟩
+                    simp_all only [OBdd.low_root_eq_low, OBdd.low_heap_eq_heap]
       ⟩
 termination_by O
 

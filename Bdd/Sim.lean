@@ -1,6 +1,8 @@
 module
 
 public import Bdd.Basic
+-- TODO : remove
+import all Bdd.Basic
 import Std.Data.HashMap.Lemmas
 
 namespace Sim
@@ -37,12 +39,12 @@ def sim_helper
     match hq : q with
     | .terminal b' =>
       if hb : b = b'
-      then return isTrue (by simpa [OBdd.HSimilar, OBdd.toTree_terminal, OBdd.toTree_terminal'])
-      else return isFalse (by simpa [OBdd.HSimilar, OBdd.toTree_terminal', OBdd.toTree_terminal'])
-    | .node j' => return isFalse (by simp [OBdd.HSimilar, OBdd.toTree_terminal', OBdd.toTree_node])
+      then return isTrue (by simpa [OBdd.HSimilar, OBdd.toTree_terminal])
+      else return isFalse (by simpa [OBdd.HSimilar, OBdd.toTree_terminal])
+    | .node j' => return isFalse (by simp [OBdd.HSimilar, OBdd.toTree_terminal, OBdd.toTree_node])
   | .node j =>
     match hq : q with
-    | .terminal b' => return isFalse (by simp [OBdd.HSimilar, OBdd.toTree_terminal', OBdd.toTree_node])
+    | .terminal b' => return isFalse (by simp [OBdd.HSimilar, OBdd.toTree_terminal, OBdd.toTree_node])
     | .node j' =>
       if hv : O.1.heap[j].var = U.1.heap[j'].var
       then do
@@ -173,7 +175,7 @@ def sim_helper
 termination_by OBdd.size' (⟨⟨O.1.heap, p⟩, Bdd.ordered_of_reachable hpr⟩ : OBdd n m)
 decreasing_by
   · simp [OBdd.size_node, OBdd.low, Bdd.low]; omega
-  · simp [OBdd.size_node, OBdd.high, Bdd.high]; omega
+  · simp [OBdd.size_node, OBdd.high, Bdd.high]
 
 public def decidableRobddHSimilar
     (O : OBdd n m) (hO : O.Reduced)

@@ -64,32 +64,25 @@ public def orelabel (O : OBdd n m) {f : Nat → Nat} (hf : ∀ i : Fin n, f i < 
     (hu : ∀ i i' : Fin n, i < i' → O.1.usesVar i → O.1.usesVar i' → f i < f i') : OBdd (f n) m :=
     ⟨(relabel hf O.1), relabel_ordered hu O.2⟩
 
+lemma orelabel_reachable_iff {O : OBdd n m} {f : ℕ → ℕ} {hf : ∀ i : Fin n, f i < f n} {hu} :
+    Pointer.Reachable (orelabel O hf hu).bdd.heap (orelabel O hf hu).bdd.root x ↔
+    Pointer.Reachable O.bdd.heap O.bdd.root x :=
+  relabel_reachable_iff
+
 lemma orelabel_low {O : OBdd n m} {h : O.1.root = .node j} {f : Nat → Nat} (hf : ∀ i : Fin n, f i < f n)
     (hu : ∀ i i' : Fin n, i < i' → O.1.usesVar i → O.1.usesVar i' → f i < f i') :
     (OBdd.low (orelabel O hf hu) h) = orelabel (O.low h) hf (fun i i' hii' hi hi' ↦ hu i i' hii' (OBdd.usesVar_of_low_usesVar hi) (OBdd.usesVar_of_low_usesVar hi')) := by
-  rcases O with ⟨B, o⟩
-  simp only [OBdd.low]
-  congr
-  simp only [orelabel, relabel, relabel_heap, Bdd.low_heap_eq_heap]
-  simp only at h
-  simp_rw [h]
-  simp only [Bdd.low]
-  congr 1
-  simp_all only [Fin.getElem_fin, Vector.getElem_map]
+  rw [OBdd.eq_iff_bdd_eq]
+  simp only [orelabel, relabel, relabel_heap, OBdd.low_heap_eq_heap, OBdd.low_root_eq_low,
+    Fin.getElem_fin, Vector.getElem_map, true_and]
   rfl
 
 lemma orelabel_high {O : OBdd n m} {h : O.1.root = .node j} {f : Nat → Nat} (hf : ∀ i : Fin n, f i < f n)
     (hu : ∀ i i' : Fin n, i < i' → O.1.usesVar i → O.1.usesVar i' → f i < f i') :
     (OBdd.high (orelabel O hf hu) h) = orelabel (O.high h) hf (fun i i' hii' hi hi' ↦ hu i i' hii' (OBdd.usesVar_of_high_usesVar hi) (OBdd.usesVar_of_high_usesVar hi')) := by
-  rcases O with ⟨B, o⟩
-  simp only [OBdd.high]
-  congr
-  simp only [orelabel, relabel, relabel_heap, Bdd.high_heap_eq_heap]
-  simp only at h
-  simp_rw [h]
-  simp only [Bdd.high]
-  congr 1
-  simp_all only [Fin.getElem_fin, Vector.getElem_map]
+  rw [OBdd.eq_iff_bdd_eq]
+  simp only [orelabel, relabel, relabel_heap, OBdd.high_heap_eq_heap, OBdd.high_root_eq_high,
+    Fin.getElem_fin, Vector.getElem_map, true_and]
   rfl
 
 lemma brelabel_low {B : Bdd n m} {o : Bdd.Ordered B} {h : B.root = .node j} {f : Nat → Nat} (hf : ∀ i : Fin n, f i < f n)
@@ -117,9 +110,9 @@ public theorem orelabel_evaluate (O : OBdd n m) {f : Nat → Nat} {hf : ∀ i : 
     rw [OBdd.evaluate_terminal]
     simp
   | node j =>
-    rw [OBdd.evaluate_node'' O_root_def]
+    rw [OBdd.evaluate_node' O_root_def]
     have that : (⟨(relabel hf O.1), relabel_ordered hu O.2⟩ : OBdd _ _).1.root = Pointer.node j := O_root_def
-    rw [OBdd.evaluate_node'' that]
+    rw [OBdd.evaluate_node' that]
     simp only
     congr 1
     · simp only [eq_iff_iff, Bool.coe_iff_coe]
@@ -167,9 +160,9 @@ lemma relabel_toTree_relabel (O : OBdd n m) {f : Nat → Nat} (hf : ∀ i : Fin 
   cases O_root_def : O.1.root with
   | terminal b =>
     simp only [relabel]
-    rw [OBdd.toTree_terminal.1 O_root_def]
+    rw [OBdd.toTree_terminal O_root_def]
     simp_rw [O_root_def]
-    rw [OBdd.toTree_terminal.1 rfl]
+    rw [OBdd.toTree_terminal rfl]
     simp [DecisionTree.relabel]
   | node _ =>
     rw [OBdd.toTree_node O_root_def]
@@ -189,26 +182,28 @@ lemma relabel_toTree_relabel' {B : Bdd n m} {o : B.Ordered} {f : Nat → Nat} (h
     (hu : ∀ i i' : Fin n, i < i' → B.usesVar i → B.usesVar i' → f i < f i') :
     OBdd.toTree ⟨relabel hf B, relabel_ordered hu o⟩ = DecisionTree.relabel hf (OBdd.toTree ⟨B, o⟩) := relabel_toTree_relabel ⟨B, o⟩ hf hu
 
+set_option linter.tacticCheckInstances true
 lemma orelabel_preserves_similarRP {O : OBdd n m} {f : Nat → Nat} {hf : ∀ i : Fin n, f i < f n}
     {hu : ∀ i i' : Fin n, i < i' → O.1.usesVar i → O.1.usesVar i' → f i < f i'}
     {p q : Pointer m}
     {hp : Pointer.Reachable (orelabel O hf hu).1.heap (orelabel O hf hu).1.root p}
     {hq : Pointer.Reachable (orelabel O hf hu).1.heap (orelabel O hf hu).1.root q} :
-    (orelabel O hf hu).SimilarRP ⟨p, hp⟩ ⟨q, hq⟩ → O.SimilarRP ⟨p, relabel_reachable_iff.mp hp⟩ ⟨q, relabel_reachable_iff.mp hq⟩ := by
+    (orelabel O hf hu).SimilarRP ⟨p, hp⟩ ⟨q, hq⟩ → O.SimilarRP ⟨p, orelabel_reachable_iff.mp hp⟩ ⟨q, orelabel_reachable_iff.mp hq⟩ := by
   intro sim
   simp only [OBdd.similarRP_iff] at ⊢ sim
   cases p with
   | terminal _ =>
     cases q with
-    | terminal _ => simp_all [toTree_terminal]
+    | terminal _ =>
+      simp_all only [Pointer.terminal.injEq, OBdd.toTree_terminal, DecisionTree.leaf.injEq]
     | node _ =>
-      simp only [OBdd.toTree_terminal] at sim
+      simp only [Pointer.terminal.injEq, OBdd.toTree_terminal] at sim
       rw [OBdd.toTree_node rfl] at sim
       contradiction
   | node j =>
     cases q with
     | terminal _ =>
-      simp only [OBdd.toTree_terminal] at sim
+      simp only [Pointer.terminal.injEq, OBdd.toTree_terminal] at sim
       rw [OBdd.toTree_node rfl] at sim
       contradiction
     | node i =>
@@ -245,7 +240,7 @@ lemma orelabel_preserves_similarRP {O : OBdd n m} {f : Nat → Nat} {hf : ∀ i 
             · exact h1
           · exact h2
       congr 1
-      · simp only
+      ·
         by_contra c
         apply ne_iff_lt_or_gt.mp at c
         cases c with
@@ -260,8 +255,7 @@ lemma orelabel_preserves_similarRP {O : OBdd n m} {f : Nat → Nat} {hf : ∀ i 
         conv at hb =>
           rhs
           rw [brelabel_low (h := rfl) (o := Bdd.ordered_of_reachable (relabel_reachable_iff.mp hq)) hf (by simp_all)]
-        simp only [OBdd.low] at hb
-        simp only [OBdd.low]
+        simp only [OBdd.low_eq] at hb ⊢
         have helplj : ∀ x, Bdd.usesVar (({ heap := O.1.heap, root := Pointer.node j } : Bdd n m).low rfl) x → O.1.usesVar x := by
           rintro _ hx
           apply help1
@@ -289,11 +283,9 @@ lemma orelabel_preserves_similarRP {O : OBdd n m} {f : Nat → Nat} {hf : ∀ i 
           · apply help1
             apply Bdd.usesVar_of_low_usesVar
             exact hii
-            rfl
           · apply help2
             apply Bdd.usesVar_of_low_usesVar
             exact hii'
-            rfl
         | inr hfi =>
           right
           apply hu
@@ -301,11 +293,9 @@ lemma orelabel_preserves_similarRP {O : OBdd n m} {f : Nat → Nat} {hf : ∀ i 
           · apply help2
             apply Bdd.usesVar_of_low_usesVar
             exact hii'
-            rfl
           · apply help1
             apply Bdd.usesVar_of_low_usesVar
             exact hii
-            rfl
       · simp only [orelabel] at hc
         simp only [relabel] at hc
         simp_rw [← relabel.eq_1] at hc
@@ -315,8 +305,7 @@ lemma orelabel_preserves_similarRP {O : OBdd n m} {f : Nat → Nat} {hf : ∀ i 
         conv at hc =>
           rhs
           rw [brelabel_high (h := rfl) (o := Bdd.ordered_of_reachable (relabel_reachable_iff.mp hq)) hf (by simp_all)]
-        simp only [OBdd.high] at hc
-        simp only [OBdd.high]
+        simp only [OBdd.high_eq] at hc ⊢
         have helphj : ∀ x, Bdd.usesVar (({ heap := O.1.heap, root := Pointer.node j } : Bdd n m).high rfl) x → O.1.usesVar x := by
           rintro _ hx
           apply help1
@@ -344,11 +333,9 @@ lemma orelabel_preserves_similarRP {O : OBdd n m} {f : Nat → Nat} {hf : ∀ i 
           · apply help1
             apply Bdd.usesVar_of_high_usesVar
             exact hii
-            rfl
           · apply help2
             apply Bdd.usesVar_of_high_usesVar
             exact hii'
-            rfl
         | inr hfi =>
           right
           apply hu
@@ -356,11 +343,9 @@ lemma orelabel_preserves_similarRP {O : OBdd n m} {f : Nat → Nat} {hf : ∀ i 
           · apply help2
             apply Bdd.usesVar_of_high_usesVar
             exact hii'
-            rfl
           · apply help1
             apply Bdd.usesVar_of_high_usesVar
             exact hii
-            rfl
 
 public lemma orelabel_reduced {O : OBdd n m} {f : Nat → Nat} {hf : ∀ i : Fin n, f i < f n}
     {hu : ∀ i i' : Fin n, i < i' → O.1.usesVar i → O.1.usesVar i' → f i < f i'} :
