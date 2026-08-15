@@ -776,20 +776,18 @@ lemma OBdd.ordered_of_edge {O : OBdd n m} {h : O.1.heap = v} {r : O.1.root = q} 
   intro e
   exact ordered_of_relevant O ⟨p, Reachable.ofEdge e⟩
 
-#check sorry
-/-lemma OBdd.ordered_of_low_edge {B : Bdd n m} {j} {h : B.root = node j} :
-    B.Ordered → (B.low h).Ordered := by
-  intro o
-  rw [ordered_iff]
-  intro o x y e
-  apply ordered_of_relevant (B.low h) ⟨v[j].low, (Reachable.ofEdge Edge.low)⟩
+lemma OBdd.ordered_of_low_edge {j : Fin n} :
+    Bdd.Ordered {heap := v, root := node j} → Bdd.Ordered {heap := v, root := v[j].low} := by
+  intro o x y h
+  apply ordered_of_relevant ⟨{ heap := v, root := node j }, o⟩ ⟨v[j].low, (Reachable.ofEdge Edge.low)⟩
   simpa
 
-lemma OBdd.ordered_of_high_edge {j : Fin n} : Bdd.Ordered {heap := v, root := node j} → Bdd.Ordered {heap := v, root := v[j].high} := by
+lemma OBdd.ordered_of_high_edge {j : Fin n} :
+    Bdd.Ordered {heap := v, root := node j} → Bdd.Ordered {heap := v, root := v[j].high} := by
   intro o x y h
   apply ordered_of_relevant ⟨{ heap := v, root := node j }, o⟩ ⟨v[j].high, (Reachable.ofEdge Edge.high)⟩
   simpa
--/
+
 /-- Spell out `OBdd.evaluate` for terminals. -/
 @[simp, grind →]
 lemma OBdd.evaluate_terminal {n m} {O : OBdd m n} {b} :
