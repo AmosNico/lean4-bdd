@@ -34,17 +34,18 @@ lemma get_id_semantic {n m : Nat} {O : OBdd n m} {ps : ProvedState n m} {i : Nat
     (hp : Bdd.Ordered ⟨O.1.heap, p⟩)
     (hch : ∀ l, p = .node l → (ps.state.ids[l]).isSome) :
     ∃ (hptr : (get_id ps p hch).Bounded ps.state.size)
-      (ho : Bdd.Ordered ⟨cook_heap ps.state.heap ps.hh, (get_id ps p hch).cook hptr⟩),
-      OBdd.Reduced ⟨⟨cook_heap ps.state.heap ps.hh, (get_id ps p hch).cook hptr⟩, ho⟩ ∧
-      ∀ I, OBdd.evaluate ⟨⟨cook_heap ps.state.heap ps.hh, (get_id ps p hch).cook hptr⟩, ho⟩ I =
+      (ho : Bdd.Ordered (cook_bdd ps.state.heap ps.hh (get_id ps p hch) hptr)),
+      OBdd.Reduced ⟨cook_bdd ps.state.heap ps.hh (get_id ps p hch) hptr, ho⟩ ∧
+      ∀ I, OBdd.evaluate ⟨cook_bdd ps.state.heap ps.hh (get_id ps p hch) hptr, ho⟩ I =
            OBdd.evaluate ⟨⟨O.1.heap, p⟩, hp⟩ I := by
   cases p with
   | terminal b =>
-    refine ⟨fun h => absurd h (by simp [get_id]), Bdd.ordered_of_terminal rfl,
-             Bdd.reduced_of_terminal, fun I => ?_⟩
-    change OBdd.evaluate ⟨⟨cook_heap ps.state.heap ps.hh, .terminal b⟩, _⟩ I =
-           OBdd.evaluate ⟨⟨O.1.heap, .terminal b⟩, hp⟩ I
-    simp [OBdd.evaluate_terminal]
+    use fun h => absurd h (by simp [get_id]), Bdd.ordered_of_terminal (by rw [root_cook_bdd]; rfl)
+    constructor
+    · exact OBdd.reduced_of_terminal (by rw [root_cook_bdd]; rfl)
+    · intro I
+      simp only [terminal.injEq, OBdd.evaluate_terminal]
+      rw [OBdd.evaluate_terminal (by simp [get_id, RawPointer.cook]; rfl)]
   | node l =>
     simp only [get_id]
     obtain ⟨_, hptr, ho, hred, heval⟩ := inv.2 l _ (Option.get_mem (hch l rfl))
@@ -150,9 +151,9 @@ public def populate_queue {n m : Nat} (O : OBdd n m)
                 cook_eq_of_eq hid lid hptr_h hptr heq.symm
               -- evaluations at hid and lid in cook_heap coincide.
               have heval_hid_eq_lid :
-                  OBdd.evaluate ⟨⟨cook_heap ps.state.heap ps.hh, hid.cook hptr_h⟩, ho_h⟩ I =
-                  OBdd.evaluate ⟨⟨cook_heap ps.state.heap ps.hh, lid.cook hptr⟩, ho⟩ I :=
-                congrArg (OBdd.evaluate · I) (by simp [hcook_eq])
+                  OBdd.evaluate ⟨cook_bdd ps.state.heap ps.hh hid hptr_h, ho_h⟩ I =
+                  OBdd.evaluate ⟨cook_bdd ps.state.heap ps.hh lid hptr, ho⟩ I :=
+                congrArg (OBdd.evaluate · I) (by simp [hcook_eq, cook_bdd_eq])
               -- eval(high in old) = eval(low in old): both children reduce to lid = hid.
               have branches_eq :
                   OBdd.evaluate ⟨⟨O.1.heap, O.1.heap[k].high⟩, hhigh_ord⟩ I =
@@ -162,7 +163,7 @@ public def populate_queue {n m : Nat} (O : OBdd n m)
               have eval_pi : ∀ (B : Bdd n m) (h1 h2 : B.Ordered) (I : Vector Bool n),
                   OBdd.evaluate ⟨B, h1⟩ I = OBdd.evaluate ⟨B, h2⟩ I :=
                 fun B h1 h2 I => congrArg (OBdd.evaluate · I) rfl
-              calc OBdd.evaluate ⟨⟨cook_heap ps.state.heap ps.hh, lid.cook hptr⟩, ho⟩ I
+              calc OBdd.evaluate ⟨cook_bdd ps.state.heap ps.hh lid hptr, ho⟩ I
                   = OBdd.evaluate ⟨⟨O.1.heap, O.1.heap[k].low⟩, hlow_ord⟩ I :=
                     heval_low I
                 _ = if I[O.1.heap[k].var]

@@ -253,10 +253,10 @@ public def Invariant {n m : Nat} (O : OBdd n m) (ps : ProvedState n m) (i : Nat)
       ps.state.ids[j] = some ptr →
       ∃ hj   : Bdd.Ordered ⟨O.1.heap, .node j⟩,
         ∃ hptr : ptr.Bounded ps.state.size,
-          ∃ ho : Bdd.Ordered ⟨cook_heap ps.state.heap ps.hh, ptr.cook hptr⟩,
-            OBdd.Reduced ⟨⟨cook_heap ps.state.heap ps.hh, ptr.cook hptr⟩, ho⟩ ∧
+          ∃ ho : Bdd.Ordered (cook_bdd ps.state.heap ps.hh ptr hptr),
+            OBdd.Reduced ⟨cook_bdd ps.state.heap ps.hh ptr hptr, ho⟩ ∧
             ∀ I,
-              OBdd.evaluate ⟨⟨cook_heap ps.state.heap ps.hh, ptr.cook hptr⟩, ho⟩ I =
+              OBdd.evaluate ⟨cook_bdd ps.state.heap ps.hh ptr hptr, ho⟩ I =
               OBdd.evaluate ⟨⟨O.1.heap, .node j⟩, hj⟩ I
 
 public lemma inv_initial {n m : Nat} {O : OBdd n m} {i : Nat}
@@ -326,9 +326,9 @@ public abbrev NodePushedCorrectly {n m : Nat} (O : OBdd n m) (ps : ProvedState n
   let ps₂  := set_id ps₁ entry.2 ptr
   ∃ hj : Bdd.Ordered ⟨O.1.heap, .node entry.2⟩,
   ∃ hp : ptr.Bounded ps₂.state.size,
-  ∃ ho : Bdd.Ordered ⟨cook_heap ps₂.state.heap ps₂.hh, ptr.cook hp⟩,
-    OBdd.Reduced ⟨⟨cook_heap ps₂.state.heap ps₂.hh, ptr.cook hp⟩, ho⟩ ∧
-    ∀ I, OBdd.evaluate ⟨⟨cook_heap ps₂.state.heap ps₂.hh, ptr.cook hp⟩, ho⟩ I =
+  ∃ ho : Bdd.Ordered (cook_bdd ps₂.state.heap ps₂.hh ptr hp),
+    OBdd.Reduced ⟨cook_bdd ps₂.state.heap ps₂.hh ptr hp, ho⟩ ∧
+    ∀ I, OBdd.evaluate ⟨cook_bdd ps₂.state.heap ps₂.hh ptr hp, ho⟩ I =
          OBdd.evaluate ⟨⟨O.1.heap, .node entry.2⟩, hj⟩ I
 
 /-- The current pointer `curptr` correctly represents the sub-BDD at `entry.2`. -/
@@ -336,9 +336,9 @@ public abbrev CurptrSemantic {n m : Nat} (O : OBdd n m) (ps : ProvedState n m)
     (curptr : RawPointer) (entry : (RawPointer × RawPointer) × Fin m) : Prop :=
   ∃ hj : Bdd.Ordered ⟨O.1.heap, .node entry.2⟩,
   ∃ hp : curptr.Bounded ps.state.size,
-  ∃ ho : Bdd.Ordered ⟨cook_heap ps.state.heap ps.hh, curptr.cook hp⟩,
-    OBdd.Reduced ⟨⟨cook_heap ps.state.heap ps.hh, curptr.cook hp⟩, ho⟩ ∧
-    ∀ I, OBdd.evaluate ⟨⟨cook_heap ps.state.heap ps.hh, curptr.cook hp⟩, ho⟩ I =
+  ∃ ho : Bdd.Ordered (cook_bdd ps.state.heap ps.hh curptr hp),
+    OBdd.Reduced ⟨cook_bdd ps.state.heap ps.hh curptr hp, ho⟩ ∧
+    ∀ I, OBdd.evaluate ⟨cook_bdd ps.state.heap ps.hh curptr hp, ho⟩ I =
          OBdd.evaluate ⟨⟨O.1.heap, .node entry.2⟩, hj⟩ I
 
 end Reduce

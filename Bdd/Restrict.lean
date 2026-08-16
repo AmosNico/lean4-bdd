@@ -23,8 +23,8 @@ def Invariant (b : Bool) (i : Fin n) (O : OBdd n m) (s : State n m) :=
       (∀ j h, p = .inr j → (if (Pointer.toVar O.1.heap k).1 = i.1 then (s.heap[j]'h).va.1 > (Pointer.toVar O.1.heap k) else (s.heap[j]'h).va.1 = (Pointer.toVar O.1.heap k))) ∧
       ∃ hk1 : Bdd.Ordered ⟨O.1.heap, k⟩,
           ∃ hp : p.Bounded s.size,
-            ∃ o : Bdd.Ordered ⟨cook_heap s.heap hh, p.cook hp⟩,
-                OBdd.evaluate ⟨⟨cook_heap s.heap hh, p.cook hp⟩, o⟩ = Nary.restrict (OBdd.evaluate ⟨⟨O.1.heap, k⟩, hk1⟩) b i
+            ∃ o : Bdd.Ordered (cook_bdd s.heap hh p hp),
+                OBdd.evaluate ⟨cook_bdd s.heap hh p hp, o⟩ = Nary.restrict (OBdd.evaluate ⟨⟨O.1.heap, k⟩, hk1⟩) b i
 
 lemma inv_initial {b} {i} {O : OBdd n m} : Invariant b i O initial := by
   constructor
@@ -40,7 +40,7 @@ lemma heap_push_aux (s : State n m) (inv : Invariant b i O s)
     (hxl : ∀ j h (_ : N.lo = .inr j), N.va.1 < (s.heap[j]'h).va.1)
     (hxh : ∀ j h (_ : N.hi = .inr j), N.va.1 < (s.heap[j]'h).va.1)
     (hh : ∀ h0 (h1 : Bdd.Ordered _),
-      OBdd.evaluate ⟨⟨cook_heap (s.heap.push N) h0, .node ⟨s.size, by simp⟩⟩, h1⟩ = Nary.restrict (O.evaluate) b i) :
+      OBdd.evaluate ⟨cook_bdd (s.heap.push N) h0 (.inr s.size) (by grind only [RawPointer.Bounded]), h1⟩ = Nary.restrict (O.evaluate) b i) :
     Invariant b i O
       { size := s.size + 1, heap := s.heap.push N, cache := s.cache.insert (O.1.root) (Sum.inr s.size) } := by
   rcases hNl with ⟨kl, hkl⟩
@@ -97,9 +97,9 @@ lemma heap_push_aux (s : State n m) (inv : Invariant b i O s)
     subst hpe
     have hb : RawPointer.Bounded (s.size + 1) (Sum.inr s.size) := by intro i hi; injection hi with hie; subst hie; simp
     use hb
-    have hoo : Bdd.Ordered ⟨cook_heap (s.heap.push N) this, RawPointer.cook (Sum.inr s.size) hb⟩ := by
+    have hoo : Bdd.Ordered (cook_bdd (s.heap.push N) this (Sum.inr s.size) hb) := by
       apply Bdd.ordered_of_low_high_ordered rfl
-      · simp only [Bdd.low_eq, cook_heap]
+      · simp only [Bdd.low_eq, cook_heap, cook_bdd]
         simp only [Fin.getElem_fin, Vector.getElem_ofFn, Vector.getElem_push_eq]
         rw [← cook_low]
         swap; apply RawPointer.bounded_of_le (inv.2 kl N.lo hkl).2.2.1; omega
@@ -107,8 +107,7 @@ lemma heap_push_aux (s : State n m) (inv : Invariant b i O s)
         apply push_ordered
         · exact this
         · exact that.1
-      ·
-        simp [Nat.succ_eq_add_one, Bdd.var_eq, cook_heap, Bdd.low_eq, RawPointer.cook]
+      · simp [Nat.succ_eq_add_one, Bdd.var_eq, cook_bdd, cook_heap, Bdd.low_eq, RawPointer.cook]
         cases heq : N.lo with
         | inl val =>
           rw [← cook_low]
@@ -130,7 +129,7 @@ lemma heap_push_aux (s : State n m) (inv : Invariant b i O s)
             rw [Vector.getElem_push_lt hvs]
             exact hxl _ hvs heq
           · apply RawPointer.bounded_of_le (inv.2 kl N.lo hkl).2.2.1; omega
-      · simp only [Bdd.high_eq, cook_heap]
+      · simp only [Bdd.high_eq, cook_heap, cook_bdd]
         simp only [Fin.getElem_fin, Vector.getElem_ofFn, Vector.getElem_push_eq]
         rw [← cook_high]
         swap; apply RawPointer.bounded_of_le (inv.2 kh N.hi hkh).2.2.1; omega
@@ -139,7 +138,7 @@ lemma heap_push_aux (s : State n m) (inv : Invariant b i O s)
         · exact this
         · exact that.1
       ·
-        simp [Nat.succ_eq_add_one, Bdd.var_eq, cook_heap, Bdd.high_eq, RawPointer.cook]
+        simp [Nat.succ_eq_add_one, Bdd.var_eq, cook_heap, Bdd.high_eq, RawPointer.cook, cook_bdd]
         cases heq : N.hi with
         | inl val =>
           rw [← cook_high]
@@ -161,8 +160,8 @@ lemma heap_push_aux (s : State n m) (inv : Invariant b i O s)
           · apply RawPointer.bounded_of_le (inv.2 kh N.hi hkh).2.2.1; omega
     use hoo
     rw [show ⟨{ heap := O.1.heap, root := O.1.root }, _⟩ =  O by rfl]
-    simp [RawPointer.cook]
-    simp [RawPointer.cook] at hoo
+    simp [RawPointer.cook, cook_bdd]
+    simp [RawPointer.cook, cook_bdd] at hoo
     have := hh _ (by exact hoo)
     exact hh _ hoo
   next heq =>
@@ -178,18 +177,18 @@ lemma heap_push_aux (s : State n m) (inv : Invariant b i O s)
     have hb : ∀ {i}, p = Sum.inr i → i < s.size + 1 :=
       RawPointer.bounded_of_le that.2.2.1 (by omega)
     use hb
-    have ho : Bdd.Ordered { heap := cook_heap (s.heap.push N) this, root := p.cook hb } := push_ordered that.2.2.2.1
+    have ho : Bdd.Ordered (cook_bdd (s.heap.push N) this p hb) := push_ordered that.2.2.2.1
     use ho
     ext I
     calc _
-      _ = OBdd.evaluate ⟨{ heap := cook_heap (s.heap) inv.1, root := p.cook that.2.2.1 }, that.2.2.2.1⟩ I := by
+      _ = OBdd.evaluate ⟨cook_bdd (s.heap) inv.1 p that.2.2.1, that.2.2.2.1⟩ I := by
         rw [OBdd.evaluate_eq_evaluate_of_ordered_heap_all_reachable_eq]
         · simp only [Fin.getElem_fin]
           intro j hj
           use (by omega)
-          simp [cook_heap]
+          simp [cook_heap, cook_bdd]
           exact RawNode.cook_equiv
-        · simp only [RawPointer.cook_equiv]
+        · simp only [cook_bdd, RawPointer.cook_equiv]
     rw [that.2.2.2.2]
 
 def heap_push (N : RawNode n) (s : (State n m)) (inv : Invariant b i O s)
@@ -199,7 +198,7 @@ def heap_push (N : RawNode n) (s : (State n m)) (inv : Invariant b i O s)
     (hxl : ∀ j h (_ : N.lo = .inr j), N.va.1 < (s.heap[j]'h).va.1)
     (hxh : ∀ j h (_ : N.hi = .inr j), N.va.1 < (s.heap[j]'h).va.1)
     (hh : ∀ h0 (h1 : Bdd.Ordered _),
-      OBdd.evaluate ⟨⟨cook_heap (s.heap.push N) h0, .node ⟨s.size, by simp⟩⟩, h1⟩ = Nary.restrict (O.evaluate) b i)
+      OBdd.evaluate ⟨cook_bdd (s.heap.push N) h0 (.inr s.size) (by grind only [RawPointer.Bounded]), h1⟩ = Nary.restrict (O.evaluate) b i)
     (hc : s.cache[O.1.root]? = none) :
     { r : State n m × RawPointer //
       (Invariant b i O r.1) ∧
@@ -256,7 +255,7 @@ lemma insert_terminal_invariant (s0 : State n m) (inv : Invariant b i O s0) (ho 
     injection hp with hpe
     subst hpe
     use (fun contra ↦ by contradiction)
-    simp [RawPointer.cook, ho, Bdd.ordered_of_terminal, OBdd.evaluate_terminal]
+    simp [cook_bdd, RawPointer.cook, ho, Bdd.ordered_of_terminal, OBdd.evaluate_terminal]
   next =>
     constructor
     · exact (inv.2 _ _ hp).1
@@ -573,7 +572,7 @@ def restrict_helper (O : OBdd n m) (b : Bool) (i : Fin n) (s0 : State n m) (inv 
                 simp only [Fin.getElem_fin, Fin.eta]
                 ext I
                 congr 1
-                · simp only [Nary.restrict, cook_heap, RawNode.cook, Fin.getElem_fin,
+                · simp only [Nary.restrict, cook_bdd, cook_heap, RawNode.cook, Fin.getElem_fin,
                   Vector.getElem_ofFn, Vector.getElem_push_eq, eq_iff_iff, Bool.coe_iff_coe]
                   exact Vector.getElem_set_ne _ _ (fun contra ↦ by simp only [Fin.val_eq_val] at contra; rw [contra] at hlt; contradiction)
                 · conv =>
@@ -676,6 +675,6 @@ termination_by O
 
 public def orestrict (b : Bool) (i : Fin n) (O : OBdd n m) : (s : Nat) × { W : OBdd n s // W.evaluate = Nary.restrict O.evaluate b i } :=
   let ⟨⟨⟨siz, heap, _⟩, root⟩, h1, h2⟩:= restrict_helper O b i initial inv_initial
-  ⟨ siz, ⟨⟨cook_heap heap h1.1, root.cook (h1.2 _ root h2.1).2.2.1⟩, (h1.2 _ root h2.1).2.2.2.1⟩, (h1.2 _ root h2.1).2.2.2.2 ⟩
+  ⟨ siz, ⟨cook_bdd heap h1.1 root (h1.2 _ root h2.1).2.2.1, (h1.2 _ root h2.1).2.2.2.1⟩, (h1.2 _ root h2.1).2.2.2.2 ⟩
 
 end Restrict

@@ -740,8 +740,8 @@ lemma Bdd.eq_terminal_of_relevant {n m} {B : Bdd n m} {b}
   (terminal_relevant_iff (by simp [h]) S).mp rfl
 
 /-- Terminal BDDs are reduced. -/
-lemma OBdd.reduced_of_terminal {n m} {O : OBdd n m} : O.isTerminal → O.Reduced := by
-  rintro ⟨b, h⟩
+lemma OBdd.reduced_of_terminal {n m} {O : OBdd n m} {b} : O.bdd.root = terminal b → O.Reduced := by
+  intro h
   constructor
   · intro p R
     have contra : Redundant O.1.heap (terminal b) := by apply (terminal_relevant_iff h p).mp R
@@ -751,7 +751,12 @@ lemma OBdd.reduced_of_terminal {n m} {O : OBdd n m} : O.isTerminal → O.Reduced
       _ = terminal b :=         (eq_terminal_of_relevant (by rw [← h]) p)
       _ = q.1        := Eq.symm (eq_terminal_of_relevant (by rw [← h]) q)
 
-lemma Bdd.reduced_of_terminal : OBdd.Reduced ⟨⟨M, terminal b⟩, o⟩ := OBdd.reduced_of_terminal ⟨b, rfl⟩
+/-- Terminal BDDs are reduced. -/
+lemma OBdd.reduced_of_terminal' {n m} {O : OBdd n m} : O.isTerminal → O.Reduced := by
+  grind only [isTerminal, reduced_of_terminal]
+
+lemma Bdd.reduced_of_terminal : OBdd.Reduced ⟨⟨M, terminal b⟩, o⟩ :=
+  OBdd.reduced_of_terminal rfl
 
 /-- Sub-BDDs of a reduced BDD are reduced. -/
 private lemma OBdd.reduced_of_relevant {O : OBdd n m} (S : O.1.RelevantPointer):
@@ -759,9 +764,8 @@ private lemma OBdd.reduced_of_relevant {O : OBdd n m} (S : O.1.RelevantPointer):
   intro R
   induction O using OBdd.init_inductionOn
   case base b U h1 h2 =>
-    apply OBdd.reduced_of_terminal
-    simp_rw [isTerminal, Bdd.eq_terminal_of_relevant h2 S]
-    use b
+    apply OBdd.reduced_of_terminal (b := b)
+    simp_rw [Bdd.eq_terminal_of_relevant h2 S]
   case step O' _ _ _ _ _ =>
     constructor
     · intro p; apply R.1 ⟨p.1, Reachable.trans S.2 p.2⟩
@@ -2153,6 +2157,17 @@ lemma RawNode.cook_equiv : Node.equiv (RawNode.cook N h1) (RawNode.cook N h2) :=
 def cook_heap (v : Vector (RawNode n) c) (hh : ∀ i : Fin c, v[i].Bounded i) : Vector (Node n c) c :=
   Vector.ofFn (fun i ↦ v[i].cook (RawNode.bounded_of_le (hh i) (by omega)))
 
+def cook_bdd {n m} (v : Vector (RawNode n) m) (hh : ∀ i : Fin m, v[i].Bounded i)
+    (p : RawPointer) (hp : RawPointer.Bounded m p) : Bdd n m :=
+  ⟨cook_heap v hh, RawPointer.cook p hp⟩
+
+lemma cook_bdd_eq {n m} {v : Vector (RawNode n) m} {hh p hp} :
+    cook_bdd v hh p hp = ⟨cook_heap v hh, p.cook hp⟩ := (rfl)
+
+@[simp]
+lemma root_cook_bdd {n m} {v : Vector (RawNode n) m} {hh p hp} :
+    (cook_bdd v hh p hp).root = p.cook hp := (rfl)
+
 @[expose]
 def toVar_or (M : Vector (Node n m) m) : Pointer m → Nat → Nat
   | .terminal _, i => i
@@ -2259,6 +2274,7 @@ lemma push_ordered : Bdd.Ordered ⟨cook_heap v h0, RawPointer.cook p h1⟩ → 
       use h1 rfl
       simp [RawPointer.cook]
 
+#check sorry
 lemma push_evaluate' {v : Vector _ _} {h0} {h1} {ho : Bdd.Ordered _} {hu : Bdd.Ordered ⟨cook_heap v h1, RawPointer.cook p hq⟩} :
     OBdd.evaluate ⟨⟨cook_heap (v.push N) h0, RawPointer.cook p hp⟩, ho⟩ =
     OBdd.evaluate ⟨⟨cook_heap v h1, RawPointer.cook p hq⟩, hu⟩ := by
@@ -2281,6 +2297,19 @@ lemma push_evaluate {n m} {O : OBdd n (m + 1)} {v : Vector (RawNode n) m} {N h0 
     simp only [cook_heap, Fin.getElem_fin, Vector.getElem_ofFn, Fin.is_lt, Vector.getElem_push_lt]
     exact RawNode.cook_equiv
   · simp only [h_root]
+    exact RawPointer.cook_equiv (h1 := hp') (h2 := hp)
+
+lemma push_evaluate2 {n m} {O : OBdd n (m + 1)} {v : Vector (RawNode n) m} {N h0 p hp h1 hp' ho}
+    (h : O.bdd = cook_bdd (v.push N) h0 p hp) :
+    O.evaluate = OBdd.evaluate ⟨cook_bdd v h1 p hp', ho⟩ := by
+  apply OBdd.evaluate_eq_evaluate_of_ordered_heap_all_reachable_eq
+  · simp only [Fin.getElem_fin]
+    intro j hj
+    use (by omega)
+    rw [h]
+    simp only [cook_bdd, cook_heap, Fin.getElem_fin, Vector.getElem_ofFn, Fin.is_lt, Vector.getElem_push_lt]
+    exact RawNode.cook_equiv
+  · simp only [h]
     exact RawPointer.cook_equiv (h1 := hp') (h2 := hp)
 
 end RawBdd
