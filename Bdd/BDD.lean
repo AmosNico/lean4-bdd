@@ -1,15 +1,18 @@
 module
 
-import Bdd.Nary
-public import Bdd.Sim
--- Only for Fintype instance for Vector
 public import Bdd.Count
-import Bdd.Reduce
-import Bdd.Apply
-import Bdd.Relabel
-import Bdd.Choice
-import Bdd.Restrict
+-- Only for Fintype instance for Vector
 public import Bdd.Evaluate
+public import Bdd.Sim
+public import Bdd.Tactic
+
+import Bdd.Apply
+import Bdd.Choice
+import Bdd.Nary
+import Bdd.Reduce
+import Bdd.Relabel
+import Bdd.Restrict
+
 /-
 Cannot compile inline/specializing declaration `instDecidableSemanticEquiv` as it uses `Lift.olift`
 of module `Bdd.Lift` which must be imported publicly. This limitation may be lifted in the future.
@@ -74,7 +77,7 @@ public lemma not_dependsOn_of_ge {B : BDD} {i} (h : i ≥ B.nvars) : ¬ B.Depend
   grind only [DependsOn]
 
 @[simp]
-public lemma getElem_cast {B : BDD} {n} {I : Vector Bool n} {hn : B.nvars ≤ n} (h : n = m)  :
+public lemma getElem_cast {B : BDD} {n m} {I : Vector Bool n} {hn : B.nvars ≤ n} (h : n = m) :
     B[Vector.cast h I] = B[I] := by
   subst h
   simp
@@ -90,14 +93,15 @@ def Similar (B : BDD) (B' : BDD) :=
 
 public lemma getElem_take {B : BDD} {n} {I : Vector Bool n} {m} {h1 : B.nvars ≤ m} {h2 : m ≤ n} :
     B[I.take m] = B[I] := by
-  simp [getElem_eq_evaluate, Evaluate.evaluate_evaluate, lift]
+  simp only [getElem_eq_evaluate, lift, Evaluate.evaluate_evaluate, Lift.olift_evaluate]
+  simp only [Vector.take_eq_extract, Vector.extract_extract, Nat.add_zero, Nat.sub_zero,
+    Vector.cast_cast]
   congr!
   omega
 
 public lemma getElem_take' {B : BDD} {n} {I : Vector Bool n} {hn : B.nvars ≤ n} :
-     B[I.take B.nvars] = B[I] := by
-  simp [getElem_eq_evaluate, Evaluate.evaluate_evaluate, lift]
-  grind only
+     B[I.take B.nvars] = B[I] :=
+  getElem_take (h1 := le_rfl) (h2 := hn)
 
 lemma Vector.append_take {α n m} (v : Vector α n) (u : Vector α m) :
     (v ++ u).take n = (Vector.cast (by simp) v) := by
@@ -406,15 +410,9 @@ public def var (n : Nat) : BDD :=
 public lemma var_nvars {i} : (var i).nvars = i + 1 := (rfl)
 
 @[simp]
-public lemma getElem_var {i n}
-    (h1 : (var i).nvars ≤ n := by bdd_bounds) (h2 : i < n := by bdd_bounds) :
-    ∀ I : Vector Bool n, (var i)[I]'h1 = I[i]'h2 := by
-  intro I
-  simp [getElem_eq_evaluate, var, lift, Evaluate.evaluate_evaluate, Lift.olift_evaluate]
-  have h2 : (I.take (i + 1))[i] = I[i] := by
-    apply Vector.getElem_take
-  rw [← h2]
-  rfl
+public lemma getElem_var {i n} {h : i < n} :
+    ∀ I : Vector Bool n, (var i)[I]'(by rw [var_nvars]; omega) = I[i] := by
+  simp [var, getElem_eq_evaluate, lift, Evaluate.evaluate_evaluate, -Vector.take_eq_extract]
 
 @[simp]
 public lemma var_dependsOn {n i} :
@@ -457,7 +455,7 @@ public lemma getElem_apply {n} {B C : BDD} {op} {h1 : max B.nvars C.nvars ≤ n}
     simp [apply]
     grind only
 
-public lemma apply_dependsOn {B : BDD} {i} :
+public lemma apply_dependsOn {o} {B C : BDD} {i} :
     (apply o B C).DependsOn i → B.DependsOn i ∨ C.DependsOn i := by
   repeat rw [dependsOn_iff (max B.nvars C.nvars) (by simp)]
   grind only [getElem_apply]
@@ -469,7 +467,7 @@ public def and : BDD → BDD → BDD := apply Bool.and
 public lemma and_nvars {B C : BDD} : (B.and C).nvars = max B.nvars C.nvars := apply_nvars
 
 @[simp]
-public lemma getElem_and {B C : BDD} {h : (B.and C).nvars ≤ n} :
+public lemma getElem_and {B C : BDD} {n} {h : (B.and C).nvars ≤ n} :
     ∀ I : Vector Bool n, (B.and C)[I] = (B[I] && C[I]) :=
   getElem_apply
 
@@ -499,7 +497,7 @@ public lemma xor_nvars {B C : BDD} : (B.xor C).nvars = max B.nvars C.nvars :=
   apply_nvars
 
 @[simp]
-public lemma getElem_xor {B C : BDD} {h : (B.xor C).nvars ≤ n} :
+public lemma getElem_xor {B C : BDD} {n} {h : (B.xor C).nvars ≤ n} :
     ∀ I : Vector Bool n, (B.xor C)[I] = (B[I] ^^ C[I]) :=
   getElem_apply
 
@@ -514,7 +512,7 @@ public def imp : BDD → BDD → BDD := apply (! · || ·)
 public lemma imp_nvars {B C : BDD} : (B.imp C).nvars = max B.nvars C.nvars := apply_nvars
 
 @[simp]
-public lemma getElem_imp {B C : BDD} {h : (B.imp C).nvars ≤ n} :
+public lemma getElem_imp {B C : BDD} {n} {h : (B.imp C).nvars ≤ n} :
     ∀ I : Vector Bool n, (B.imp C)[I] = (!B[I] || C[I]) :=
   getElem_apply
 
@@ -557,11 +555,11 @@ def relabel_wrap (m n : Nat) (f : Fin m → Fin n) : Nat → Nat :=
   fun i ↦ if h : i < m then f ⟨i, h⟩ else n
 
 @[simp]
-lemma relabel_helper_aux  : relabel_wrap m n f m = n := by
+lemma relabel_helper_aux {m n f} : relabel_wrap m n f m = n := by
   simp [relabel_wrap]
 
 @[simp]
-lemma relabel_helper_aux' {i : Fin m} : relabel_wrap m n f i.1 = f i := by
+lemma relabel_helper_aux' {m n f} {i : Fin m} : relabel_wrap m n f i.1 = f i := by
   simp [relabel_wrap]
 
 /-- Relabel the variables in a `BDD` according to a relabeling function `f`.
@@ -608,7 +606,7 @@ lemma relabel_dependsOn_aux {B : BDD} {n} {f : Fin B.nvars → Fin n}
   next h =>
     grind only
 
-public lemma relabel_dependsOn {n} {B : BDD} {f : Fin B.nvars → Fin n} {hf} {i : Fin n} :
+public lemma relabel_dependsOn {B : BDD} {n} {f : Fin B.nvars → Fin n} {hf} {i : Fin n} :
     (B.relabel f hf).DependsOn i ↔ ∃ j, i = f j ∧ B.DependsOn j := by
   have h1 : ∀ i i' : Fin B.nvars, B.DependsOn i → B.DependsOn i' →  (f i = f i' ↔ i = i') := by
     grind only
