@@ -192,7 +192,12 @@ lemma heap_push_aux (s : State n m) (inv : Invariant b i O s)
         · simp only [RawPointer.cook_equiv]
     rw [that.2.2.2.2]
 
-def heap_push (N : RawNode n) (s : (State n m)) (inv : Invariant b i O s)
+def heap_push {n m} (O : OBdd n m) (N : RawNode n) (s : (State n m)) : State n m × RawPointer :=
+  ⟨⟨s.size + 1, s.heap.push N, s.cache.insert O.1.root (.inr s.size)⟩, .inr s.size⟩
+
+lemma heap_push_correct {N : RawNode n} {s s' : State n m} {p'}
+    (h : heap_push O N s = (s', p'))
+    (inv : Invariant b i O s)
     (hNl : ∃ k : Pointer m, s.cache[k]? = some N.lo)
     (hNh : ∃ k : Pointer m, s.cache[k]? = some N.hi)
     (hNv : (if (O.1.root.toVar O.1.heap).1 = i.1 then N.va.1 > (O.1.root.toVar O.1.heap).1 else N.va.1 = (O.1.root.toVar O.1.heap).1))
@@ -201,40 +206,35 @@ def heap_push (N : RawNode n) (s : (State n m)) (inv : Invariant b i O s)
     (hh : ∀ h0 (h1 : Bdd.Ordered _),
       OBdd.evaluate ⟨⟨cook_heap (s.heap.push N) h0, .node ⟨s.size, by simp⟩⟩, h1⟩ = Nary.restrict (O.evaluate) b i)
     (hc : s.cache[O.1.root]? = none) :
-    { r : State n m × RawPointer //
-      (Invariant b i O r.1) ∧
-      (r.1.cache[O.1.root]? = some r.2) ∧
-      s.size ≤ r.1.size ∧
+      (Invariant b i O s') ∧
+      (s'.cache[O.1.root]? = some p') ∧
+      s.size ≤ s'.size ∧
       (∀ (k : Pointer m),
-        (∀ p, s.cache[k]? = some p → r.1.cache[k]? = some p) ∧
-        (r.1.cache[k]? = none → s.cache[k]? = none) ∧
-        (s.cache[k]? = none → (∃ p, r.1.cache[k]? = some p) → Pointer.Reachable O.1.heap O.1.root k))
-    } :=
-  ⟨⟨⟨s.size + 1, s.heap.push N, s.cache.insert O.1.root (.inr s.size)⟩, .inr s.size⟩, by
-    constructor
+        (∀ p, s.cache[k]? = some p → s'.cache[k]? = some p) ∧
+        (s'.cache[k]? = none → s.cache[k]? = none) ∧
+        (s.cache[k]? = none → (∃ p, s'.cache[k]? = some p) → Pointer.Reachable O.1.heap O.1.root k)) := by
+    rcases h with ⟨rfl, rfl⟩
+    split_ands
     · exact heap_push_aux s inv hNl hNh hNv hxl hxh hh
-    · constructor
-      · simp only [Std.HashMap.getElem?_insert_self]
+    · simp only [Std.HashMap.getElem?_insert_self]
+    · simp only [Nat.le_add_right]
+    · intro k
+      constructor
+      · intro p hkp
+        rw [← hkp]
+        simp only [Std.HashMap.getElem?_insert, beq_iff_eq, ite_eq_right_iff]
+        intro contra
+        rw [← contra] at hkp
+        rw [hkp] at hc
+        contradiction
       · constructor
-        · simp only [Nat.le_add_right]
-        · intro k
-          constructor
-          · intro p hkp
-            rw [← hkp]
-            simp only [Std.HashMap.getElem?_insert, beq_iff_eq, ite_eq_right_iff]
-            intro contra
-            rw [← contra] at hkp
-            rw [hkp] at hc
-            contradiction
-          · constructor
-            · simp only [getElem?_eq_none_iff, Std.HashMap.mem_insert, beq_iff_eq, not_or,
-                and_imp, imp_self, implies_true]
-            · rintro hk ⟨q, hq⟩
-              simp only [Std.HashMap.getElem?_insert, beq_iff_eq] at hq
-              split at hq
-              next heqq => subst heqq; exact Pointer.Reachable.refl
-              next heqq => rw [hk] at hq; contradiction
-  ⟩
+        · simp only [getElem?_eq_none_iff, Std.HashMap.mem_insert, beq_iff_eq, not_or,
+            and_imp, imp_self, implies_true]
+        · rintro hk ⟨q, hq⟩
+          simp only [Std.HashMap.getElem?_insert, beq_iff_eq] at hq
+          split at hq
+          next heqq => subst heqq; exact Pointer.Reachable.refl
+          next heqq => rw [hk] at hq; contradiction
 
 lemma insert_terminal_invariant (s0 : State n m) (inv : Invariant b i O s0) (ho : O.1.root = .terminal b') :
     Invariant b i O { size := s0.size, heap := s0.heap, cache := s0.cache.insert O.1.root (Sum.inl b') } := by
@@ -262,416 +262,407 @@ lemma insert_terminal_invariant (s0 : State n m) (inv : Invariant b i O s0) (ho 
     · exact (inv.2 _ _ hp).1
     exact (inv.2 _ _ hp).2
 
-def restrict_helper (O : OBdd n m) (b : Bool) (i : Fin n) (s0 : State n m) (inv : Invariant b i O s0) :
-    { r : State n m × RawPointer //
-      (Invariant b i O r.1) ∧
-      (r.1.cache[O.1.root]? = some r.2) ∧
-      (s0.size ≤ r.1.size) ∧
-      (∀ (k : Pointer m),
-        (∀ p, s0.cache[k]? = some p → r.1.cache[k]? = some p) ∧
-        (r.1.cache[k]? = none → s0.cache[k]? = none) ∧
-        (s0.cache[k]? = none → (∃ p, r.1.cache[k]? = some p) → Pointer.Reachable O.1.heap O.1.root k))
-    } :=
+def restrict_helper (O : OBdd n m) (b : Bool) (i : Fin n) (s0 : State n m) :
+  State n m × RawPointer :=
   match hc : s0.cache[O.1.root]? with
-  | some root =>
-    ⟨ ⟨s0, root⟩, ⟨inv, hc, .refl,
-      by
-        intro k
-        constructor
-        · intro p h
-          exact h
-        · constructor
-          · intro h
-            exact h
-          · rintro h ⟨_, c⟩
-            rw [h] at c
-            contradiction,
-      ⟩
-    ⟩
+  | some root => ⟨s0, root⟩
   | none =>
     match O_root_def : O.1.root with
     | .terminal b' =>
-        ⟨⟨⟨s0.size, s0.heap, s0.cache.insert O.1.root (.inl b')⟩, .inl b'⟩, by
-          simp only
-          constructor
-          · exact insert_terminal_invariant s0 inv O_root_def
-          · constructor
-            · simp only [O_root_def, Std.HashMap.getElem?_insert_self]
-            · constructor
-              · exact .refl
-              ·
-                intro k
-                constructor
-                · intro p hp
-                  rw [← hp]
-                  simp only [Std.HashMap.getElem?_insert, beq_iff_eq, ite_eq_right_iff]
-                  intro contra
-                  subst contra
-                  rw [hc] at hp
-                  contradiction
-                · constructor
-                  · simp only [getElem?_eq_none_iff, Std.HashMap.mem_insert, beq_iff_eq, not_or,
-                      and_imp, imp_self, implies_true]
-                  · rintro h1 ⟨p, hp⟩
-                    simp only [Std.HashMap.getElem?_insert,beq_iff_eq] at hp
-                    split at hp
-                    next heq =>
-                      subst heq
-                      simp only [O_root_def]
-                      exact Pointer.Reachable.refl
-                    next heq => rw [h1] at hp; contradiction
-        ⟩
+      ⟨⟨s0.size, s0.heap, s0.cache.insert O.1.root (.inl b')⟩, .inl b'⟩
     | .node j =>
-        if hlt : O.1.heap[j].var = i
+      if hlt : O.1.heap[j].var = i
+      then
+        if hb : b
         then
-          if hb : b
-          then
-            let ⟨⟨sl, rl⟩, ⟨invl, hl, hsl, hlp⟩⟩ :=
-              restrict_helper (O.high O_root_def) b i s0 inv
-            ⟨ ⟨⟨sl.size, sl.heap, sl.cache.insert O.1.root rl⟩, rl⟩,
-              by
-                subst hlt
-                constructor
-                · intro k p
-                  simp only
-                  intro hkp
-                  simp only [Std.HashMap.getElem?_insert,beq_iff_eq] at hkp
-                  split at hkp
-                  next heq =>
-                    subst heq
-                    injection hkp with hinj
-                    subst hinj
-                    constructor
-                    · intro j' hj1 hrj
-                      subst hrj
-                      have that : O.1.heap[j].var.1 < (Pointer.toVar O.1.heap (O.high O_root_def).1.root).1 := by
-                        have := OBdd.var_lt_high_var (O := O) (h := O_root_def)
-                        simp only [OBdd.var_node O_root_def, OBdd.var_eq, OBdd.high_heap_eq_heap] at this
-                        exact this
-                      have := (invl.2 _ _ hl).1 _ hj1 rfl
-                      split at this
-                      next hsp =>
-                        rw [← hsp] at that
-                        absurd that
-                        simp only [Nat.succ_eq_add_one, OBdd.high_heap_eq_heap, lt_self_iff_false,
-                          not_false_eq_true]
-                      next hsp =>
-                        simp_all only [getElem?_eq_none_iff,
-                          Fin.getElem_fin, forall_exists_index,
-                          Nat.succ_eq_add_one, Pointer.toVar_node,
-                          gt_iff_lt, ite_true]
-                        exact that
-                    · use O.2
-                      have := (invl.2 _ _ hl).2.2
-                      use this.1
-                      use this.2.1
-                      rw [this.2.2]
-                      have triv {ho} : ⟨{ heap := O.1.heap, root := O.1.root }, ho⟩ = O := rfl
-                      rw [triv]
-                      have that := OBdd.evaluate_node' O_root_def
-                      rw [that]
-                      rw [Nary.restrict_if]
-                      simp only [OBdd.high_heap_eq_heap, hb, Fin.getElem_fin]
-                      ext I
-                      conv =>
-                        rhs
-                        congr
-                        simp only [Nary.restrict, Vector.getElem_set_self]
-                      rfl
-                  next heq => exact (invl.2 _ _ hkp),
-              by simp only [O_root_def, Std.HashMap.getElem?_insert_self],
-              by exact hsl,
-              by
-                intro k
-                constructor
-                · intro p hkp
-                  simp only [Std.HashMap.getElem?_insert, beq_iff_eq]
-                  split
-                  next heq =>
-                    subst heq
-                    rw [hkp] at hc
-                    contradiction
-                  next => exact (hlp k).1 p hkp
-                · constructor
-                  · simp only [Std.HashMap.getElem?_insert, beq_iff_eq]
-                    split
-                    next heq =>
-                      subst heq
-                      simp only [reduceCtorEq, getElem?_eq_none_iff, IsEmpty.forall_iff]
-                    next => exact (hlp k).2.1
-                  · simp only [Std.HashMap.getElem?_insert, beq_iff_eq]
-                    split
-                    next heq =>
-                      subst heq
-                      rw [hc]
-                      simp only [Option.some.injEq, exists_eq', forall_const, O_root_def]
-                      exact Pointer.Reachable.refl
-                    next =>
-                      intro hkn hhh
-                      rw [← O_root_def]
-                      trans (O.bdd.high O_root_def).root
-                      · exact O.bdd.reachable_high O_root_def
-                      · exact (hlp k).2.2 hkn hhh
-            ⟩
-          else
-            let ⟨⟨sl, rl⟩, ⟨invl, hl, hsl, hlp⟩⟩ := restrict_helper (O.low O_root_def) b i s0 inv
-            ⟨⟨⟨sl.size, sl.heap, sl.cache.insert O.1.root rl⟩, rl⟩,
-              by
-                subst hlt
-                constructor
-                · intro k p
-                  simp only
-                  intro hkp
-                  simp only [Std.HashMap.getElem?_insert,beq_iff_eq] at hkp
-                  split at hkp
-                  next heq =>
-                    subst heq
-                    injection hkp with hinj
-                    subst hinj
-                    constructor
-                    · intro j' hj1 hrj
-                      subst hrj
-                      have that : O.1.heap[j].var.1 < (Pointer.toVar O.1.heap (O.low O_root_def).1.root).1 := by
-                        have := OBdd.var_lt_low_var (O := O) (h := O_root_def)
-                        simp only [OBdd.var, Nat.succ_eq_add_one, Bdd.var, OBdd.low_heap_eq_heap,
-                          Fin.val_fin_lt] at this
-                        rw [O_root_def] at this
-                        simp only [Fin.lt_def, Pointer.toVar_node] at this
-                        exact this
-                      have := (invl.2 _ _ hl).1 _ hj1 rfl
-                      split at this
-                      next hsp =>
-                        rw [← hsp] at that
-                        absurd that
-                        simp only [Nat.succ_eq_add_one, OBdd.low_heap_eq_heap, lt_self_iff_false,
-                          not_false_eq_true]
-                      next hsp =>
-                        simp_all only [getElem?_eq_none_iff,
-                          Fin.getElem_fin, OBdd.low_heap_eq_heap, forall_exists_index,
-                          Nat.succ_eq_add_one, Pointer.toVar_node, gt_iff_lt, ite_true]
-                    · use O.2
-                      have := (invl.2 _ _ hl).2.2
-                      use this.1
-                      use this.2.1
-                      rw [this.2.2]
-                      have triv {ho} : ⟨{ heap := O.1.heap, root := O.1.root }, ho⟩ = O := rfl
-                      rw [triv]
-                      have that := OBdd.evaluate_node' O_root_def
-                      rw [that]
-                      rw [Nary.restrict_if]
-                      simp only [OBdd.low_heap_eq_heap, hb, Fin.getElem_fin]
-                      ext I
-                      conv =>
-                        rhs
-                        congr
-                        simp only [Nary.restrict, Vector.getElem_set_self]
-                      rfl
-                  next heq => exact (invl.2 _ _ hkp),
-              by simp only [O_root_def, Std.HashMap.getElem?_insert_self],
-              by exact hsl,
-              by
-                intro k
-                constructor
-                · intro p hkp
-                  simp only [Std.HashMap.getElem?_insert, beq_iff_eq]
-                  split
-                  next heq =>
-                    subst heq
-                    rw [hkp] at hc
-                    contradiction
-                  next => exact (hlp k).1 p hkp
-                · constructor
-                  · simp only [Std.HashMap.getElem?_insert, beq_iff_eq]
-                    split
-                    next heq =>
-                      subst heq
-                      simp only [reduceCtorEq, getElem?_eq_none_iff, IsEmpty.forall_iff]
-                    next => exact (hlp k).2.1
-                  · simp only [Std.HashMap.getElem?_insert, beq_iff_eq]
-                    split
-                    next heq =>
-                      subst heq
-                      rw [hc]
-                      simp only [Option.some.injEq, exists_eq', forall_const, O_root_def]
-                      exact Pointer.Reachable.refl
-                    next =>
-                      intro hkn hhh
-                      rw [← O_root_def]
-                      trans O.bdd.heap[j].low
-                      · exact O.bdd.reachable_low O_root_def
-                      · have := (hlp k).2.2 hkn hhh
-                        simp_all only [OBdd.low_root_eq_low, OBdd.low_heap_eq_heap]
-          ⟩
+          let ⟨sl, rl⟩ := restrict_helper (O.high O_root_def) b i s0
+          ⟨⟨sl.size, sl.heap, sl.cache.insert O.1.root rl⟩, rl⟩
         else
-          let ⟨⟨sl, rl⟩, ⟨invl, hl, hsl, hlp⟩⟩ := restrict_helper (O.low O_root_def) b i s0 inv
-          let ⟨⟨sh, rh⟩, ⟨invh, hh, hsh, hhp⟩⟩ := restrict_helper (O.high O_root_def) b i sl invl
-          let ⟨r, ⟨invv, hv, hsv, hvp⟩⟩ :=
-            heap_push (O := O)
-              ⟨⟨O.1.heap[j].var.1, by omega⟩, rl, rh⟩ sh invh
-              (by
-                use (O.low O_root_def).1.root
-                simp only
-                exact (hhp _).1 _ hl
-              )
-              ⟨_, hh⟩
-              (by
-                simp only
-                rw [O_root_def]
-                simp only [Fin.getElem_fin] at hlt
-                simp only [Nat.succ_eq_add_one, Pointer.toVar_node, Fin.getElem_fin,
-                  gt_iff_lt, lt_self_iff_false, if_false_left, and_true]
-                omega
-              )
-              (by
-                intro j' hj1 hj2
-                have h1 := (hhp _).1 _ hl
-                simp only at h1 hj2
-                rw [hj2] at h1
-                have h2 := (invh.2 _ (.inr j') h1).1 _ hj1 rfl
-                simp only at h2
-                have hll : O.1.heap[j.1].var.1 < (Pointer.toVar O.1.heap (O.low O_root_def).1.root).1 := by
-                  have h3 := OBdd.var_lt_low_var (O := O) (h := O_root_def)
-                  simp only [OBdd.var_eq, OBdd.low_heap_eq_heap,Fin.val_fin_lt] at h3
-                  rw [O_root_def] at h3
-                  simp_rw [Fin.lt_def, Pointer.toVar_node] at h3
-                  grind only [= Fin.getElem_fin]
-                split at h2
-                next =>
-                  trans (Pointer.toVar O.1.heap (O.low O_root_def).1.root).1
-                  · exact hll
-                  · exact h2
-                next =>
-                  rw [h2]
-                  exact hll
-              )
-              (by
-                intro j' hj1
-                simp only [Fin.getElem_fin]
-                intro hj2
-                have that := (invh.2 _ _ hh).1 _ hj1 hj2
-                have hll : O.1.heap[j.1].var.1 < (Pointer.toVar O.1.heap (O.high O_root_def).1.root).1 := by
-                  have := OBdd.var_lt_high_var (O := O) (h := O_root_def)
-                  simp only [OBdd.var_node O_root_def, OBdd.var_eq, OBdd.high_heap_eq_heap] at this
-                  grind only [= Fin.getElem_fin]
-                split at that
-                next =>
-                  trans (Pointer.toVar O.1.heap (O.high O_root_def).1.root).1
-                  · exact hll
-                  · exact that
-                next =>
-                  rw [that]
-                  exact hll
-              )
-              (by
-                intro h0 h1
-                symm
-                rw [OBdd.evaluate_node' O_root_def]
-                rw [Nary.restrict_if]
-                conv =>
-                  rhs
-                  rw [OBdd.evaluate_node']
-                simp only [Fin.getElem_fin, Fin.eta]
-                ext I
-                congr 1
-                · simp only [Nary.restrict, cook_heap, RawNode.cook, Fin.getElem_fin,
-                  Vector.getElem_ofFn, Vector.getElem_push_eq, eq_iff_iff, Bool.coe_iff_coe]
-                  exact Vector.getElem_set_ne _ _ (fun contra ↦ by simp only [Fin.val_eq_val] at contra; rw [contra] at hlt; contradiction)
-                · conv =>
-                    rhs
-                    congr
-                    congr
-                    congr
-                    rfl
-                    simp [cook_heap, RawNode.cook]
-                    rfl
-                  symm
-                  have h := invh.2 (O.high O_root_def).1.root rh hh
-                  rcases h with ⟨h1, h2, h3, h4, h5⟩
-                  simp only [OBdd.high_heap_eq_heap, OBdd.high_root_eq_high] at h5
-                  simp only [OBdd.high_eq, Bdd.high_eq]
-                  rw [push_evaluate rfl (v := sh.heap) (h0 := h0) (ho := h4), h5]
-                  simp [cook_heap]
-                  rfl
-                · conv =>
-                    rhs
-                    congr
-                    congr
-                    congr
-                    rfl
-                    simp [cook_heap, RawNode.cook]
-                    rfl
-                  symm
-                  have : sh.cache[(O.low O_root_def).1.root]? = some rl := by
-                    apply (hhp _).1
-                    exact hl
-                  have h := invh.2 (O.low O_root_def).1.root rl this
-                  rcases h with ⟨h1, h2, h3, h4, h5⟩
-                  simp only [OBdd.high_heap_eq_heap, OBdd.low_root_eq_low] at h5
-                  rw [push_evaluate rfl (h0 := h0) (ho := h4), h5]
-                  · rfl
-                  · simp [cook_heap]
-                    rfl
-              )
-              (by
-                cases heq : sh.cache[O.1.root]? with
-                | none => rfl
-                | some val =>
-                  cases heqq : sl.cache[O.1.root]? with
-                  | none =>
-                    have := ((hhp _).2.2 heqq ⟨val, heq⟩)
-                    simp only [OBdd.high_heap_eq_heap] at this
-                    absurd this
-                    apply OBdd.not_oedge_reachable
-                    exact oedge_of_high
-                  | some val =>
-                    have := ((hlp _).2.2 hc ⟨_, heqq⟩)
-                    simp only [OBdd.low_heap_eq_heap] at this
-                    absurd this
-                    apply OBdd.not_oedge_reachable
-                    exact oedge_of_low
-              )
-          ⟨ r,
-            invv,
-            (by rw [O_root_def] at hv; exact hv),
-            .trans hsl (.trans hsh hsv),
-            by
-              intro k
-              constructor
-              · intro p hp
-                apply (hvp _).1
-                apply (hhp _).1
-                apply (hlp _).1
-                exact hp
-              · constructor
-                · intro hk
-                  apply (hlp _).2.1
-                  apply (hhp _).2.1
-                  apply (hvp _).2.1
-                  exact hk
-                · intro hk hkp
-                  rw [← O_root_def]
-                  cases heq : sh.cache[k]? with
-                  | none =>
-                    apply (hvp _).2.2 heq hkp
-                  | some w =>
-                    cases heqq : sl.cache[k]? with
-                    | none =>
-                      have := (hhp _).2.2 heqq ⟨_, heq⟩
-                      · trans O.bdd.heap[j].high
-                        · exact O.bdd.reachable_high O_root_def
-                        · rw [OBdd.high_heap_eq_heap, OBdd.high_root_eq_high] at this
-                          exact this
-                    | some ww =>
-                      have := (hlp _).2.2 hk ⟨_, heqq⟩
-                      · trans O.bdd.heap[j].low
-                        · exact O.bdd.reachable_low O_root_def
-                        · rw [OBdd.low_heap_eq_heap, OBdd.low_root_eq_low] at this
-                          exact this
-          ⟩
+          let ⟨sl, rl⟩ := restrict_helper (O.low O_root_def) b i s0
+          ⟨⟨sl.size, sl.heap, sl.cache.insert O.1.root rl⟩, rl⟩
+      else
+        let ⟨sl, rl⟩ := restrict_helper (O.low O_root_def) b i s0
+        let ⟨sh, rh⟩ := restrict_helper (O.high O_root_def) b i sl
+        heap_push O ⟨⟨O.1.heap[j].var.1, by omega⟩, rl, rh⟩ sh
 termination_by O
 
-public def orestrict (b : Bool) (i : Fin n) (O : OBdd n m) : (s : Nat) × { W : OBdd n s // W.evaluate = Nary.restrict O.evaluate b i } :=
-  let ⟨⟨⟨siz, heap, _⟩, root⟩, h1, h2⟩:= restrict_helper O b i initial inv_initial
-  ⟨ siz, ⟨⟨cook_heap heap h1.1, root.cook (h1.2 _ root h2.1).2.2.1⟩, (h1.2 _ root h2.1).2.2.2.1⟩, (h1.2 _ root h2.1).2.2.2.2 ⟩
+lemma restrict_helper_correct (O : OBdd n m) (b : Bool) (i : Fin n) (s0 : State n m)
+    {s' p'} (h : restrict_helper O b i s0 = (s', p')) (inv : Invariant b i O s0) :
+      (Invariant b i O s') ∧
+      (s'.cache[O.1.root]? = some p') ∧
+      (s0.size ≤ s'.size) ∧
+      (∀ (k : Pointer m),
+        (∀ p, s0.cache[k]? = some p → s'.cache[k]? = some p) ∧
+        (s'.cache[k]? = none → s0.cache[k]? = none) ∧
+        (s0.cache[k]? = none → (∃ p, s'.cache[k]? = some p) → Pointer.Reachable O.1.heap O.1.root k))
+    := by
+  fun_induction restrict_helper generalizing s' p' with
+  | case1 O s0 root hc =>
+    rcases h with ⟨rfl, rfl⟩
+    exact ⟨inv, hc, .refl, by grind only⟩
+  | case2 O s0 hc b' O_root_def =>
+    rcases h with ⟨rfl, rfl⟩
+    simp only
+    split_ands
+    · exact insert_terminal_invariant s0 inv O_root_def
+    · simp only [O_root_def, Std.HashMap.getElem?_insert_self]
+    · exact .refl
+    · intro k
+      constructor
+      · intro p hp
+        rw [← hp]
+        simp only [Std.HashMap.getElem?_insert, beq_iff_eq, ite_eq_right_iff]
+        intro contra
+        subst contra
+        rw [hc] at hp
+        contradiction
+      · constructor
+        · simp only [getElem?_eq_none_iff, Std.HashMap.mem_insert, beq_iff_eq, not_or,
+            and_imp, imp_self, implies_true]
+        · rintro h1 ⟨p, hp⟩
+          simp only [Std.HashMap.getElem?_insert,beq_iff_eq] at hp
+          split at hp
+          next heq =>
+            subst heq
+            simp only [O_root_def]
+            exact Pointer.Reachable.refl
+          next heq => grind only
+  | case3 O s0 hc j O_root_def hlt hb sl rl heq ih =>
+    rcases h with ⟨rfl, rfl⟩
+    let ⟨invl, hl, hsl, hlp⟩ := ih rfl inv
+    simp_all only
+    split_ands
+    · subst hlt
+      constructor
+      · intro k p
+        simp only
+        intro hkp
+        simp only [Std.HashMap.getElem?_insert,beq_iff_eq] at hkp
+        split at hkp
+        next heq =>
+          injection hkp with hinj
+          subst hinj heq
+          constructor
+          · intro j' hj1 rfl
+            have that : O.1.heap[j].var.1 < (Pointer.toVar O.1.heap (O.high O_root_def).1.root).1 := by
+              have := OBdd.var_lt_high_var (O := O) (h := O_root_def)
+              simp only [OBdd.var_node O_root_def, OBdd.var_eq, OBdd.high_heap_eq_heap] at this
+              exact this
+            have := (invl.2 (O.high O_root_def).bdd.root (.inr j') hl).1 j' hj1 rfl
+            split at this
+            next hsp =>
+              rw [← hsp] at that
+              absurd that
+              simp only [Nat.succ_eq_add_one, OBdd.high_heap_eq_heap, lt_self_iff_false,
+                not_false_eq_true]
+            next hsp =>
+              simp_all only [getElem?_eq_none_iff, OBdd.high_heap_eq_heap, forall_exists_index,
+                Fin.getElem_fin, Nat.succ_eq_add_one, Pointer.toVar_node, gt_iff_lt, ite_true]
+          · use O_root_def ▸ O.2
+            have := (invl.2 _ _ hl).2.2
+            use this.1
+            use this.2.1
+            rw [this.2.2]
+            simp only [← O_root_def, OBdd.mk_eq_self]
+            rw [OBdd.evaluate_node' O_root_def]
+            rw [Nary.restrict_if]
+            simp only [Fin.getElem_fin]
+            ext I
+            conv =>
+              rhs
+              congr
+              simp only [Nary.restrict, Vector.getElem_set_self]
+            rfl
+        next heq => exact (invl.2 _ _ hkp)
+    · simp only [Std.HashMap.getElem?_insert_self]
+    · trivial
+    · intro k
+      constructor
+      · intro p hkp
+        simp only [Std.HashMap.getElem?_insert, beq_iff_eq]
+        split
+        next heq =>
+          subst heq
+          rw [hkp] at hc
+          contradiction
+        next => exact (hlp k).1 p hkp
+      · constructor
+        · simp only [Std.HashMap.getElem?_insert, beq_iff_eq]
+          split
+          next heq =>
+            subst heq
+            simp only [reduceCtorEq, getElem?_eq_none_iff, IsEmpty.forall_iff]
+          next => exact (hlp k).2.1
+        · simp only [Std.HashMap.getElem?_insert, beq_iff_eq]
+          split
+          next heq =>
+            subst heq
+            rw [hc]
+            simp only [Option.some.injEq, exists_eq', forall_const]
+            exact Pointer.Reachable.refl
+          next =>
+            intro hkn hhh
+            rw [← O_root_def]
+            trans (O.bdd.high O_root_def).root
+            · exact O.bdd.reachable_high O_root_def
+            · exact (hlp k).2.2 hkn hhh
+  | case4 O s0 hc j O_root_def hlt hb sl rl heq ih =>
+    rcases h with ⟨rfl, rfl⟩
+    let ⟨invl, hl, hsl, hlp⟩ := ih rfl inv
+    simp_all only
+    split_ands
+    · subst hlt
+      constructor
+      · intro k p
+        simp only
+        intro hkp
+        simp only [Std.HashMap.getElem?_insert,beq_iff_eq] at hkp
+        split at hkp
+        next heq =>
+          subst heq
+          injection hkp with hinj
+          subst hinj
+          constructor
+          · intro j' hj1 hrj
+            subst hrj
+            have that : O.1.heap[j].var.1 < (Pointer.toVar O.1.heap (O.low O_root_def).1.root).1 := by
+              have := OBdd.var_lt_low_var (O := O) (h := O_root_def)
+              simp only [OBdd.var, Nat.succ_eq_add_one, Bdd.var, OBdd.low_heap_eq_heap,
+                Fin.val_fin_lt] at this
+              rw [O_root_def] at this
+              simp only [Fin.lt_def, Pointer.toVar_node] at this
+              exact this
+            have := (invl.2 _ _ hl).1 _ hj1 rfl
+            split at this
+            next hsp =>
+              rw [← hsp] at that
+              absurd that
+              simp only [Nat.succ_eq_add_one, OBdd.low_heap_eq_heap, lt_self_iff_false,
+                not_false_eq_true]
+            next hsp =>
+              simp_all only [getElem?_eq_none_iff,
+                Fin.getElem_fin, OBdd.low_heap_eq_heap, forall_exists_index,
+                Nat.succ_eq_add_one, Pointer.toVar_node, gt_iff_lt, ite_true]
+          · use O_root_def ▸ O.2
+            have := (invl.2 _ _ hl).2.2
+            use this.1
+            use this.2.1
+            rw [this.2.2]
+            simp only [← O_root_def, OBdd.mk_eq_self]
+            have that := OBdd.evaluate_node' O_root_def
+            rw [that]
+            rw [Nary.restrict_if]
+            simp only [Fin.getElem_fin]
+            ext I
+            conv =>
+              rhs
+              congr
+              simp only [Nary.restrict, Vector.getElem_set_self]
+            rfl
+        next heq => exact (invl.2 _ _ hkp)
+    · simp only [Std.HashMap.getElem?_insert_self]
+    · trivial
+    · intro k
+      constructor
+      · intro p hkp
+        simp only [Std.HashMap.getElem?_insert, beq_iff_eq]
+        split
+        next heq =>
+          subst heq
+          rw [hkp] at hc
+          contradiction
+        next => exact (hlp k).1 p hkp
+      · constructor
+        · simp only [Std.HashMap.getElem?_insert, beq_iff_eq]
+          split
+          next heq =>
+            subst heq
+            simp only [reduceCtorEq, getElem?_eq_none_iff, IsEmpty.forall_iff]
+          next => exact (hlp k).2.1
+        · simp only [Std.HashMap.getElem?_insert, beq_iff_eq]
+          split
+          next heq =>
+            subst heq
+            rw [hc]
+            simp only [Option.some.injEq, exists_eq', forall_const]
+            exact Pointer.Reachable.refl
+          next =>
+            intro hkn hhh
+            rw [← O_root_def]
+            trans O.bdd.heap[j].low
+            · exact O.bdd.reachable_low O_root_def
+            · have := (hlp k).2.2 hkn hhh
+              simp_all only [OBdd.low_root_eq_low, OBdd.low_heap_eq_heap]
+  | case5 O s0 hc j O_root_def hlt sl rl heql sh rh heqh ihl ihh =>
+    rcases h with ⟨rfl, rfl⟩
+    simp_all only
+    let ⟨invl, hl, hsl, hlp⟩ := ihl rfl inv
+    let ⟨invh, hh, hsh, hhp⟩ := ihh rfl invl
+    let r := heap_push O ⟨⟨O.1.heap[j].var.1, by omega⟩, rl, rh⟩ sh
+    let N : RawNode n :=  ⟨⟨O.1.heap[j].var.1, by omega⟩, rl, rh⟩
+    obtain ⟨invv, hv, hsv, hvp⟩ := heap_push_correct (O := O) (N := N) rfl invh
+        (by
+          use (O.low O_root_def).1.root
+          exact (hhp _).1 _ hl
+        )
+        ⟨_, hh⟩
+        (by
+          simp only [N]
+          simp only [Fin.getElem_fin] at hlt
+          simp only [Nat.succ_eq_add_one, O_root_def, Pointer.toVar_node, Fin.getElem_fin,
+            gt_iff_lt, lt_self_iff_false, if_false_left, and_true]
+          omega
+        )
+        (by
+          intro j' hj1 hj2
+          have h1 := (hhp _).1 _ hl
+          simp only [N] at hj2
+          rw [hj2] at h1
+          have h2 := (invh.2 _ (.inr j') h1).1 _ hj1 rfl
+          have hll : O.1.heap[j.1].var.1 < (Pointer.toVar O.1.heap (O.low O_root_def).1.root).1 := by
+            have h3 := OBdd.var_lt_low_var (O := O) (h := O_root_def)
+            simp only [OBdd.var_eq, OBdd.low_heap_eq_heap,Fin.val_fin_lt] at h3
+            rw [O_root_def] at h3
+            simp_rw [Fin.lt_def, Pointer.toVar_node] at h3
+            grind only [= Fin.getElem_fin]
+          split at h2
+          next =>
+            trans (Pointer.toVar O.1.heap (O.low O_root_def).1.root).1
+            · exact hll
+            · exact h2
+          next =>
+            rw [h2]
+            exact hll
+        )
+        (by
+          intro j' hj1 hj2
+          have that := (invh.2 _ _ hh).1 _ hj1 hj2
+          have hll : O.1.heap[j.1].var.1 < (Pointer.toVar O.1.heap (O.high O_root_def).1.root).1 := by
+            have := OBdd.var_lt_high_var (O := O) (h := O_root_def)
+            simp only [OBdd.var_node O_root_def, OBdd.var_eq, OBdd.high_heap_eq_heap] at this
+            grind only [= Fin.getElem_fin]
+          split at that
+          next =>
+            trans (Pointer.toVar O.1.heap (O.high O_root_def).1.root).1
+            · exact hll
+            · exact that
+          next =>
+            rw [that]
+            exact hll
+        )
+        (by
+          intro h0 h1
+          symm
+          rw [OBdd.evaluate_node' O_root_def]
+          rw [Nary.restrict_if]
+          conv =>
+            rhs
+            rw [OBdd.evaluate_node']
+          simp only [Fin.getElem_fin]
+          ext I
+          congr 1
+          · simp only [Nary.restrict, cook_heap, RawNode.cook, Fin.getElem_fin,
+            Vector.getElem_ofFn, Vector.getElem_push_eq, eq_iff_iff, Bool.coe_iff_coe]
+            exact Vector.getElem_set_ne _ _ (fun contra ↦ by simp only [Fin.val_eq_val] at contra; rw [contra] at hlt; contradiction)
+          · conv =>
+              rhs
+              congr
+              congr
+              congr
+              rfl
+              simp [cook_heap, RawNode.cook]
+              rfl
+            symm
+            have h := invh.2 (O.high O_root_def).1.root rh hh
+            rcases h with ⟨h1, h2, h3, h4, h5⟩
+            simp only [OBdd.high_heap_eq_heap, OBdd.high_root_eq_high] at h5
+            simp only [OBdd.high_eq, Bdd.high_eq]
+            rw [push_evaluate rfl (v := sh.heap) (h0 := h0) (ho := h4), h5]
+            simp [cook_heap]
+            rfl
+          · conv =>
+              rhs
+              congr
+              congr
+              congr
+              rfl
+              simp [cook_heap, RawNode.cook]
+              rfl
+            symm
+            have : sh.cache[(O.low O_root_def).1.root]? = some rl := by
+              apply (hhp _).1
+              exact hl
+            have h := invh.2 (O.low O_root_def).1.root rl this
+            rcases h with ⟨h1, h2, h3, h4, h5⟩
+            simp only [OBdd.high_heap_eq_heap, OBdd.low_root_eq_low] at h5
+            rw [push_evaluate rfl (h0 := h0) (ho := h4), h5]
+            · rfl
+            · simp [cook_heap]
+              rfl
+        )
+        (by
+          cases heq : sh.cache[O.1.root]? with
+          | none => rfl
+          | some val =>
+            cases heqq : sl.cache[O.1.root]? with
+            | none =>
+              have := ((hhp _).2.2 heqq ⟨val, heq⟩)
+              grind only [!OBdd.high_heap_eq_heap, !OBdd.high_root_eq_high, O.not_reachable_high_root]
+            | some val =>
+              have := ((hlp _).2.2 hc ⟨_, O_root_def ▸ heqq⟩)
+              grind only [!OBdd.low_heap_eq_heap, !OBdd.low_root_eq_low, O.not_reachable_low_root]
+        )
+    split_ands
+    · simp only [Fin.getElem_fin, O_root_def, N] at invv
+      exact invv
+    · rw [O_root_def] at hv; exact hv
+    · exact .trans hsl (.trans hsh hsv)
+    · intro k
+      simp_all only
+      constructor
+      · intro p hp
+        apply (hvp _).1
+        apply (hhp _).1
+        apply (hlp _).1
+        exact hp
+      · constructor
+        · intro hk
+          apply (hlp _).2.1
+          apply (hhp _).2.1
+          apply (hvp _).2.1
+          exact hk
+        · intro hk hkp
+          rw [← O_root_def]
+          cases heq : sh.cache[k]? with
+          | none =>
+            rw [O_root_def]
+            apply (hvp _).2.2 heq hkp
+          | some w =>
+            cases heqq : sl.cache[k]? with
+            | none =>
+              have := (hhp _).2.2 heqq ⟨_, heq⟩
+              · trans O.bdd.heap[j].high
+                · exact O.bdd.reachable_high O_root_def
+                · rw [OBdd.high_heap_eq_heap, OBdd.high_root_eq_high] at this
+                  exact this
+            | some ww =>
+              have := (hlp _).2.2 hk ⟨_, heqq⟩
+              · trans O.bdd.heap[j].low
+                · exact O.bdd.reachable_low O_root_def
+                · rw [OBdd.low_heap_eq_heap, OBdd.low_root_eq_low] at this
+                  exact this
+
+public def orestrict {n m} (b : Bool) (i : Fin n) (O : OBdd n m) : (s : Nat) × OBdd n s :=
+  let r := restrict_helper O b i initial
+  let ⟨h1, h2, _⟩ := restrict_helper_correct O b i initial rfl inv_initial
+  ⟨ r.1.size, ⟨cook_heap r.1.heap h1.1, r.2.cook (h1.2 _ r.2 h2).2.2.1⟩, (h1.2 _ r.2 h2).2.2.2.1⟩
+
+public lemma orestrict_correct {n m b i} {O : OBdd n m} :
+    (orestrict b i O).2.evaluate = Nary.restrict O.evaluate b i := by
+  let r := restrict_helper O b i initial
+  have ⟨h1, h2, h3⟩ := restrict_helper_correct O b i initial rfl inv_initial
+  rw [orestrict]
+  split
+  exact (h1.2 _ r.2 h2).2.2.2.2
 
 end Restrict

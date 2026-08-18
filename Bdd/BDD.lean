@@ -669,7 +669,7 @@ public lemma find_some {B : BDD} {I : Vector Bool B.nvars} : B.find = some I →
   next hf => injection h with heq; simp [← heq]
 
 def restrict' (B : BDD) (b : Bool) (i : Fin B.nvars) : BDD :=
-  let r := Reduce.oreduce (Restrict.orestrict b i B.obdd).2.1
+  let r := Reduce.oreduce (Restrict.orestrict b i B.obdd).2
   ⟨_, _, r.1.2, r.2.1⟩
 
 /-- Return the `BDD` obtained by fixing variable `i` to value `b` in `B`. -/
@@ -699,8 +699,7 @@ public lemma getElem_restrict {B : BDD} {i} {hi : i < n} {h} : ∀ I : Vector Bo
   next hlt =>
     simp only [restrict', getElem_eq_evaluate, lift, Evaluate.evaluate_evaluate, Lift.olift_evaluate]
     simp only [Reduce.oreduce_evaluate]
-    have h' := (Restrict.orestrict b ⟨i, hlt⟩ (BDD.obdd B)).2.2
-    simp only [Vector.take_eq_extract, h', Nary.restrict]
+    simp only [Vector.take_eq_extract, Restrict.orestrict_correct, Nary.restrict]
     congr
     grind only [Vector.getElem_set_ne, Vector.getElem_cast, = Vector.getElem_set,
       Vector.getElem_extract]

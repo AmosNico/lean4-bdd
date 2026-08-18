@@ -1037,6 +1037,17 @@ lemma OBdd.not_oedge_reachable {n m} {O U : OBdd n m}: OEdge O U → ¬ Reachabl
     rw [← same_heap]; exact Reachable.ofEdge e
 termination_by O
 
+lemma OBdd.not_reachable_low_root {n m} {O : OBdd n m} {j} (h : O.bdd.root = node j) :
+    ¬Reachable O.bdd.heap O.bdd.heap[j].low O.bdd.root := by
+  intro r
+  exact OBdd.not_oedge_reachable oedge_of_low (U := O.low h) (by simp; exact r)
+
+lemma OBdd.not_reachable_high_root {n m} {O : OBdd n m} {j} (h : O.bdd.root = node j) :
+    ¬Reachable O.bdd.heap O.bdd.heap[j].high O.bdd.root := by
+  intro r
+  exact OBdd.not_oedge_reachable oedge_of_high (U := O.high h) (by simp; exact r)
+
+
 lemma Pointer.Reachable_iff {M : Vector (Node n m) m } :
   Pointer.Reachable M r p ↔ (r = p ∨ (∃ j, r = .node j ∧ (Pointer.Reachable M M[j].low p ∨ Pointer.Reachable M M[j].high p))) := by
   constructor
