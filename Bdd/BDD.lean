@@ -816,7 +816,7 @@ public def count (B : BDD) : Nat := Count.count B.obdd
 
 public lemma count_eq_card {B : BDD} :
     B.count = Fintype.card { I : Vector Bool B.nvars // B[I] = true } := by
-  simp only [count, Count.count_corrent, Count.numSolutions, Count.Solution, getElem_eq_evaluate,
+  simp only [count, Count.count_correct, Count.numSolutions, Count.Solution, getElem_eq_evaluate,
     lift, Lift.olift_trivial_eq, Evaluate.evaluate_evaluate]
 
 end BDD
