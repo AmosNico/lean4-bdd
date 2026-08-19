@@ -415,7 +415,7 @@ public lemma var_dependsOn {n i} :
 
 /-- Apply the given binary Boolean operator to the two `BDD`s. -/
 public def apply : (Bool → Bool → Bool) → BDD → BDD → BDD := fun op B C ↦
-  let r := Reduce.oreduce (Apply.oapply op B.obdd C.obdd).2.1
+  let r := Reduce.oreduce (Apply.oapply op B.obdd C.obdd).2
   ⟨_, _, r.1.2, r.2.1⟩
 
 @[simp, bdd_nvars]
@@ -436,8 +436,7 @@ public lemma getElem_apply {n} {B C : BDD} {op} {h1 : max B.nvars C.nvars ≤ n}
       inf_of_le_left]
   · rcases h2 with ⟨rfl⟩
     simp only [getElem_eq_evaluate, Evaluate.evaluate_evaluate, lift, Lift.olift_evaluate]
-    simp [apply]
-    grind only
+    simp [apply, Apply.oapply_correct]
 
 public lemma apply_dependsOn {o} {B C : BDD} {i} :
     (apply o B C).DependsOn i → B.DependsOn i ∨ C.DependsOn i := by
