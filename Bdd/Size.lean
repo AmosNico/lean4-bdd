@@ -20,13 +20,8 @@ public lemma isTerminal_iff_size_eq_zero {n m} {O : OBdd n m} : size O = 0 ↔ O
   · rintro ⟨b, hb⟩
     simp [size, Collect.collect_terminal hb]
 
-public def bool_of_size_eq_zero {n m} (O : OBdd n m) (h : size O = 0) : Bool :=
-  match O_root_def : O.1.root with
-  | .terminal b => b
-  | .node _ => False.elim (not_isTerminal_of_root_eq_node O_root_def (isTerminal_iff_size_eq_zero.mp h))
-
 public lemma size_spec {O : OBdd n m} : size O = OBdd.size O := by
-  simp only [size, OBdd.size, Function.comp_apply]
+  simp only [size, OBdd.size_eq_card_reachable, Function.comp_apply]
   simp_rw [Fintype.card, Finset.univ]
   have : (Collect.collect O).length = (Multiset.ofList (Collect.collect O)).card := by rfl
   rw [this]
@@ -44,17 +39,15 @@ public lemma size_spec {O : OBdd n m} : size O = OBdd.size O := by
 public lemma size_node_le {O : OBdd n m} {h : O.1.root = .node j} :
     size O ≤ 1 + (size (O.low h)) + (size (O.high h)) := by
   repeat rw [size_spec]
-  repeat rw [OBdd.size]
   rw [show 1 = Fintype.card {j' // j' = j} by simp]
   rw [add_assoc]
-  rw [← Fintype.card_sum]
-  rw [← Fintype.card_sum]
+  simp only [OBdd.size_eq_card_reachable, ← Fintype.card_sum]
   refine Fintype.card_le_of_embedding ⟨?_, ?_⟩
   · exact
     fun ⟨j', hj'⟩ ↦ match decEq j' j with
       | isTrue ht => .inl ⟨j', ht⟩
       | isFalse hf => .inr (
-        match Pointer.instDecidableReachable (O.low h) (.node j') with
+        match OBdd.instDecidableReachable (O.low h) (.node j') with
         | isTrue htt => .inl ⟨j', htt⟩
         | isFalse hff => .inr ⟨j', by
           apply OBdd.reachable_or_eq_low_high at hj'

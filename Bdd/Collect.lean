@@ -139,11 +139,7 @@ theorem collect_helper_spec {O : OBdd n m} :
     ∀ i, (Pointer.Reachable O.1.heap O.1.root (.node i) → (collect_helper O I).1[i] → i ∈ (collect_helper O I).2) := by
   intro h j re ma
   cases O_root_def : O.1.root with
-  | terminal b =>
-    have : (⟨.node j, re⟩ : O.1.RelevantPointer).1  = .terminal b := by
-      apply Bdd.eq_terminal_of_relevant
-      rw [← O_root_def]
-    contradiction
+  | terminal b => grind only [Pointer.eq_terminal_of_reachable]
   | node k =>
     rw [collect_helper_node O O_root_def] at ma
     rw [collect_helper_node O O_root_def]
@@ -240,10 +236,7 @@ lemma collect_spec' {O : OBdd n m} {j : Fin m} {I : Vector Bool m × List (Fin m
     (collect_helper O I).1[j] = true := by
   intro h1 h2
   cases O_root_def : O.1.root with
-  | terminal b =>
-    have : (⟨.node j, h1⟩ : O.1.RelevantPointer).1  = .terminal b :=
-      Bdd.eq_terminal_of_relevant O_root_def _
-    contradiction
+  | terminal b => grind only [Pointer.eq_terminal_of_reachable]
   | node i =>
     rw [collect_helper_node O O_root_def]
     have : I.1[i] = false := by
@@ -261,7 +254,7 @@ lemma collect_spec' {O : OBdd n m} {j : Fin m} {I : Vector Bool m × List (Fin m
       rw [h]
       simp
     | isFalse hij =>
-      cases Pointer.instDecidableReachable (O.low O_root_def) (.node j) with
+      cases OBdd.instDecidableReachable (O.low O_root_def) (.node j) with
       | isTrue ht  =>
         apply collect_helper_retains_marked
         apply collect_spec'
@@ -272,11 +265,10 @@ lemma collect_spec' {O : OBdd n m} {j : Fin m} {I : Vector Bool m × List (Fin m
           simp only
           cases decEq i i' with
           | isTrue h =>
-            exfalso
-            apply OBdd.not_oedge_reachable (oedge_of_low (h := O_root_def))
-            rw [← h] at re1
-            rw [OBdd.low_root_eq_low, O_root_def]
-            exact re1
+            absurd re1
+            subst h
+            rw [← O_root_def]
+            exact OBdd.not_reachable_low_root O_root_def
           | isFalse h =>
             simp only [Fin.getElem_fin]
             rw [Vector.getElem_set_ne _ _ (by simp_all [Fin.val_ne_of_ne h])]
@@ -310,11 +302,10 @@ lemma collect_spec' {O : OBdd n m} {j : Fin m} {I : Vector Bool m × List (Fin m
                     rw [Vector.getElem_set_ne _ _ (by simp_all [Fin.val_ne_of_ne hff])]
                     apply h2 i' (Pointer.Reachable.trans (O.bdd.reachable_high O_root_def) re) ma
                   | isTrue htt =>
-                    exfalso
-                    apply OBdd.not_oedge_reachable (oedge_of_high (h := O_root_def))
-                    rw [htt] at O_root_def
-                    rw [OBdd.high_root_eq_high, O_root_def]
-                    exact re
+                    absurd re
+                    subst htt
+                    rw [← O_root_def]
+                    exact OBdd.not_reachable_high_root O_root_def
                 · assumption
               simp only [OBdd.low_heap_eq_heap, OBdd.low_root_eq_low] at ⊢ that
               exact Pointer.Reachable.trans that ma
@@ -324,11 +315,10 @@ lemma collect_spec' {O : OBdd n m} {j : Fin m} {I : Vector Bool m × List (Fin m
               simp only
               cases decEq i i'' with
               | isTrue h =>
-                rw [← h] at re1
-                exfalso
-                apply OBdd.not_oedge_reachable (oedge_of_low (h := O_root_def))
-                simp only [OBdd.low_root_eq_low, O_root_def]
-                exact re1
+                absurd re1
+                subst h
+                rw [← O_root_def]
+                exact OBdd.not_reachable_low_root O_root_def
               | isFalse h =>
                 simp only [Fin.getElem_fin]
                 rw [Vector.getElem_set_ne _ _ (by simp_all [Fin.val_ne_of_ne h])]

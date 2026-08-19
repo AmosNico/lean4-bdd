@@ -19,36 +19,16 @@ inductive Pointer m where
   | node : Fin m → Pointer m
 deriving Fintype, DecidableEq, Repr, Hashable
 
-instance Pointer.instToString : ToString (Pointer m) := ⟨fun p =>
+instance Pointer.instToString {m} : ToString (Pointer m) := ⟨fun p =>
   match p with
   | .terminal true => "⊤"
   | .terminal false => "⊥"
   | .node j => "→" ++ toString j⟩
 
-inductive Pointer.le : Pointer m → Pointer m → Prop where
-  | terminal_le_terminal : b ≤ c → le (terminal b) (terminal c)
-  | terminal_le_node : le (terminal b) (node j)
-  | node_le_node : j ≤ i → le (node j) (node i)
-
-instance Pointer.instLE : LE (Pointer m) := {le := Pointer.le}
-
-instance Pointer.instDecidableLe : DecidableLE (Pointer m) :=
-  fun p q ↦ match p with
-  | terminal b => match q with
-    | terminal c => match Bool.instDecidableLe b c with
-      | isTrue ht => isTrue  (.terminal_le_terminal ht)
-      | isFalse hf => isFalse (by intro contra; cases contra; contradiction)
-    | node i => isTrue (.terminal_le_node)
-  | node j => match q with
-    | terminal c => isFalse (by intro contra; contradiction)
-    | node i => match Fin.decLe j i with
-      | isTrue ht => isTrue (.node_le_node ht)
-      | isFalse hf => isFalse (by intro contra; cases contra; contradiction)
-
 open Pointer
 
 /-- BDD node -/
-structure Node (n) (m) where
+structure Node n m where
   var  : Fin n
   low  : Pointer m
   high : Pointer m
@@ -72,11 +52,23 @@ def Bdd.low {n m} (B : Bdd n m) {j} : B.root = node j → Bdd n m
 lemma Bdd.low_eq {n m} {B : Bdd n m} {j} {h : B.root = node j} :
     B.low h = {heap := B.heap, root := B.heap[j].low} := (rfl)
 
+lemma Bdd.low_heap_eq_heap {n m} {B : Bdd n m} {j} {h : B.root = node j} :
+    (B.low h).heap = B.heap := (rfl)
+
+lemma Bdd.low_root_eq_low {n m} {B : Bdd n m} {j} {h : B.root = node j} :
+    (B.low h).root = B.heap[j].low := (rfl)
+
 def Bdd.high {n m} (B : Bdd n m) {j} : B.root = node j → Bdd n m
   | _ => {heap := B.heap, root := B.heap[j].high}
 
 lemma Bdd.high_eq {n m} {B : Bdd n m} {j} {h : B.root = node j} :
     B.high h = {heap := B.heap, root := B.heap[j].high} := (rfl)
+
+lemma Bdd.high_heap_eq_heap {n m} {B : Bdd n m} {j} {h : B.root = node j} :
+    (B.high h).heap = B.heap := (rfl)
+
+lemma Bdd.high_root_eq_high {n m} {B : Bdd n m} {j} {h : B.root = node j} :
+    (B.high h).root = B.heap[j].high := (rfl)
 
 open Bdd
 -- example : Bdd n 0 := ⟨Vector.emptyWithCapacity 0, .terminal true⟩
@@ -117,36 +109,9 @@ lemma Pointer.toVar_terminal {n m} (w : Vector (Node n m) m) : toVar w (terminal
 @[simp]
 lemma Pointer.toVar_node {n m} (w : Vector (Node n m) m) {j} : (toVar w (node j)).1 = w[j].var.1 := (rfl)
 
-lemma Pointer.toVar_heap_set {i j : Fin n} : i ≠ j → (toVar (M.set i N) (node j)).1 = (toVar M (node j)).1 := by
-  intro neq
-  simp only [Nat.succ_eq_add_one, toVar_node]
-  congr 2
-  apply Vector.getElem_set_ne
-  rcases i with ⟨i, _⟩
-  rcases j with ⟨j, _⟩
-  simp_all
-
-lemma Pointer.toVar_heap_set' {i j : Fin n} : i ≠ j → (toVar (M.set i N) (node j)) = (toVar M (node j)) := by
-  intro neq
-  simp only [Nat.succ_eq_add_one]
-  apply Fin.eq_of_val_eq
-  exact toVar_heap_set neq
-
-@[simp]
-def Pointer.MayPrecede (M : Vector (Node n m) m) (p q : Pointer m) := toVar M p < toVar M q
-
-/-- Terminals must not precede other pointers. -/
-@[simp, grind .]
-lemma Pointer.not_terminal_mayPrecede : ¬ MayPrecede M (terminal b) p := by
-  cases p with
-  | terminal _ => simp [MayPrecede]
-  | node     j => exact not_lt.mpr (Fin.le_last _)
-
-/-- Non-terminals may precede terminals. -/
-lemma Pointer.MayPrecede_node_terminal {n m} (w : Vector (Node n m) m) {j} : MayPrecede w (node j) (terminal b) := by
-  simp only [MayPrecede, Nat.succ_eq_add_one, toVar, Fin.getElem_fin]
-  refine Fin.mk_lt_of_lt_val ?_
-  simp only [Fin.val_last, Fin.is_lt]
+lemma Pointer.toVar_heap_set {n m} {M : Vector (Node n m) m} {N} {i j : Fin m} :
+    i ≠ j → toVar (M.set i N) (node j) = toVar M (node j) := by
+  grind only [!toVar_node, usr Fin.isLt, = Fin.getElem_fin, = Vector.getElem_set]
 
 def Pointer.Reachable {n m} (v : Vector (Node n m) m) := Relation.ReflTransGen (Edge v)
 
@@ -218,6 +183,20 @@ lemma terminal_iff {b} {q : Pointer m} : Reachable v (terminal b) q ↔ q = term
 
 end Pointer.Reachable
 
+lemma Bdd.reachable_node_iff{n m} {B : Bdd n m} {j} {q : Pointer m} : Reachable B.heap (node j) q ↔
+    q = node j ∨ Reachable B.heap B.heap[j].high q ∨ Reachable B.heap B.heap[j].low q := by
+  constructor
+  · intro hr
+    cases hr with
+    | refl => exact Or.inl rfl
+    | cons e r =>
+      simp only [edge_iff, node.injEq, exists_eq_left'] at e
+      grind only
+  · rintro (rfl | h | h)
+    · exact .refl
+    · exact Reachable.cons Edge.high h
+    · exact Reachable.cons Edge.low h
+
 @[simp]
 lemma Bdd.reachable_low {n m} {B : Bdd n m} {j} (h : B.root = node j) :
     Reachable B.heap B.root B.heap[j].low :=
@@ -229,7 +208,7 @@ lemma Bdd.reachable_high {n m} {B : Bdd n m} {j} (h : B.root = node j) :
   Reachable.ofEdge (B.edge_high h)
 
 /-- `B.RelevantPointer` is the subtype of pointers reachable from `B.root`. -/
-abbrev Bdd.RelevantPointer {n m} (B : Bdd n m) := { q // Reachable B.heap B.root q}
+abbrev Bdd.RelevantPointer {n m} (B : Bdd n m) := { q // Reachable B.heap B.root q }
 
 def Bdd.Relevant {n m} (B : Bdd n m) (p : Pointer m) :=
   Reachable B.heap B.root p
@@ -240,21 +219,19 @@ lemma Bdd.relevant_iff_reachable {n m} {B : Bdd n m} {p : Pointer m} :
 lemma Bdd.relevant_root {n m} (B : Bdd n m) : B.Relevant B.root := by
   simp only [relevant_iff_reachable, Reachable.refl]
 
-private instance Bdd.instDecidableEqRelevantPointer : DecidableEq (Bdd.RelevantPointer B) :=
-  fun _ _ ↦ decidable_of_iff _ (symm Subtype.ext_iff)
-
 private def Bdd.toRelevantPointer {n m} (B : Bdd n m) : B.RelevantPointer :=
   ⟨B.root, Relation.ReflTransGen.refl⟩
 
 /-- The `Edge` relation lifted to `RelevantPointer`s. -/
 @[simp]
-private abbrev Bdd.RelevantEdge (B : Bdd n m) (p q : B.RelevantPointer) := Edge B.heap p.1 q.1
+private abbrev Bdd.RelevantEdge {n m} (B : Bdd n m) (p q : B.RelevantPointer) :=
+  Edge B.heap p.1 q.1
 
-private lemma Bdd.relevantEdge_of_edge_of_reachable  {B : Bdd n m}
+private lemma Bdd.relevantEdge_of_edge_of_reachable {n m}  {B : Bdd n m} {p q}
     (e : Edge B.heap p q) (hp : Reachable B.heap B.root p) :
   RelevantEdge B ⟨p, hp⟩ ⟨q, .snoc hp e⟩ := e
 
-def Bdd.MayPrecede (B : Bdd n m) (p q : Pointer m) :=
+def Bdd.MayPrecede {n m} (B : Bdd n m) (p q : Pointer m) :=
   toVar B.heap p < toVar B.heap q
 
 lemma Bdd.mayPrecede_iff {n m} {B : Bdd n m} {p q} :
@@ -304,8 +281,7 @@ lemma OBdd.eq_iff_bdd_eq {n m : ℕ} {O U : OBdd n m} :
     O = U ↔ O.bdd.heap = U.bdd.heap ∧ O.bdd.root = U.bdd.root  := by
   grind only [OBdd, Bdd]
 
-@[expose]
-def OEdge (O U : OBdd n m) := O.1.heap = U.1.heap ∧ Edge O.1.heap O.1.root U.1.root
+def OEdge {n m} (O U : OBdd n m) := O.1.heap = U.1.heap ∧ Edge O.1.heap O.1.root U.1.root
 
 def Bdd.var {n m} (B : Bdd n m) : Fin n.succ := B.root.toVar B.heap
 
@@ -382,22 +358,16 @@ lemma Bdd.high_ordered {B : Bdd n m} (h : B.root = node j) : B.Ordered → (B.hi
   rw [h]
   right
 
-lemma Bdd.low_ordered {B : Bdd n m} (h : B.root = node j) : B.Ordered → (B.low h).Ordered := by
+lemma Bdd.low_ordered {n m} {B : Bdd n m} {j} (h : B.root = node j) : B.Ordered → (B.low h).Ordered := by
   intro o
   apply Bdd.ordered_of_edge o
   rw [h]
   left
 
-lemma Bdd.low_heap_eq_heap {B : Bdd n m} {h : B.root = node j} : (B.low h).heap = B.heap := (rfl)
-lemma Bdd.low_root_eq_low {B : Bdd n m} {h : B.root = node j} : (B.low h).root = B.heap[j].low := (rfl)
-
-lemma Bdd.high_heap_eq_heap {B : Bdd n m} {h : B.root = node j} : (B.high h).heap = B.heap := (rfl)
-lemma Bdd.high_root_eq_high {B : Bdd n m} {h : B.root = node j} : (B.high h).root = B.heap[j].high := (rfl)
-
 def OBdd.high {n m} (O : OBdd n m) {j} : O.1.root = node j → OBdd n m
   | h => ⟨O.1.high h, Bdd.high_ordered h O.2⟩
 
-def OBdd.low (O : OBdd n m) : O.1.root = node j → OBdd n m
+def OBdd.low {n m} (O : OBdd n m) {j} : O.1.root = node j → OBdd n m
   | h => ⟨O.1.low h, Bdd.low_ordered h O.2⟩
 
 @[simp]
@@ -471,25 +441,13 @@ lemma OBdd.evaluate_cast {n m n' I} {O : OBdd n m} (h : n = n') : (h ▸ O).eval
   rfl
 
 @[expose]
-def OBdd.HSimilar (O : OBdd n m) (U : OBdd n m') := O.toTree = U.toTree
+def OBdd.HSimilar {n m m'} (O : OBdd n m) (U : OBdd n m') := O.toTree = U.toTree
 
-def OBdd.Similar : OBdd n m → OBdd n m → Prop := HSimilar
+def OBdd.Similar {n m} : OBdd n m → OBdd n m → Prop := HSimilar
 
-/-- Similarity of `Ordered` BDDs is decidable. -/
-instance OBdd.instDecidableSimilar {n m} : DecidableRel (β := OBdd n m) OBdd.Similar :=
-  fun O U ↦ decidable_of_decidable_of_iff (show O.toTree = U.toTree ↔ _ by simp [Similar, HSimilar])
-
--- FIXME: Use the instance from Sim.lean instead.
-instance OBdd.instDecidableHSimilar (O : OBdd n m) (U : OBdd n m') : Decidable (OBdd.HSimilar O U) :=
-  decidable_of_decidable_of_iff (show O.toTree = U.toTree ↔ _ by simp [HSimilar])
-
-def OBdd.SimilarRP (O : OBdd n m) (p q : O.1.RelevantPointer) :=
+def OBdd.SimilarRP {n m} (O : OBdd n m) (p q : O.1.RelevantPointer) :=
   Similar ⟨{heap := O.1.heap, root := p.1}, ordered_of_reachable p.2⟩
           ⟨{heap := O.1.heap, root := q.1}, ordered_of_reachable q.2⟩
-
-@[no_expose]
-instance OBdd.instDecidableSimilarRP : Decidable (OBdd.SimilarRP O l r) := by
-  simp only [OBdd.SimilarRP]; infer_instance
 
 lemma OBdd.similarRP_iff {n m} {O : OBdd n m} {p q : O.1.RelevantPointer} : O.SimilarRP p q ↔
     (OBdd.mk ⟨O.bdd.heap, p⟩ (ordered_of_reachable p.2)).toTree =
@@ -499,12 +457,6 @@ lemma OBdd.similarRP_iff {n m} {O : OBdd n m} {p q : O.1.RelevantPointer} : O.Si
 lemma OBdd.Similar.instEquivalence {n m} : Equivalence (α := OBdd n m) OBdd.Similar := by
   apply InvImage.equivalence
   constructor <;> simp_all [HSimilar]
-
--- instance OBdd.Similar.instReflexive : Reflexive (α := OBdd n m) OBdd.Similar := instEquivalence.refl
-
--- instance OBdd.Similar.instSymmetric : Symmetric (α := OBdd n m) OBdd.Similar := fun _ _ ↦ instEquivalence.symm
-
--- instance OBdd.Similar.instTransitive : Transitive (α := OBdd n m) OBdd.Similar := fun _ _ _ ↦ instEquivalence.trans
 
 /-- A pointer is redundant if it point to node `N` with `N.low = N.high`. -/
 inductive Pointer.Redundant (M : Vector (Node n m) m) : Pointer m → Prop where
@@ -549,115 +501,25 @@ private instance RelevantEdge.instWellFoundedRelation {n m} (O : OBdd n m) : Wel
   rel := flip O.1.RelevantEdge
   wf  := (RelevantEdge.flip_wellFounded O.2)
 
-@[no_expose, implicit_reducible]
-private instance OBdd.instDecidableReflTransGen {n m} (O : OBdd n m) (p : O.1.RelevantPointer) (q) :
-    Decidable (Relation.ReflTransGen (Edge O.1.heap) p.1 q) := by
-  convert decidable_of_iff _ (symm Relation.reflTransGen_iff_eq_or_transGen)
-  convert instDecidableOr
-  · exact decEq q p.1
-  · convert decidable_of_iff _ (symm Relation.TransGen.head'_iff)
-    rcases h : p.1
-    case terminal =>
-      apply isFalse
-      rintro ⟨x, contra1, contra2⟩
-      contradiction
-    case node j =>
-      let low := O.1.heap[j].low
-      have hlow : Relation.ReflTransGen (Edge O.1.heap) O.1.root low :=
-        Relation.ReflTransGen.tail p.2 (by rw [h]; exact Edge.low)
-      cases OBdd.instDecidableReflTransGen O ⟨low, hlow⟩ q
-      case isFalse hfl =>
-        let high := O.1.heap[j].high
-        have hhigh : Relation.ReflTransGen (Edge O.1.heap) O.1.root high :=
-          Relation.ReflTransGen.tail p.2 (by rw [h]; exact Edge.high)
-        cases OBdd.instDecidableReflTransGen O ⟨high, hhigh⟩ q
-        case isFalse hfh =>
-          apply isFalse
-          rintro ⟨c, contra1, contra2⟩
-          simp_all only
-          cases contra1
-          case low =>
-            apply hfl
-            apply Relation.reflTransGen_swap.mp
-            apply Relation.ReflTransGen.tail
-            apply Relation.reflTransGen_swap.mpr
-            exact contra2
-            simp_all only [not_true_eq_false, low]
-          case high =>
-            apply hfh
-            apply Relation.reflTransGen_swap.mp
-            apply Relation.ReflTransGen.tail
-            apply Relation.reflTransGen_swap.mpr
-            exact contra2
-            simp_all only [not_true_eq_false, low, high]
-        case isTrue hth =>
-          apply isTrue
-          use high
-          constructor
-          · simp only [high, Edge.high]
-          · apply hth
-      case isTrue hth =>
-        apply isTrue
-        use low
-        constructor
-        · simp only [low, Edge.low]
-        · apply hth
-termination_by p
+private def OBdd.decidableReachable {n m} (O : OBdd n m) q :
+    Decidable (Reachable O.1.heap O.bdd.root q) := by
+  match O_root_def : O.bdd.root with
+  | terminal b =>
+    exact decidable_of_iff' _ Reachable.terminal_iff
+  | node j =>
+    refine @decidable_of_iff' _ _ Bdd.reachable_node_iff ?_
+    refine @instDecidableOr _ _ ?_ (@instDecidableOr _ _ ?_ ?_)
+    · exact decEq ..
+    · exact OBdd.decidableReachable (O.high O_root_def) q
+    · exact OBdd.decidableReachable (O.low O_root_def) q
+termination_by O
 decreasing_by
-  all_goals simp_all only [flip, RelevantEdge, Fin.getElem_fin]
-  · exact Edge.low
-  · exact Edge.high
+  · exact oedge_of_high
+  · exact oedge_of_low
 
 @[no_expose]
-instance Pointer.instDecidableReachable {n m} (O : OBdd n m) :
-    DecidablePred (Reachable O.1.heap O.1.root) :=
-  OBdd.instDecidableReflTransGen O ⟨O.1.root, .refl⟩
-
-@[expose]
-def OBdd.size {n m} (O : OBdd n m) := Fintype.card { j // Reachable O.1.heap O.1.root (.node j) }
-
-private instance OBdd.instFintypeRelevantPointer {n m} (O : OBdd n m) : Fintype (O.1.RelevantPointer) := by
-  convert Subtype.fintype _ <;> infer_instance
-
-@[implicit_reducible]
-def Pointer.decidableEitherReachable {n m} (O U : OBdd n m) (h : O.1.heap = U.1.heap) :
-    DecidablePred (fun q ↦ (Reachable O.1.heap O.1.root q) ∨ (Reachable O.1.heap U.1.root q)) := by
-  intro p
-  simp
-  cases instDecidableReachable O p with
-  | isFalse hf =>
-    cases instDecidableReachable U p with
-    | isFalse hhf =>
-      apply isFalse
-      simp_all [or_self, not_false_eq_true]
-    | isTrue  hht =>
-      apply isTrue
-      simp_all only [or_true]
-  | isTrue  ht =>
-    apply isTrue
-    simp_all only [true_or]
-
-@[implicit_reducible]
-def OBdd.fintypeEitherRelevantPointer (O U : OBdd n m) (h : O.1.heap = U.1.heap) :
-    Fintype { q // Reachable O.1.heap O.1.root q ∨ Reachable O.1.heap U.1.root q } := by
-  convert Subtype.fintype _
-  · exact decidableEitherReachable O U h
-  · infer_instance
-
-/-- The inverse image of a decidable relation is decidable. -/
-private instance my_decidableRel_of_invImage2 {r : β → β → Prop} [DecidableRel r] {f : α → β} :
-    DecidableRel (InvImage r f) :=
-  fun a b ↦ decidable_of_decidable_of_iff (show (r (f a) (f b)) ↔ _ by simp [InvImage])
-
-/-- `Reduced` is decidable. -/
-@[no_expose]
-instance OBdd.instReducedDecidable {n m} : DecidablePred (α := OBdd n m) Reduced :=
-  fun _ ↦ (instDecidableAnd (dp := Fintype.decidableForallFintype) (dq := Fintype.decidableForallFintype))
-
-/-- The output of equal constant functions with inhabited domain is equal. -/
-lemma eq_of_constant_eq {α β} {c c' : β} [Inhabited α] :
-    Function.const α c = Function.const α c' → c = c' :=
-  fun h ↦ (show (Function.const α c) default = (Function.const α c') default by rw [h])
+instance OBdd.instDecidableReachable {n m} (O : OBdd n m) :
+    DecidablePred (Reachable O.1.heap O.bdd.root) := OBdd.decidableReachable O
 
 lemma Bdd.terminal_or_node {n m} (B : Bdd n m) :
     (∃ b, (B.root = terminal b ∧ B = {heap := B.heap, root := terminal b}))
@@ -696,7 +558,7 @@ private lemma Bdd.terminal_relevant_iff {n m} {B : Bdd n m} (h : B.root = termin
   | refl => simp
   | cons e r => simp only [h, not_terminal_edge] at e
 
-lemma Bdd.eq_terminal_of_relevant {n m} {B : Bdd n m} {b}
+private lemma Bdd.eq_terminal_of_relevant {n m} {B : Bdd n m} {b}
     (h : B.root = terminal b) (S : B.RelevantPointer) : S.1 = terminal b :=
   (terminal_relevant_iff (by simp [h]) S).mp rfl
 
@@ -776,10 +638,6 @@ lemma OBdd.HSimilar_of_terminal {n m m' : Nat} {b : Bool} {O : OBdd n m} {U : OB
   simp [HSimilar]
   rw [toTree_terminal h1, toTree_terminal h2]
 
-private lemma aux {O : OBdd n m} {i : Fin m} :
-    O.1.heap[i.1].var = Fin.castPred (toVar O.1.heap (node i)) (Fin.exists_castSucc_eq.mp ⟨O.1.heap[i.1].var, by simp [toVar]; rfl⟩) :=
-  by simp [toVar]
-
 lemma OBdd.var_lt_high_var {n m} {O : OBdd n m} {j} {h : O.1.root = node j} :
     O.var < (O.high h).var := by
   simp only [var_eq, Nat.succ_eq_add_one, high_heap_eq_heap, Fin.val_fin_lt]
@@ -821,15 +679,15 @@ lemma OBdd.independentOf_lt_root (O : OBdd n m) (i : Fin O.var) :
     · exact (independentOf_lt_root (O.low  h) ⟨i, .trans hi var_lt_low_var⟩) b I
 termination_by O
 
-def OBdd.size' {n m} : OBdd n m → Nat := DecisionTree.size ∘ OBdd.toTree
+/-- The number of nodes in `O` reachable from the root. -/
+def OBdd.size {n m} (O : OBdd n m) : ℕ :=
+  Fintype.card { j // Reachable O.1.heap O.1.root (.node j) }
 
-lemma OBdd.size_zero_of_terminal : OBdd.isTerminal O → O.size' = 0 := by
-  rintro ⟨b, h⟩
-  rcases O with ⟨⟨heap, root⟩, o⟩
-  subst h
-  simp only [size', Function.comp_apply]
-  unfold toTree
-  rfl
+lemma OBdd.size_eq_card_reachable {n m} (O : OBdd n m) :
+    O.size = Fintype.card { j // Reachable O.1.heap O.1.root (.node j) } := (rfl)
+
+/-- The number of nodes in the unraveling of `O` -/
+def OBdd.size' {n m} : OBdd n m → Nat := DecisionTree.size ∘ OBdd.toTree
 
 lemma OBdd.high_reduced {n m} {O : OBdd n m} {j : Fin m} {h : O.1.root = node j} : O.Reduced → (O.high h).Reduced := by
   intro o
@@ -883,19 +741,17 @@ lemma OBdd.evaluate_low_eq_evaluate_set_false {n m} {O : OBdd n m} {j : Fin m} {
   simp only [var_eq, h, toVar_node, high_heap_eq_heap, high_root_eq_high] at this
   apply independentOf_lt_root (O.low h) ⟨O.1.heap[j].var, (by convert var_lt_low_var (O := O); rw [O.var_node h])⟩
 
-lemma OBdd.evaluate_high_eq_of_evaluate_eq_and_var_eq' {n m m' : Nat} {O : OBdd n m} {U : OBdd n m'} {j : Fin m} {i : Fin m'} {ho : O.1.root = node j} {hu : U.1.root = node i} :
-    O.evaluate = U.evaluate → O.1.heap[j].var = U.1.heap[i].var → (O.high ho).evaluate = (U.high hu).evaluate := by
+lemma OBdd.evaluate_high_eq_of_evaluate_eq_and_var_eq {n m m' : Nat} {O : OBdd n m} {U : OBdd n m'}
+    {j : Fin m} {i : Fin m'} {ho : O.1.root = node j} {hu : U.1.root = node i} :
+    O.evaluate = U.evaluate → O.1.heap[j].var = U.1.heap[i].var →
+    (O.high ho).evaluate = (U.high hu).evaluate := by
   grind only [!evaluate_high_eq_evaluate_set_true]
 
-lemma OBdd.evaluate_high_eq_of_evaluate_eq_and_var_eq {n m} {O U : OBdd n m} {j i : Fin m} {ho : O.1.root = node j} {hu : U.1.root = node i} :
-    O.evaluate = U.evaluate → O.1.heap[j].var = U.1.heap[i].var → (O.high ho).evaluate = (U.high hu).evaluate := evaluate_high_eq_of_evaluate_eq_and_var_eq'
-
-lemma OBdd.evaluate_low_eq_of_evaluate_eq_and_var_eq' {n m m' : Nat} {O : OBdd n m} {U : OBdd n m'} {j : Fin m} {i : Fin m'} {ho : O.1.root = node j} {hu : U.1.root = node i} :
-  O.evaluate = U.evaluate → O.1.heap[j].var = U.1.heap[i].var → (O.low ho).evaluate = (U.low hu).evaluate := by
+lemma OBdd.evaluate_low_eq_of_evaluate_eq_and_var_eq {n m m' : Nat} {O : OBdd n m} {U : OBdd n m'}
+    {j : Fin m} {i : Fin m'} {ho : O.1.root = node j} {hu : U.1.root = node i} :
+    O.evaluate = U.evaluate → O.1.heap[j].var = U.1.heap[i].var →
+    (O.low ho).evaluate = (U.low hu).evaluate := by
   grind only [evaluate_low_eq_evaluate_set_false, ← evaluate_low_eq_evaluate_set_false]
-
-lemma OBdd.evaluate_low_eq_of_evaluate_eq_and_var_eq {n m} {O U : OBdd n m} {j i : Fin m} {ho : O.1.root = node j} {hu : U.1.root = node i} :
-  O.evaluate = U.evaluate → O.1.heap[j].var = U.1.heap[i].var → (O.low ho).evaluate = (U.low hu).evaluate := evaluate_low_eq_of_evaluate_eq_and_var_eq'
 
 lemma OBdd.not_reduced_of_sim_high_low {n m} {O : OBdd n m} {j : Fin m} (h : O.1.root = node j) :
     Similar (O.high h) (O.low h) → ¬ O.Reduced := by
@@ -909,7 +765,7 @@ lemma OBdd.not_reduced_of_sim_high_low {n m} {O : OBdd n m} {j : Fin m} (h : O.1
   exact (symm (R.2 giso))
 
 /-- Reduced OBDDs are canonical.  -/
-theorem OBdd.Canonicity {O : OBdd n m} {U : OBdd n m'} (ho : O.Reduced) (hu : U.Reduced) :
+theorem OBdd.Canonicity {n m m'} {O : OBdd n m} {U : OBdd n m'} (ho : O.Reduced) (hu : U.Reduced) :
     O.evaluate = U.evaluate → O.HSimilar U := by
   intro h
   cases O_root_def : O.1.root with
@@ -959,7 +815,8 @@ theorem OBdd.Canonicity {O : OBdd n m} {U : OBdd n m'} (ho : O.Reduced) (hu : U.
         constructor
         · apply le_of_not_gt
           intro contra
-          have := independentOf_lt_root O ⟨U.1.heap[i].var.1, by simp only [Fin.getElem_fin, var, Nat.succ_eq_add_one, Bdd.var]; rw [O_root_def]; simpa⟩
+          have := independentOf_lt_root O ⟨U.1.heap[i].var.1, by
+            simp only [Fin.getElem_fin, var, Nat.succ_eq_add_one, Bdd.var]; rw [O_root_def]; simpa⟩
           rw [h] at this
           apply hu.1 U.1.toRelevantPointer
           simp only [toRelevantPointer, U_root_def]
@@ -971,11 +828,13 @@ theorem OBdd.Canonicity {O : OBdd n m} {U : OBdd n m'} (ho : O.Reduced) (hu : U.
                                   ⟨(U.low  U_root_def).1.root, U.1.reachable_low U_root_def⟩ := that
           exact (symm (hu.2 iso))
         · intro contra
-          have := independentOf_lt_root U ⟨O.1.heap[j].var.1, by simp only [Fin.getElem_fin, var, Nat.succ_eq_add_one, Bdd.var]; rw [U_root_def]; simpa⟩
+          have := independentOf_lt_root U ⟨O.1.heap[j].var.1, by
+            simp only [Fin.getElem_fin, var, Nat.succ_eq_add_one, Bdd.var]; rw [U_root_def]; simpa⟩
           rw [← h] at this
           simp only [Nary.IndependentOf] at this
           have that : OBdd.Similar (O.high O_root_def) (O.low O_root_def) :=
-            OBdd.Canonicity (high_reduced ho) (low_reduced ho) (evaluate_high_eq_evaluate_low_of_independentOf_root this)
+            OBdd.Canonicity (high_reduced ho) (low_reduced ho)
+              (evaluate_high_eq_evaluate_low_of_independentOf_root this)
           apply ho.1 O.1.toRelevantPointer
           simp [toRelevantPointer]
           rw [O_root_def]
@@ -986,8 +845,8 @@ theorem OBdd.Canonicity {O : OBdd n m} {U : OBdd n m'} (ho : O.Reduced) (hu : U.
       constructor
       · exact same_var
       · constructor
-        · apply OBdd.Canonicity (low_reduced  ho) (low_reduced  hu) (evaluate_low_eq_of_evaluate_eq_and_var_eq'  h same_var)
-        · apply OBdd.Canonicity (high_reduced ho) (high_reduced hu) (evaluate_high_eq_of_evaluate_eq_and_var_eq' h same_var)
+        · apply OBdd.Canonicity (low_reduced  ho) (low_reduced  hu) (evaluate_low_eq_of_evaluate_eq_and_var_eq  h same_var)
+        · apply OBdd.Canonicity (high_reduced ho) (high_reduced hu) (evaluate_high_eq_of_evaluate_eq_and_var_eq h same_var)
 termination_by O.size' + U.size'
 decreasing_by
   simp [size_node U_root_def]; omega
@@ -1070,8 +929,9 @@ lemma Pointer.Reachable_iff {M : Vector (Node n m) m } :
       | inl h => exact .trans (.ofEdge Edge.low) h
       | inr h => exact .trans (.ofEdge Edge.high) h
 
-lemma OBdd.reachable_or_eq_low_high {O : OBdd n m} :
-    Reachable O.1.heap O.1.root p → (O.1.root = p ∨ (∃ j, ∃ (h : O.1.root = node j), (Reachable O.1.heap (O.low h).1.root p ∨ Reachable O.1.heap (O.high h).1.root p))) := by
+lemma OBdd.reachable_or_eq_low_high {n m} {O : OBdd n m} {p} : Reachable O.1.heap O.1.root p →
+    O.1.root = p ∨ (∃ j, ∃ h : O.1.root = node j,
+      Reachable O.1.heap (O.low h).1.root p ∨ Reachable O.1.heap (O.high h).1.root p) := by
   intro hr
   cases Reachable_iff.mp hr with
   | inl => left; assumption
@@ -1088,96 +948,7 @@ lemma not_isTerminal_of_root_eq_node {n m} {j} {O : OBdd n m} (h : O.1.root = no
   rw [h] at hb
   contradiction
 
-def OBdd.OReachable {n m} := Relation.ReflTransGen (@OEdge n m)
-
-lemma OBdd.low_oreachable {n m} {j} {O U : OBdd n m} {U_root_def : U.1.root = node j}: O.OReachable U → O.OReachable (U.low U_root_def) := fun h ↦
-  Relation.ReflTransGen.tail h oedge_of_low
-
-lemma OBdd.high_oreachable {n m} {j} {O U : OBdd n m} {U_root_def : U.1.root = node j} : O.OReachable U → O.OReachable (U.high U_root_def) := fun h ↦
-  Relation.ReflTransGen.tail h oedge_of_high
-
-lemma OBdd.reachable_node_iff {O : OBdd n m} (h : O.1.root = node j) :
-  Reachable O.1.heap O.1.root = fun q ↦
-    (Reachable O.1.heap O.1.root q ∧ ¬ Reachable O.1.heap (O.low h).1.root q ∧ ¬ Reachable O.1.heap (O.high h).1.root q) ∨
-    (Reachable O.1.heap (O.low  h).1.root q ∧ ¬ Reachable O.1.heap (O.high h).1.root q) ∨
-    (Reachable O.1.heap (O.high h).1.root q ∧ ¬ Reachable O.1.heap (O.low  h).1.root q) ∨
-    (Reachable O.1.heap (O.low  h).1.root q ∧   Reachable O.1.heap (O.high h).1.root q) := by
-  ext p
-  constructor
-  · intro r
-    cases instDecidableReachable (O.low h) p with
-    | isFalse hf =>
-      cases instDecidableReachable (O.high h) p with
-      | isFalse hhf =>
-        left
-        exact ⟨r, hf, hhf⟩
-      | isTrue hht =>
-        right
-        right
-        left
-        exact ⟨hht, hf⟩
-    | isTrue ht =>
-      cases instDecidableReachable (O.high h) p with
-      | isFalse hhf =>
-        right
-        left
-        exact ⟨ht, hhf⟩
-      | isTrue hht =>
-        right
-        right
-        right
-        exact ⟨ht, hht⟩
-  · intro r
-    cases r with
-    | inl r => exact r.1
-    | inr r =>
-      cases r with
-      | inl r =>
-        trans (O.low h).1.root
-        · exact O.bdd.reachable_low h
-        · exact r.1
-      | inr r =>
-        cases r with
-        | inl r =>
-          trans (O.high h).1.root
-          · exact O.bdd.reachable_high h
-          · exact r.1
-        | inr r =>
-          trans (O.high h).1.root
-          · exact O.bdd.reachable_high h
-          · exact r.2
-
-@[no_expose]
-instance OBdd.instFintypeReachableFromNode (O : OBdd n m) (h : O.1.root = node j) : Fintype {q // (q = O.1.root ∨ (Reachable O.1.heap (O.low  h).1.root q ∨ Reachable O.1.heap (O.high h).1.root q))} := by
-  convert Subtype.fintype _
-  · intro p
-    simp only
-    cases decEq p O.1.root with
-    | isFalse hf =>
-      cases instDecidableReachable (O.low h) p with
-      | isFalse hhf =>
-        cases instDecidableReachable (O.high h) p with
-        | isFalse hhhf =>
-          apply isFalse
-          simp
-          exact ⟨hf, hhf, hhhf⟩
-        | isTrue hhht =>
-          apply isTrue
-          right
-          right
-          assumption
-      | isTrue hht =>
-        apply isTrue
-        right
-        left
-        assumption
-    | isTrue h =>
-      apply isTrue
-      left
-      assumption
-  · infer_instance
-
-lemma OBdd.reachable_from_node_iff' {O : OBdd n m} (h : O.1.root = node j) :
+lemma OBdd.reachable_from_node_iff' {n m j p} {O : OBdd n m} (h : O.1.root = node j) :
     Reachable O.1.heap O.1.root p ↔ p = O.1.root ∨ (Reachable O.1.heap (O.low h).1.root p ∨ Reachable O.1.heap (O.high h).1.root p) := by
   constructor
   · intro r
@@ -1207,16 +978,6 @@ lemma OBdd.reachable_from_node_iff' {O : OBdd n m} (h : O.1.root = node j) :
       | inl r => exact .trans (O.bdd.reachable_low h) r
       | inr r => exact .trans (O.bdd.reachable_high h) r
 
-lemma OBdd.card_reachable_node' {O : OBdd n m} (h : O.1.root = node j) :
-  Fintype.card {p // Reachable O.1.heap O.1.root p} =
-  Fintype.card {p // p = O.1.root ∨ (Reachable O.1.heap (O.low  h).1.root p ∨ Reachable O.1.heap (O.high h).1.root p)} := by
-  apply Fintype.card_congr'
-  conv =>
-    lhs
-    arg 1
-    ext
-    rw [reachable_from_node_iff' h]
-
 lemma OBdd.eq_root_disjoint_reachable_low_or_high {O : OBdd n m} (h : O.1.root = node j) :
     Disjoint
       (· = O.1.root)
@@ -1232,17 +993,6 @@ lemma OBdd.eq_root_disjoint_reachable_low_or_high {O : OBdd n m} (h : O.1.root =
   | inr l =>
     rw [← h] at l
     apply OBdd.not_oedge_reachable oedge_of_high l
-
-lemma OBdd.card_reachable_node {O : OBdd n m} (h : O.1.root = node j) :
-  Fintype.card { q // Reachable O.1.heap O.1.root q } =
-  1 + Fintype.card { q // Reachable (O.low h).1.heap (O.low h).1.root q ∨ Reachable (O.high h).1.heap (O.high h).1.root q } := by
-  rw [card_reachable_node' h]
-  rw [@Fintype.card_subtype_or_disjoint _ _ _ (eq_root_disjoint_reachable_low_or_high h) ..]
-  · simp only [Fintype.card_unique, low_heap_eq_heap, add_right_inj]
-    apply @Fintype.card_congr' ..
-    · apply fintypeEitherRelevantPointer (O.low h) (O.high h); simp
-    · simp
-  · exact Fintype.subtypeEq O.1.root
 
 lemma Bdd.ordered_of_low_high_ordered {n m} {B : Bdd n m} {j} (h : B.root = node j):
     (B.low h).Ordered → B.var < (B.low h).var →
@@ -1283,7 +1033,7 @@ lemma Bdd.ordered_of_ordered_heap_not_reachable_set (O : OBdd n m) :
       · exact h4
     · simp only [var_eq, low, Fin.getElem_fin]
       rw [Vector.getElem_set_ne i.2 j.2 (Fin.val_ne_of_ne h3)]
-      rw [h2, toVar_heap_set' h3]
+      rw [h2, toVar_heap_set h3]
       have h4 : toVar O'.1.heap (node j) < toVar O'.1.heap O'.1.heap[j].low :=
         ordered_iff'.1 O'.ordered (node j) O'.1.heap[j].low (h2 ▸ .refl) Edge.low
       convert h4 using 1
@@ -1310,7 +1060,7 @@ lemma Bdd.ordered_of_ordered_heap_not_reachable_set (O : OBdd n m) :
       · exact h4
     · simp only [var_eq, high, Fin.getElem_fin]
       rw [Vector.getElem_set_ne i.2 j.2 (Fin.val_ne_of_ne h3)]
-      rw [h2, toVar_heap_set' h3]
+      rw [h2, toVar_heap_set h3]
       have h4 : toVar O'.1.heap (node j) < toVar O'.1.heap O'.1.heap[j].high :=
         ordered_iff'.1 O'.ordered (node j) O'.1.heap[j].high (h2 ▸ .refl) Edge.high
       convert h4 using 1
@@ -1556,7 +1306,9 @@ lemma OBdd.usesVar_iff_dependsOn_of_reduced {O : OBdd n m} :
     rcases nind with ⟨b, v, hbv⟩
     exact usesVar_of_dependsOn hbv
 
-lemma OBdd.usesVar_iff (i : Fin n) (O : OBdd n m) : O.1.usesVar i ↔ (∃ j, ∃ (hj : O.1.root = node j), (O.1.heap[j].var = i ∨ ((O.low hj).1.usesVar i ∨ (O.high hj).1.usesVar i))) := by
+lemma OBdd.usesVar_iff (i : Fin n) (O : OBdd n m) : O.1.usesVar i ↔
+    (∃ j, ∃ (hj : O.1.root = node j),
+      O.1.heap[j].var = i ∨ ((O.low hj).1.usesVar i ∨ (O.high hj).1.usesVar i)) := by
   constructor
   · rintro ⟨j, hj, hi⟩
     rcases O_def : O with ⟨⟨heap, root⟩, o⟩
@@ -1672,7 +1424,8 @@ lemma Bdd.not_usesVar_of_terminal : ¬ Bdd.usesVar ⟨M, .terminal b⟩ i := by
   contradiction
 
 
-lemma Bdd.not_usesVar_of_var_gt {M : Vector (Node n m) m} {j : Fin m} : Bdd.Ordered ⟨M, .node j⟩ → M[j].var > i → ¬ Bdd.usesVar ⟨M, .node j⟩ i := by
+lemma Bdd.not_usesVar_of_var_gt {n m i} {M : Vector (Node n m) m} {j : Fin m} :
+    Bdd.Ordered ⟨M, .node j⟩ → M[j].var > i → ¬ Bdd.usesVar ⟨M, .node j⟩ i := by
   intro o h
   simp only [usesVar, not_exists]
   intro j'
@@ -1980,7 +1733,8 @@ def RawPointer.cook (p : RawPointer) (h : p.Bounded m) : Pointer m :=
   | .inl b => .terminal b
   | .inr i => .node ⟨i, h rfl⟩
 
-lemma RawPointer.cook_equiv {h1 : RawPointer.Bounded m1 p} {h2 : RawPointer.Bounded m2 p} : Pointer.equiv (RawPointer.cook p h1) (RawPointer.cook p h2) := by
+lemma RawPointer.cook_equiv {h1 : RawPointer.Bounded m1 p} {h2 : RawPointer.Bounded m2 p} :
+    Pointer.equiv (RawPointer.cook p h1) (RawPointer.cook p h2) := by
   simp only [Pointer.equiv]
   constructor
   · intro b hb
@@ -2118,7 +1872,8 @@ private lemma push_ordered_aux {v : Vector (RawNode n) m} {h0} {h2} :
         simp [RawNode.cook]
         rw [cook_aux h4.symm]
 
-lemma push_ordered : Bdd.Ordered ⟨cook_heap v h0, RawPointer.cook p h1⟩ → Bdd.Ordered ⟨cook_heap (v.push N) h2, RawPointer.cook p h3⟩ := by
+lemma push_ordered : Bdd.Ordered ⟨cook_heap v h0, RawPointer.cook p h1⟩ →
+    Bdd.Ordered ⟨cook_heap (v.push N) h2, RawPointer.cook p h3⟩ := by
   intro h
   apply Bdd.ordered_of_ordered_heap_all_reachable_eq ⟨⟨cook_heap v h0, RawPointer.cook p h1⟩, h⟩
   · intro j hj
