@@ -121,10 +121,10 @@ lemma olift_SimilarRP {h : n ≤ n'} {O : OBdd n m} {p q : Pointer m}
     O.SimilarRP ⟨p, (lift_reachable_iff (h := h)).mp hp⟩ ⟨q, (lift_reachable_iff (h := h)).mp hq⟩ := by
   intro sim
   simp only [OBdd.similarRP_iff] at ⊢ sim
-  have : OBdd.toTree ⟨{heap := (olift h O).1.heap, root := p}, Bdd.ordered_of_reachable hp⟩ = OBdd.toTree (olift h ⟨{heap := O.1.heap, root := p}, Bdd.ordered_of_reachable ((lift_reachable_iff (h := h)).mp hp)⟩) := by
+  have : OBdd.toTree ⟨{heap := (olift h O).1.heap, root := p}, OBdd.ordered_of_reachable hp⟩ = OBdd.toTree (olift h ⟨{heap := O.1.heap, root := p}, OBdd.ordered_of_reachable ((lift_reachable_iff (h := h)).mp hp)⟩) := by
     rfl
   rw [this] at sim
-  have : OBdd.toTree ⟨{heap := (olift h O).1.heap, root := q}, Bdd.ordered_of_reachable hq⟩ = OBdd.toTree (olift h ⟨{heap := O.1.heap, root := q}, Bdd.ordered_of_reachable ((lift_reachable_iff (h := h)).mp hq)⟩) := by
+  have : OBdd.toTree ⟨{heap := (olift h O).1.heap, root := q}, OBdd.ordered_of_reachable hq⟩ = OBdd.toTree (olift h ⟨{heap := O.1.heap, root := q}, OBdd.ordered_of_reachable ((lift_reachable_iff (h := h)).mp hq)⟩) := by
     rfl
   rw [this] at sim
   rw [olift_preserves_toTree] at sim

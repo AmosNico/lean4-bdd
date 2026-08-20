@@ -139,7 +139,7 @@ theorem collect_helper_spec {O : OBdd n m} :
     ∀ i, (Pointer.Reachable O.1.heap O.1.root (.node i) → (collect_helper O I).1[i] → i ∈ (collect_helper O I).2) := by
   intro h j re ma
   cases O_root_def : O.1.root with
-  | terminal b => grind only [Pointer.eq_terminal_of_reachable]
+  | terminal b => grind only [Pointer.Reachable.terminal_iff]
   | node k =>
     rw [collect_helper_node O O_root_def] at ma
     rw [collect_helper_node O O_root_def]
@@ -236,7 +236,7 @@ lemma collect_spec' {O : OBdd n m} {j : Fin m} {I : Vector Bool m × List (Fin m
     (collect_helper O I).1[j] = true := by
   intro h1 h2
   cases O_root_def : O.1.root with
-  | terminal b => grind only [Pointer.eq_terminal_of_reachable]
+  | terminal b => grind only [Pointer.Reachable.terminal_iff]
   | node i =>
     rw [collect_helper_node O O_root_def]
     have : I.1[i] = false := by

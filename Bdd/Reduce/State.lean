@@ -235,9 +235,9 @@ public lemma structural_canonical_reduced {n s : Nat}
     -- = toTree of sub-BDD at p = toTree of sub-BDD at q
     show p = q
     have hop : Bdd.Ordered ⟨M, p⟩ :=
-      Bdd.ordered_of_reachable (O := O) hp_reach
+      O.ordered_of_reachable hp_reach
     have hoq : Bdd.Ordered ⟨M, q⟩ :=
-      Bdd.ordered_of_reachable (O := O) hq_reach
+      O.ordered_of_reachable hq_reach
     rw [OBdd.similarRP_iff] at hsim
     exact key ⟨⟨M, p⟩, hop⟩ ⟨⟨M, q⟩, hoq⟩ rfl rfl hsim
 

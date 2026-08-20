@@ -5,20 +5,7 @@ import Bdd.Collect
 
 namespace Size
 
-public def size : OBdd n m → Nat := List.length ∘ Collect.collect
-
-public lemma isTerminal_iff_size_eq_zero {n m} {O : OBdd n m} : size O = 0 ↔ O.isTerminal := by
-  constructor
-  · intro h
-    simp only [size, Function.comp_apply, List.length_eq_zero_iff] at h
-    cases O_root_def : O.1.root with
-    | terminal b => use b
-    | node j =>
-      have := Collect.collect_spec (j := j) (by rw [O_root_def]; exact Pointer.Reachable.refl)
-      rw [h] at this
-      contradiction
-  · rintro ⟨b, hb⟩
-    simp [size, Collect.collect_terminal hb]
+public def size {n m} : OBdd n m → Nat := List.length ∘ Collect.collect
 
 public lemma size_spec {O : OBdd n m} : size O = OBdd.size O := by
   simp only [size, OBdd.size_eq_card_reachable, Function.comp_apply]
@@ -75,9 +62,10 @@ public lemma size_node_le {O : OBdd n m} {h : O.1.root = .node j} :
         next => simp_all
         next => split at hxy <;> (refine Subtype.ext ?_; simp_all))
 
-lemma size_le_helper {O : OBdd n m} : size O ≤ 2 ^ (n - O.1.var.1) - 1 := by
+lemma size_le_helper {n m} {O : OBdd n m} : size O ≤ 2 ^ (n - O.1.var.1) - 1 := by
   cases O_root_def : O.1.root with
-  | terminal b => simp [isTerminal_iff_size_eq_zero.mpr ⟨b, O_root_def⟩]
+  | terminal b =>
+    simp only [size_spec, O.size_terminal O_root_def, Nat.zero_le]
   | node j =>
     calc _
       _ ≤ 1 + (size (O.low O_root_def)) + (size (O.high O_root_def)) := size_node_le

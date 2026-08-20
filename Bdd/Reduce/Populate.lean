@@ -131,11 +131,11 @@ public def populate_queue {n m : Nat} (O : OBdd n m)
               simp only [Option.some.injEq] at hkptr; subst hkptr
               -- lid correctly represents sub-BDD at k (redundant case: lid = hid)
               have hj : Bdd.Ordered ⟨O.1.heap, Pointer.node k⟩ :=
-                Bdd.ordered_of_reachable hreach_j
+                O.ordered_of_reachable hreach_j
               have hlow_ord : Bdd.Ordered ⟨O.1.heap, O.1.heap[k].low⟩ :=
-                Bdd.ordered_of_reachable (.snoc hreach_j Edge.low)
+                O.ordered_of_reachable (.snoc hreach_j Edge.low)
               have hhigh_ord : Bdd.Ordered ⟨O.1.heap, O.1.heap[k].high⟩ :=
-                Bdd.ordered_of_reachable (.snoc hreach_j Edge.high)
+                O.ordered_of_reachable (.snoc hreach_j Edge.high)
               obtain ⟨hptr, ho, hred, heval_low⟩ :=
                 get_id_semantic inv _ hlow_ord (hchild _ Edge.low)
               obtain ⟨hptr_h, ho_h, _, heval_high⟩ :=
@@ -180,7 +180,7 @@ public def populate_queue {n m : Nat} (O : OBdd n m)
           obtain ⟨hr, hv, hlo, hhi, hlo_t, hhi_t⟩ := hec_acc entry hmem
           refine ⟨hr, hv, fun l hl => ?_, fun l hl => ?_, hlo_t, hhi_t⟩
           · -- l is a child of entry.2, so var[l] > i = var[j], hence l ≠ j
-            have hord_j' : Bdd.Ordered ⟨O.1.heap, .node entry.2⟩ := Bdd.ordered_of_reachable hr
+            have hord_j' : Bdd.Ordered ⟨O.1.heap, .node entry.2⟩ := O.ordered_of_reachable hr
             have hedge : Edge O.1.heap (node entry.2) (node l) := by
               convert Edge.low; rw [hl]
             have hmay := Bdd.ordered_iff.1 O.2 (node entry.2) (node l) hr hedge
@@ -344,7 +344,7 @@ public lemma push_back_lt {n s : Nat} {v : Vector (RawNode n) s} {N : RawNode n}
     have hcook : p.cook hp = .node ⟨j.1, hj_lt⟩ := by
       subst hp_eq; simp [RawPointer.cook]
     exact ⟨hj_lt, hcook ▸ .refl⟩
-  | snoc hprev edge ih =>
+  | snoc _ _ hprev edge ih =>
     intro j hj; subst hj
     rw [edge_iff] at edge
     rcases edge with ⟨k, rfl, h⟩

@@ -130,9 +130,9 @@ lemma push_reduced {n s : Nat} {v : Vector (RawNode n) s} {N : RawNode n}
     -- Case split: both must be same kind (terminal/node) for SimilarRP.
     -- We need the toTree equality for case analysis.
     have htree_sim : OBdd.toTree ⟨⟨cook_heap (v.push N) hh', rp⟩,
-          Bdd.ordered_of_reachable hrp_reach⟩ =
+          OBdd.ordered_of_reachable hrp_reach⟩ =
         OBdd.toTree ⟨⟨cook_heap (v.push N) hh', rq⟩,
-          Bdd.ordered_of_reachable hrq_reach⟩ := OBdd.similarRP_iff.1 hsim
+          OBdd.ordered_of_reachable hrq_reach⟩ := OBdd.similarRP_iff.1 hsim
     -- Case analysis on rp
     cases rp with
     | terminal bp =>
@@ -159,13 +159,13 @@ lemma push_reduced {n s : Nat} {v : Vector (RawNode n) s} {N : RawNode n}
         let jq' : Fin s := ⟨jq.1, hjq_lt⟩
         -- Ordered sub-BDDs in old and new heaps (inferred from reachability).
         have hop  : Bdd.Ordered ⟨cook_heap v hh,         .node jp'⟩ :=
-          Bdd.ordered_of_reachable (O := ⟨⟨cook_heap v hh, p.cook hp⟩, ho⟩)         hjp_reach_old
+          OBdd.ordered_of_reachable (O := ⟨⟨cook_heap v hh, p.cook hp⟩, ho⟩)         hjp_reach_old
         have hoq  : Bdd.Ordered ⟨cook_heap v hh,         .node jq'⟩ :=
-          Bdd.ordered_of_reachable (O := ⟨⟨cook_heap v hh, p.cook hp⟩, ho⟩)         hjq_reach_old
+          OBdd.ordered_of_reachable (O := ⟨⟨cook_heap v hh, p.cook hp⟩, ho⟩)         hjq_reach_old
         have hop' : Bdd.Ordered ⟨cook_heap (v.push N) hh', .node jp⟩ :=
-          Bdd.ordered_of_reachable (O := ⟨⟨cook_heap (v.push N) hh', p.cook hp'⟩, ho'⟩) hrp_reach
+          OBdd.ordered_of_reachable (O := ⟨⟨cook_heap (v.push N) hh', p.cook hp'⟩, ho'⟩) hrp_reach
         have hoq' : Bdd.Ordered ⟨cook_heap (v.push N) hh', .node jq⟩ :=
-          Bdd.ordered_of_reachable (O := ⟨⟨cook_heap (v.push N) hh', p.cook hp'⟩, ho'⟩) hrq_reach
+          OBdd.ordered_of_reachable (O := ⟨⟨cook_heap (v.push N) hh', p.cook hp'⟩, ho'⟩) hrq_reach
         have htree_p :
             OBdd.toTree ⟨⟨cook_heap v hh, Pointer.node jp'⟩, hop⟩ =
             OBdd.toTree ⟨⟨cook_heap (v.push N) hh', Pointer.node jp⟩, hop'⟩ := by
@@ -242,7 +242,7 @@ lemma push_node_correct' {n m : Nat} {i : Nat}
   have hsize : (push_node ps N hN).1.state.size = s + 1 := rfl
   have hheap : (push_node ps N hN).1.state.heap = ps.state.heap.push N := rfl
   -- Witness 1: hj
-  have hj : Bdd.Ordered ⟨O.1.heap, .node entry.2⟩ := Bdd.ordered_of_reachable hec.1
+  have hj : Bdd.Ordered ⟨O.1.heap, .node entry.2⟩ := O.ordered_of_reachable hec.1
   -- Witness 2: hp (ptr = .inr s, bounded by s+1)
   have hp : (push_node ps N hN).2.Bounded
       (set_id (push_node ps N hN).1 entry.2 (push_node ps N hN).2).state.size := by
@@ -1008,7 +1008,7 @@ lemma process_record_curptr_sem {n m : Nat} {i : Nat} (O : OBdd n m)
     have hnotiso_entry : ¬(entry.1 = curkey) := hentry_key ▸ heq_h
     -- Ordering for entry.2
     have hj_entry : Bdd.Ordered ⟨O.1.heap, .node entry.2⟩ :=
-      Bdd.ordered_of_reachable (hec entry (.tail _ hmem)).1
+      O.ordered_of_reachable (hec entry (.tail _ hmem)).1
     -- Both at the same variable index i
     have hvar_eq : O.1.heap[head.2].var = O.1.heap[entry.2].var :=
       Fin.ext ((hec head (.head _)).2.1.trans (hec entry (.tail _ hmem)).2.1.symm)

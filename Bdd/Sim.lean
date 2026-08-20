@@ -30,8 +30,8 @@ def sim_helper {n m m'}
     (State O U)
     (Decidable
       (OBdd.HSimilar
-        ⟨⟨O.1.heap, p⟩, Bdd.ordered_of_reachable hpr⟩
-        ⟨⟨U.1.heap, q⟩, Bdd.ordered_of_reachable hqr⟩)) :=
+        ⟨⟨O.1.heap, p⟩, O.ordered_of_reachable hpr⟩
+        ⟨⟨U.1.heap, q⟩, U.ordered_of_reachable hqr⟩)) :=
   match hp : p with
   | .terminal b =>
     match hq : q with
@@ -77,8 +77,8 @@ def sim_helper {n m m'}
                           simp only [true_and]
                           constructor
                           · exact hpr
-                          · use Bdd.ordered_of_reachable hpr
-                            use Bdd.ordered_of_reachable hqr
+                          · use OBdd.ordered_of_reachable hpr
+                            use OBdd.ordered_of_reachable hqr
                             simp only [OBdd.HSimilar] at ⊢ ht ht'
                             rw [OBdd.toTree_node rfl, OBdd.toTree_node (j := j') rfl]
                             simp only [OBdd.low_eq, Bdd.low_eq, OBdd.high_eq, Bdd.high_eq,
@@ -106,8 +106,8 @@ def sim_helper {n m m'}
                           simp only [true_and]
                           constructor
                           · exact hqr
-                          · use Bdd.ordered_of_reachable hpr
-                            use Bdd.ordered_of_reachable hqr
+                          · use OBdd.ordered_of_reachable hpr
+                            use OBdd.ordered_of_reachable hqr
                             simp only [OBdd.HSimilar] at ⊢ ht ht'
                             rw [OBdd.toTree_node rfl, OBdd.toTree_node (j := j') rfl]
                             simp only [OBdd.low_eq, Bdd.low_eq, OBdd.high_eq, Bdd.high_eq,
@@ -170,10 +170,10 @@ def sim_helper {n m m'}
               exact this
             ))
       else return isFalse (by simp_all [OBdd.HSimilar, OBdd.toTree_node])
-termination_by OBdd.size' (⟨⟨O.1.heap, p⟩, Bdd.ordered_of_reachable hpr⟩ : OBdd n m)
+termination_by OBdd.size' ⟨⟨O.1.heap, p⟩, O.ordered_of_reachable hpr⟩
 decreasing_by
-  · simp [OBdd.size_node, OBdd.low_eq, Bdd.low_eq]; omega
-  · simp [OBdd.size_node, OBdd.high_eq, Bdd.high_eq]; omega
+  · simp [OBdd.size'_node, OBdd.low_eq, Bdd.low_eq]; omega
+  · simp [OBdd.size'_node, OBdd.high_eq, Bdd.high_eq]; omega
 
 public def decidableRobddHSimilar {n m m'}
     (O : OBdd n m) (hO : O.Reduced)

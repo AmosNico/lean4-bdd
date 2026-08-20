@@ -250,10 +250,10 @@ lemma orelabel_preserves_similarRP {O : OBdd n m} {f : Nat → Nat} {hf : ∀ i 
         simp_rw [← relabel.eq_1] at hb
         conv at hb =>
           lhs
-          rw [brelabel_low (h := rfl) (o := Bdd.ordered_of_reachable (relabel_reachable_iff.mp hp)) hf (by simp_all)]
+          rw [brelabel_low (h := rfl) (o := OBdd.ordered_of_reachable (relabel_reachable_iff.mp hp)) hf (by simp_all)]
         conv at hb =>
           rhs
-          rw [brelabel_low (h := rfl) (o := Bdd.ordered_of_reachable (relabel_reachable_iff.mp hq)) hf (by simp_all)]
+          rw [brelabel_low (h := rfl) (o := OBdd.ordered_of_reachable (relabel_reachable_iff.mp hq)) hf (by simp_all)]
         simp only [OBdd.low_eq] at hb ⊢
         have helplj : ∀ x, Bdd.usesVar (({ heap := O.1.heap, root := Pointer.node j } : Bdd n m).low rfl) x → O.1.usesVar x := by
           rintro _ hx
@@ -265,10 +265,10 @@ lemma orelabel_preserves_similarRP {O : OBdd n m} {f : Nat → Nat} {hf : ∀ i 
           apply Bdd.usesVar_of_low_usesVar hx
         conv at hb =>
           lhs
-          rw [relabel_toTree_relabel' (o := (by apply Bdd.low_ordered; exact Bdd.ordered_of_reachable (relabel_reachable_iff.mp hp))) hf (by simp_all)]
+          rw [relabel_toTree_relabel' (o := (by apply Bdd.low_ordered; exact O.ordered_of_reachable (relabel_reachable_iff.mp hp))) hf (by simp_all)]
         conv at hb =>
           rhs
-          rw [relabel_toTree_relabel' (o := (by apply Bdd.low_ordered; exact Bdd.ordered_of_reachable (relabel_reachable_iff.mp hq))) hf (by simp_all)]
+          rw [relabel_toTree_relabel' (o := (by apply Bdd.low_ordered; exact O.ordered_of_reachable (relabel_reachable_iff.mp hq))) hf (by simp_all)]
         rw [DecisionTree.relabel_injective hb]
         intro ii ii' hii hii' hfi
         rw [← OBdd.toTree_usesVar] at hii hii'
@@ -300,10 +300,10 @@ lemma orelabel_preserves_similarRP {O : OBdd n m} {f : Nat → Nat} {hf : ∀ i 
         simp_rw [← relabel.eq_1] at hc
         conv at hc =>
           lhs
-          rw [brelabel_high (h := rfl) (o := Bdd.ordered_of_reachable (relabel_reachable_iff.mp hp)) hf (by simp_all)]
+          rw [brelabel_high (h := rfl) (o := O.ordered_of_reachable (relabel_reachable_iff.mp hp)) hf (by simp_all)]
         conv at hc =>
           rhs
-          rw [brelabel_high (h := rfl) (o := Bdd.ordered_of_reachable (relabel_reachable_iff.mp hq)) hf (by simp_all)]
+          rw [brelabel_high (h := rfl) (o := O.ordered_of_reachable (relabel_reachable_iff.mp hq)) hf (by simp_all)]
         simp only [OBdd.high_eq] at hc ⊢
         have helphj : ∀ x, Bdd.usesVar (({ heap := O.1.heap, root := Pointer.node j } : Bdd n m).high rfl) x → O.1.usesVar x := by
           rintro _ hx
@@ -315,10 +315,10 @@ lemma orelabel_preserves_similarRP {O : OBdd n m} {f : Nat → Nat} {hf : ∀ i 
           apply Bdd.usesVar_of_high_usesVar hx
         conv at hc =>
           lhs
-          rw [relabel_toTree_relabel' (o := (by apply Bdd.high_ordered; exact Bdd.ordered_of_reachable (relabel_reachable_iff.mp hp))) hf (by simp_all)]
+          rw [relabel_toTree_relabel' (o := (by apply Bdd.high_ordered; exact O.ordered_of_reachable (relabel_reachable_iff.mp hp))) hf (by simp_all)]
         conv at hc =>
           rhs
-          rw [relabel_toTree_relabel' (o := (by apply Bdd.high_ordered; exact Bdd.ordered_of_reachable (relabel_reachable_iff.mp hq))) hf (by simp_all)]
+          rw [relabel_toTree_relabel' (o := (by apply Bdd.high_ordered; exact O.ordered_of_reachable (relabel_reachable_iff.mp hq))) hf (by simp_all)]
         rw [DecisionTree.relabel_injective hc]
         intro ii ii' hii hii' hfi
         rw [← OBdd.toTree_usesVar] at hii hii'
