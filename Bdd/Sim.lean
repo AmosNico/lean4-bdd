@@ -10,16 +10,10 @@ structure State {n m m'} (O : OBdd n m) (U : OBdd n m') where
   rl : Std.HashMap (Fin m') (Fin m)
   hl : ∀ j j',
     lr[j]? = some j' → rl[j']? = some j           ∧
-    Pointer.Reachable O.1.heap O.1.root (.node j) ∧
-    ∃ hj : Bdd.Ordered ⟨O.1.heap, .node j⟩,
-      ∃ hj' : Bdd.Ordered ⟨U.1.heap, .node j'⟩,
-        OBdd.HSimilar ⟨⟨O.1.heap, .node j⟩, hj⟩ ⟨⟨U.1.heap, .node j'⟩, hj'⟩
+    ∃ hj hj', OBdd.HSimilar (O.subBdd ⟨.node j, hj⟩) (U.subBdd ⟨.node j', hj'⟩)
   hr : ∀ j j',
     rl[j']? = some j → lr[j]? = some j'            ∧
-    Pointer.Reachable U.1.heap U.1.root (.node j') ∧
-    ∃ hj : Bdd.Ordered ⟨O.1.heap, .node j⟩,
-      ∃ hj' : Bdd.Ordered ⟨U.1.heap, .node j'⟩,
-        OBdd.HSimilar ⟨⟨O.1.heap, .node j⟩, hj⟩ ⟨⟨U.1.heap, .node j'⟩, hj'⟩
+    ∃ hj hj', OBdd.HSimilar (O.subBdd ⟨.node j, hj⟩) (U.subBdd ⟨.node j', hj'⟩)
 
 def sim_helper {n m m'}
     (O : OBdd n m) (hO : OBdd.Reduced O)
@@ -28,10 +22,7 @@ def sim_helper {n m m'}
     (q : Pointer m') (hqr : Pointer.Reachable U.1.heap U.1.root q) :
   StateM
     (State O U)
-    (Decidable
-      (OBdd.HSimilar
-        ⟨⟨O.1.heap, p⟩, O.ordered_of_reachable hpr⟩
-        ⟨⟨U.1.heap, q⟩, U.ordered_of_reachable hqr⟩)) :=
+    (Decidable (OBdd.HSimilar (O.subBdd ⟨p, hpr⟩) (U.subBdd ⟨q, hqr⟩))) :=
   match hp : p with
   | .terminal b =>
     match hq : q with
@@ -54,15 +45,12 @@ def sim_helper {n m m'}
             let hll ← sim_helper O hO U hU
               O.1.heap[j].low (Pointer.Reachable.snoc hpr .low)
               U.1.heap[j'].low (Pointer.Reachable.snoc hqr .low)
-            match hll with
-            | isTrue ht =>
-              -- TODO : why is type declaration needed? Note that only `←` does not work, for some reason `:= ←` is needed
-              let hhh : Decidable (OBdd.HSimilar ⟨Bdd.mk O.bdd.heap O.bdd.heap[j].high, _⟩ ⟨Bdd.mk U.bdd.heap U.bdd.heap[j'].high, _⟩) :=
+            if h : ((O.subBdd ⟨O.bdd.heap[j].low, _⟩).HSimilar (U.subBdd ⟨U.bdd.heap[j'].low, _⟩)) then
+              let hhh :=
                 ← sim_helper O hO U hU
                 O.1.heap[j].high (Pointer.Reachable.snoc hpr .high)
                 U.1.heap[j'].high (Pointer.Reachable.snoc hqr .high)
-              match hhh with
-              | isTrue ht' =>
+              if h' : ((O.subBdd ⟨O.bdd.heap[j].high, _⟩).HSimilar (U.subBdd ⟨U.bdd.heap[j'].high, _⟩)) then
                 set
                   (⟨s.lr.insert j j', s.rl.insert j' j,
                     fun jj jj' hjj ↦ by
@@ -75,15 +63,13 @@ def sim_helper {n m m'}
                         next heqq =>
                           subst heqq
                           simp only [true_and]
-                          constructor
-                          · exact hpr
-                          · use OBdd.ordered_of_reachable hpr
-                            use OBdd.ordered_of_reachable hqr
-                            simp only [OBdd.HSimilar] at ⊢ ht ht'
-                            rw [OBdd.toTree_node rfl, OBdd.toTree_node (j := j') rfl]
-                            simp only [OBdd.low_eq, Bdd.low_eq, OBdd.high_eq, Bdd.high_eq,
-                              DecisionTree.branch.injEq]
-                            exact ⟨hv, ht, ht'⟩
+                          use hpr, hqr
+                          simp only [OBdd.HSimilar] at ⊢ h h'
+                          rw [OBdd.toTree_node (OBdd.root_subBdd ⟨.node j, _⟩)]
+                          rw [OBdd.toTree_node (OBdd.root_subBdd ⟨.node j', _⟩)]
+                          simp only [OBdd.heap_subBdd, OBdd.low_subBdd, OBdd.high_subBdd,
+                            DecisionTree.branch.injEq]
+                          exact ⟨hv, h, h'⟩
                         next heqq => injection hjj; contradiction
                       next heq =>
                         simp only [Std.HashMap.getElem?_insert, beq_iff_eq]
@@ -104,15 +90,13 @@ def sim_helper {n m m'}
                         next heqq =>
                           subst heqq
                           simp only [true_and]
-                          constructor
-                          · exact hqr
-                          · use OBdd.ordered_of_reachable hpr
-                            use OBdd.ordered_of_reachable hqr
-                            simp only [OBdd.HSimilar] at ⊢ ht ht'
-                            rw [OBdd.toTree_node rfl, OBdd.toTree_node (j := j') rfl]
-                            simp only [OBdd.low_eq, Bdd.low_eq, OBdd.high_eq, Bdd.high_eq,
-                              DecisionTree.branch.injEq]
-                            exact ⟨hv, ht, ht'⟩
+                          use hpr, hqr
+                          simp only [OBdd.HSimilar] at ⊢ h h'
+                          rw [OBdd.toTree_node (OBdd.root_subBdd ⟨.node j, _⟩)]
+                          rw [OBdd.toTree_node (OBdd.root_subBdd ⟨.node j', _⟩)]
+                          simp only [OBdd.heap_subBdd, OBdd.low_subBdd, OBdd.high_subBdd,
+                            DecisionTree.branch.injEq]
+                          exact ⟨hv, h, h'⟩
                         next heqq => injection hjj; contradiction
                       next heq =>
                         simp only [Std.HashMap.getElem?_insert, beq_iff_eq]
@@ -125,27 +109,35 @@ def sim_helper {n m m'}
                           exact s.hr jj jj' hjj
                    ⟩ : State O U)
                 return isTrue (by
-                  simp only [OBdd.HSimilar] at ⊢ ht ht'
-                  rw [OBdd.toTree_node rfl, OBdd.toTree_node (j := j') rfl]
-                  simp only [OBdd.low_eq, Bdd.low_eq, OBdd.high_eq, Bdd.high_eq,
+                  simp only [OBdd.HSimilar] at ⊢ h h'
+                  rw [OBdd.toTree_node (OBdd.root_subBdd ⟨.node j, _⟩)]
+                  rw [OBdd.toTree_node (OBdd.root_subBdd ⟨.node j', _⟩)]
+                  simp only [OBdd.heap_subBdd, OBdd.low_subBdd, OBdd.high_subBdd,
                     DecisionTree.branch.injEq]
-                  exact ⟨hv, ht, ht'⟩
+                  exact ⟨hv, h, h'⟩
                 )
-              | isFalse hf' => return isFalse (fun c ↦ by
-                simp [OBdd.HSimilar, OBdd.toTree_node, OBdd.high_eq, Bdd.high_eq] at c;
-                exact hf' c.2.2)
-            | isFalse hf => return isFalse (fun c ↦ by
-              simp [OBdd.HSimilar, OBdd.toTree_node, OBdd.low_eq, Bdd.low_eq] at c; exact hf c.2.1)
+              else
+                return isFalse (fun c ↦ by
+                  simp only [OBdd.HSimilar, OBdd.root_subBdd, Pointer.node.injEq, OBdd.toTree_node,
+                    OBdd.high_subBdd, DecisionTree.branch.injEq] at c
+                  exact h' c.2.2)
+            else
+              return isFalse (fun c ↦ by
+                simp only [OBdd.HSimilar, OBdd.root_subBdd, Pointer.node.injEq, OBdd.toTree_node,
+                  OBdd.heap_subBdd, -Fin.getElem_fin, OBdd.low_eq, Bdd.low_eq, OBdd.high_subBdd,
+                  DecisionTree.branch.injEq] at c;
+                simp? at h
+                exact h c.2.1)
           | some i =>
             return isFalse (by
-              rcases s.hr i j' hr with ⟨h1, h2, h3, h4, h5⟩
-              rcases s.hl i j' h1 with ⟨h1', h2', h3', h4', h5'⟩
+              rcases s.hr i j' hr with ⟨h1, h2, h3, h4⟩
+              rcases s.hl i j' h1 with ⟨h1', h2', h3', h4'⟩
               intro contra
               have hsim : OBdd.SimilarRP O ⟨.node i, h2'⟩ ⟨.node j, hpr⟩ := by
                 simp [OBdd.similarRP_iff]
-                simp only [OBdd.HSimilar] at contra h5
+                simp only [OBdd.HSimilar] at contra h4
                 rw [contra]
-                exact h5
+                exact h4
               have h := hO.2 hsim
               simp [InvImage] at h
               subst h
@@ -155,16 +147,16 @@ def sim_helper {n m m'}
         | some i' =>
           if heq : j' = i'
           then
-            return isTrue (s.hl j j' (by simp_all)).2.2.2.2
+            return isTrue (s.hl j j' (by simp_all)).2.2.2
           else
             return isFalse (fun c ↦ heq (by
-              rcases s.hl j i' hl with ⟨h1, h2, h3, h4, h5⟩
-              rcases s.hr j i' h1 with ⟨h1', h2', h3', h4', h5'⟩
-              have hsim : OBdd.SimilarRP U ⟨.node j', hqr⟩ ⟨.node i', h2'⟩ := by
+              rcases s.hl j i' hl with ⟨h1, h2, h3, h4⟩
+              rcases s.hr j i' h1 with ⟨h1', h2', h3', h4'⟩
+              have hsim : OBdd.SimilarRP U ⟨.node j', hqr⟩ ⟨.node i', h3'⟩ := by
                 simp [OBdd.similarRP_iff]
-                simp only [OBdd.HSimilar] at c h5
-                rw [c] at h5
-                exact h5
+                simp only [OBdd.HSimilar] at c h4
+                rw [c] at h4
+                exact h4
               have := hU.2 hsim
               simp [InvImage] at this
               exact this

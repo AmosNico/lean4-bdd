@@ -380,8 +380,39 @@ lemma OBdd.ordered_of_reachable {n m} {O : OBdd n m} {p} :
 lemma OBdd.ordered_of_relevant {n m} (O : OBdd n m) (S : O.1.RelevantPointer) :
     Ordered {heap := O.1.heap, root := S.1} := ordered_of_reachable S.2
 
-def OBdd.sub {n m} (O : OBdd n m) (p : O.bdd.RelevantPointer) : OBdd n m :=
+def OBdd.subBdd {n m} (O : OBdd n m) (p : O.bdd.RelevantPointer) : OBdd n m :=
   ⟨⟨O.bdd.heap, p⟩, O.ordered_of_reachable p.prop⟩
+
+lemma OBdd.subBdd_eq {n m} (O : OBdd n m) p :
+    O.subBdd p = ⟨⟨O.bdd.heap, p⟩, O.ordered_of_reachable p.prop⟩ := (rfl)
+
+@[simp]
+lemma OBdd.heap_subBdd {n m} {O : OBdd n m} p :
+    (O.subBdd p).bdd.heap = O.bdd.heap := (rfl)
+
+@[simp]
+lemma OBdd.root_subBdd {n m} {O : OBdd n m} p :
+    (O.subBdd p).bdd.root = p := (rfl)
+
+lemma OBdd.reachable_low_of_subBdd {n m} {O : OBdd n m} {p j} (h : (O.subBdd p).bdd.root = node j) :
+    Reachable O.bdd.heap O.bdd.root O.bdd.heap[j].low := by
+  simp only [root_subBdd] at h
+  exact .snoc p.2 (h ▸ Edge.low)
+
+@[simp]
+lemma OBdd.low_subBdd {n m} {O : OBdd n m} {p} {j} {h : (O.subBdd p).bdd.root = node j} :
+    (O.subBdd p).low h = O.subBdd ⟨O.bdd.heap[j].low, reachable_low_of_subBdd h⟩ := by
+  simp only [subBdd_eq, eq_iff_bdd_eq, low_heap_eq_heap, low_root_eq_low, and_self]
+
+lemma OBdd.reachable_high_of_subBdd {n m} {O : OBdd n m} {p j} (h : (O.subBdd p).bdd.root = node j) :
+    Reachable O.bdd.heap O.bdd.root O.bdd.heap[j].high := by
+  simp only [root_subBdd] at h
+  exact .snoc p.2 (h ▸ Edge.high)
+
+@[simp]
+lemma OBdd.high_subBdd {n m} {O : OBdd n m} {p} {j} {h : (O.subBdd p).bdd.root = node j} :
+    (O.subBdd p).high h = O.subBdd ⟨O.bdd.heap[j].high, reachable_high_of_subBdd h⟩ := by
+  simp only [subBdd_eq, eq_iff_bdd_eq, high_heap_eq_heap, high_root_eq_high, and_self]
 
 /-! ## var -/
 
@@ -579,12 +610,10 @@ def OBdd.HSimilar {n m m'} (O : OBdd n m) (U : OBdd n m') := O.toTree = U.toTree
 def OBdd.Similar {n m} : OBdd n m → OBdd n m → Prop := HSimilar
 
 def OBdd.SimilarRP {n m} (O : OBdd n m) (p q : O.1.RelevantPointer) :=
-  Similar ⟨{heap := O.1.heap, root := p.1}, ordered_of_reachable p.2⟩
-          ⟨{heap := O.1.heap, root := q.1}, ordered_of_reachable q.2⟩
+  Similar (O.subBdd p) (O.subBdd q)
 
-lemma OBdd.similarRP_iff {n m} {O : OBdd n m} {p q : O.1.RelevantPointer} : O.SimilarRP p q ↔
-    (OBdd.mk ⟨O.bdd.heap, p⟩ (ordered_of_reachable p.2)).toTree =
-    (OBdd.mk ⟨O.bdd.heap, q⟩ (ordered_of_reachable q.2)).toTree := by rfl
+lemma OBdd.similarRP_iff {n m} {O : OBdd n m} {p q : O.1.RelevantPointer} :
+    O.SimilarRP p q ↔ (O.subBdd p).toTree = (O.subBdd q).toTree := by rfl
 
 /-- Isomorphism of `Ordered` BDDs is an equivalence relation. -/
 lemma OBdd.Similar.instEquivalence {n m} : Equivalence (α := OBdd n m) OBdd.Similar := by
@@ -653,30 +682,30 @@ lemma Bdd.reduced_of_terminal : OBdd.Reduced ⟨⟨M, terminal b⟩, o⟩ :=
   OBdd.reduced_of_terminal rfl
 
 /-- Sub-BDDs of a reduced BDD are reduced. -/
-private lemma OBdd.reduced_of_relevant {n m} {O : OBdd n m} (S : O.1.RelevantPointer):
-    O.Reduced → OBdd.Reduced ⟨{heap := O.1.heap, root := S.1}, ordered_of_relevant O S⟩ := by
+private lemma OBdd.reduced_subBdd {n m} {O : OBdd n m} (S : O.1.RelevantPointer):
+    O.Reduced → OBdd.Reduced (O.subBdd S) := by
   intro R
   induction O using OBdd.init_inductionOn
   case base b U h1 h2 =>
     apply OBdd.reduced_of_terminal
-    simp_rw [Bdd.eq_terminal_of_relevant h2 S]
+    simp_rw [root_subBdd, Bdd.eq_terminal_of_relevant h2 S]
     rfl
   case step O' _ _ _ _ _ =>
     constructor
     · intro p; apply R.1 ⟨p.1, Reachable.trans S.2 p.2⟩
     · intro q p _
       have : O'.SimilarRP ⟨q.1, Reachable.trans S.2 q.2⟩ ⟨p.1, Reachable.trans S.2 p.2⟩ := by
-        simp_all only [SimilarRP, Similar]
+        simp_all only [similarRP_iff, subBdd_eq]
       apply R.2 this
 
 lemma OBdd.high_reduced {n m} {O : OBdd n m} {j : Fin m} {h : O.1.root = node j} : O.Reduced → (O.high h).Reduced := by
   intro o
-  apply reduced_of_relevant ⟨O.1.heap[j].high, ?_⟩ o
+  apply reduced_subBdd ⟨O.1.heap[j].high, ?_⟩ o
   exact O.bdd.reachable_high h
 
 lemma OBdd.low_reduced {n m} {O : OBdd n m} {j : Fin m} {h : O.1.root = node j} : O.Reduced → (O.low h).Reduced := by
   intro o
-  apply reduced_of_relevant ⟨O.1.heap[j].low, ?_⟩ o
+  apply reduced_subBdd ⟨O.1.heap[j].low, ?_⟩ o
   exact O.bdd.reachable_low h
 
 /-! ## Size -/
