@@ -113,15 +113,15 @@ lemma OBdd.reachable_node_iff {n m j} {O : OBdd n m} (h : O.1.root = node j) :
           · exact r.2
 
 /-- Similarity of `Ordered` BDDs is decidable. -/
-instance OBdd.instDecidableSimilar {n m} : DecidableRel (β := OBdd n m) OBdd.Similar :=
-  fun O U ↦ decidable_of_decidable_of_iff (show O.toTree = U.toTree ↔ _ by simp [Similar, HSimilar])
+instance OBdd.instDecidableSimilar {n m} : DecidableRel (α  := OBdd n m) (β := OBdd n m) OBdd.Similar :=
+  fun O U ↦ decidable_of_decidable_of_iff (show O.toTree = U.toTree ↔ _ by simp [Similar])
 
 -- FIXME: Use the instance from Sim.lean instead.
-instance OBdd.instDecidableHSimilar {n m m'} (O : OBdd n m) (U : OBdd n m') : Decidable (OBdd.HSimilar O U) :=
-  decidable_of_decidable_of_iff (show O.toTree = U.toTree ↔ _ by simp [HSimilar])
+instance OBdd.instDecidableHSimilar {n m m'} (O : OBdd n m) (U : OBdd n m') : Decidable (OBdd.Similar O U) :=
+  decidable_of_decidable_of_iff (show O.toTree = U.toTree ↔ _ by simp [Similar])
 
 @[no_expose]
-instance OBdd.instDecidableSimilarRP : Decidable (OBdd.SimilarRP O l r) := by
+instance OBdd.instDecidableSimilarRP : Decidable (OBdd.SimilarRP l r) := by
   simp only [OBdd.SimilarRP]; infer_instance
 
 instance OBdd.instFintypeRelevantPointer {n m} (O : OBdd n m) : Fintype (O.1.RelevantPointer) := by

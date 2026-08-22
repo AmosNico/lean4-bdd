@@ -238,7 +238,7 @@ public lemma structural_canonical_reduced {n s : Nat}
       O.ordered_of_reachable hp_reach
     have hoq : Bdd.Ordered ⟨M, q⟩ :=
       O.ordered_of_reachable hq_reach
-    rw [OBdd.similarRP_iff] at hsim
+    simp only [OBdd.similarRP_iff, OBdd.subBdd_eq] at hsim
     exact key ⟨⟨M, p⟩, hop⟩ ⟨⟨M, q⟩, hoq⟩ rfl rfl hsim
 
 @[expose]

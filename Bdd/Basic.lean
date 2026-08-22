@@ -394,6 +394,9 @@ lemma OBdd.heap_subBdd {n m} {O : OBdd n m} p :
 lemma OBdd.root_subBdd {n m} {O : OBdd n m} p :
     (O.subBdd p).bdd.root = p := (rfl)
 
+@[simp]
+lemma OBdd.subBdd_root {n m} (O : OBdd n m) : O.subBdd ⟨O.bdd.root, .refl⟩ = O := (rfl)
+
 lemma OBdd.reachable_low_of_subBdd {n m} {O : OBdd n m} {p j} (h : (O.subBdd p).bdd.root = node j) :
     Reachable O.bdd.heap O.bdd.root O.bdd.heap[j].low := by
   simp only [root_subBdd] at h
@@ -604,26 +607,39 @@ termination_by O
 
 /-! ## Similarity -/
 
-@[expose]
-def OBdd.HSimilar {n m m'} (O : OBdd n m) (U : OBdd n m') := O.toTree = U.toTree
+def OBdd.Similar {n m m'} (O : OBdd n m) (U : OBdd n m') := O.toTree = U.toTree
 
-def OBdd.Similar {n m} : OBdd n m → OBdd n m → Prop := HSimilar
+lemma OBdd.similar_iff {n m m'} {O : OBdd n m} {U : OBdd n m'} :
+    O.Similar U ↔ O.toTree = U.toTree := by rfl
 
-def OBdd.SimilarRP {n m} (O : OBdd n m) (p q : O.1.RelevantPointer) :=
-  Similar (O.subBdd p) (O.subBdd q)
+lemma OBdd.similar_low {n m m'} {O : OBdd n m} {U : OBdd n m'}
+    {j} (h1 : O.bdd.root = .node j) {j'} (h2 : U.bdd.root = .node j') :
+    O.Similar U → (O.low h1).Similar (U.low h2):= by
+  grind only [similar_iff, toTree_node h1, toTree_node h2]
 
-lemma OBdd.similarRP_iff {n m} {O : OBdd n m} {p q : O.1.RelevantPointer} :
-    O.SimilarRP p q ↔ (O.subBdd p).toTree = (O.subBdd q).toTree := by rfl
+lemma OBdd.similar_high {n m m'} {O : OBdd n m} {U : OBdd n m'}
+    {j} (h1 : O.bdd.root = .node j) {j'} (h2 : U.bdd.root = .node j') :
+    O.Similar U → (O.high h1).Similar (U.high h2):= by
+  grind only [similar_iff, toTree_node h1, toTree_node h2]
+
+def OBdd.SimilarRP {n m m'} {O : OBdd n m} {U : OBdd n m'} p q :=
+  Similar (O.subBdd p) (U.subBdd q)
+
+lemma OBdd.similarRP_iff {n m m'} {O : OBdd n m} {U : OBdd n m'} {p q} :
+    O.SimilarRP p q ↔ (O.subBdd p).toTree = (U.subBdd q).toTree := by rfl
+
+lemma OBdd.similar_iff_similarRP {n m m'} {O : OBdd n m} {U : OBdd n m'} :
+    O.Similar U ↔ O.SimilarRP ⟨O.bdd.root, .refl⟩ ⟨U.bdd.root, .refl⟩ := by rfl
 
 /-- Isomorphism of `Ordered` BDDs is an equivalence relation. -/
 lemma OBdd.Similar.instEquivalence {n m} : Equivalence (α := OBdd n m) OBdd.Similar := by
   apply InvImage.equivalence
-  constructor <;> simp_all [HSimilar]
+  constructor <;> simp_all
 
-lemma OBdd.HSimilar_of_terminal {n m m' : Nat} {b : Bool} {O : OBdd n m} {U : OBdd n m'} :
-    O.1.root = terminal b → U.1.root = terminal b → O.HSimilar U := by
+lemma OBdd.Similar_of_terminal {n m m' : Nat} {b : Bool} {O : OBdd n m} {U : OBdd n m'} :
+    O.1.root = terminal b → U.1.root = terminal b → O.Similar U := by
   intro h1 h2
-  simp [HSimilar]
+  simp only [similar_iff]
   rw [toTree_terminal h1, toTree_terminal h2]
 
 /-! ## OBdd.Reduced -/
@@ -650,7 +666,7 @@ def OBdd.Reduced {n m} (O : OBdd n m) : Prop
   -- No redundant pointers.
   := NoRedundancy O.1
   -- Similarity implies pointer-equality.
-   ∧ Subrelation (SimilarRP O) (InvImage Eq Subtype.val)
+   ∧ Subrelation O.SimilarRP (InvImage Eq Subtype.val)
 
 /-- The graph induced by a terminal BDD consists of a sole terminal pointer. -/
 private lemma Bdd.terminal_relevant_iff {n m} {B : Bdd n m} {b} (h : B.root = terminal b)
@@ -808,19 +824,19 @@ private lemma OBdd.not_reduced_of_sim_high_low {n m} {O : OBdd n m} {j : Fin m} 
   simp [toRelevantPointer]
   rw [h]
   constructor
-  have giso : SimilarRP O ⟨(O.high h).1.root, O.bdd.reachable_high h⟩
+  have giso : SimilarRP ⟨(O.high h).1.root, O.bdd.reachable_high h⟩
                                 ⟨(O.low  h).1.root, O.bdd.reachable_low h⟩ := iso
   exact (symm (R.2 giso))
 
 /-- Reduced OBDDs are canonical.  -/
 theorem OBdd.Canonicity {n m m'} {O : OBdd n m} {U : OBdd n m'} (ho : O.Reduced) (hu : U.Reduced) :
-    O.evaluate = U.evaluate → O.HSimilar U := by
+    O.evaluate = U.evaluate → O.Similar U := by
   intro h
   cases O_root_def : O.1.root with
   | terminal b =>
     cases U_root_def : U.1.root with
     | terminal c =>
-      simp only [HSimilar]
+      simp only [similar_iff]
       simp [evaluate_terminal O_root_def, evaluate_terminal U_root_def] at h
       rw [toTree_terminal O_root_def]
       grind [evaluate_def, toTree_terminal]
@@ -855,7 +871,7 @@ theorem OBdd.Canonicity {n m m'} {O : OBdd n m} {U : OBdd n m'} (ho : O.Reduced)
       apply not_reduced_of_sim_high_low O_root_def
       apply OBdd.Canonicity (high_reduced ho) (low_reduced ho) this
     | node i =>
-      simp only [HSimilar]
+      simp only [similar_iff]
       rw [toTree_node O_root_def, toTree_node U_root_def]
       simp only [DecisionTree.branch.injEq]
       have same_var : O.1.heap[j].var = U.1.heap[i].var := by
@@ -872,7 +888,7 @@ theorem OBdd.Canonicity {n m m'} {O : OBdd n m} {U : OBdd n m'} (ho : O.Reduced)
           have that : OBdd.Similar (U.high U_root_def) (U.low U_root_def) :=
             OBdd.Canonicity (high_reduced hu) (low_reduced hu) (evaluate_high_eq_evaluate_low_of_independentOf_root this)
           constructor
-          have iso : SimilarRP U ⟨(U.high U_root_def).1.root, U.1.reachable_high U_root_def⟩
+          have iso : SimilarRP ⟨(U.high U_root_def).1.root, U.1.reachable_high U_root_def⟩
                                   ⟨(U.low  U_root_def).1.root, U.1.reachable_low U_root_def⟩ := that
           exact (symm (hu.2 iso))
         · intro contra
@@ -887,7 +903,7 @@ theorem OBdd.Canonicity {n m m'} {O : OBdd n m} {U : OBdd n m'} (ho : O.Reduced)
           simp [toRelevantPointer]
           rw [O_root_def]
           constructor
-          have iso : SimilarRP O ⟨(O.high O_root_def).1.root, O.1.reachable_high O_root_def⟩
+          have iso : SimilarRP ⟨(O.high O_root_def).1.root, O.1.reachable_high O_root_def⟩
                                   ⟨(O.low  O_root_def).1.root, O.1.reachable_low O_root_def⟩ := that
           exact (symm (ho.2 iso))
       constructor
@@ -902,9 +918,9 @@ decreasing_by
   all_goals
     simp [OBdd.size'_node O_root_def, OBdd.size'_node U_root_def]; omega
 
-theorem OBdd.Canonicity_reverse {O : OBdd n m} {U : OBdd n m'}:
-    O.HSimilar U → O.evaluate = U.evaluate := by
-  simp_all [evaluate, Function.comp_apply, HSimilar]
+theorem OBdd.Canonicity_reverse {n m m'} {O : OBdd n m} {U : OBdd n m'}:
+    O.Similar U → O.evaluate = U.evaluate := by
+  simp_all [evaluate, Function.comp_apply, similar_iff]
 
 /-! ## Lemmas about Ordered -/
 

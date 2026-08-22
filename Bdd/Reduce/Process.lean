@@ -132,7 +132,9 @@ lemma push_reduced {n s : Nat} {v : Vector (RawNode n) s} {N : RawNode n}
     have htree_sim : OBdd.toTree ⟨⟨cook_heap (v.push N) hh', rp⟩,
           OBdd.ordered_of_reachable hrp_reach⟩ =
         OBdd.toTree ⟨⟨cook_heap (v.push N) hh', rq⟩,
-          OBdd.ordered_of_reachable hrq_reach⟩ := OBdd.similarRP_iff.1 hsim
+          OBdd.ordered_of_reachable hrq_reach⟩ := by
+      simp only [OBdd.similarRP_iff, OBdd.subBdd_eq] at hsim
+      exact hsim
     -- Case analysis on rp
     cases rp with
     | terminal bp =>
@@ -186,10 +188,11 @@ lemma push_reduced {n s : Nat} {v : Vector (RawNode n) s} {N : RawNode n}
             · intro j hj
               exact ⟨jq', rfl, by have h := Pointer.node.inj hj; subst h; rfl⟩
         -- SimilarRP in old BDD
-        have hsim_old : OBdd.SimilarRP ⟨⟨cook_heap v hh, p.cook hp⟩, ho⟩
+        have hsim_old : OBdd.SimilarRP
+            (O := ⟨⟨cook_heap v hh, p.cook hp⟩, ho⟩) (U := ⟨⟨cook_heap v hh, p.cook hp⟩, ho⟩)
             ⟨Pointer.node jp', hjp_reach_old⟩
             ⟨Pointer.node jq', hjq_reach_old⟩ := by
-          rw [OBdd.similarRP_iff]
+          simp only [OBdd.similarRP_iff, OBdd.subBdd_eq]
           show OBdd.toTree _ = OBdd.toTree _
           rw [htree_p, htree_q]
           exact htree_sim
