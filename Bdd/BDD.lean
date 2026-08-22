@@ -89,7 +89,7 @@ Two `BDD`s are semantically equivalent when they have the same evaluation on all
 public def SemanticEquiv (B C : BDD) := ∀ I : Vector Bool (max B.nvars C.nvars), B[I] = C[I]
 
 def Similar (B : BDD) (B' : BDD) :=
-  (Lift.olift (Nat.le_max_left ..) B.obdd).HSimilar (Lift.olift (Nat.le_max_right ..) B'.obdd)
+  (Lift.olift (Nat.le_max_left ..) B.obdd).Similar (Lift.olift (Nat.le_max_right ..) B'.obdd)
 
 public lemma getElem_take {B : BDD} {n} {I : Vector Bool n} {m} {h1 : B.nvars ≤ m} {h2 : m ≤ n} :
     B[I.take m] = B[I] := by
@@ -347,8 +347,8 @@ lemma var_reduced : OBdd.Reduced ⟨(var_raw n), var_ordered⟩ := by
         rw [← hj] at hhh
         simp at hhh
         rcases hhh with rfl | rfl <;>
-        simp only [Vector.singleton_def, Pointer.terminal.injEq, Bool.true_eq, OBdd.toTree_terminal,
-          OBdd.toTree_eq_leaf_iff_terminal] at hxy <;>
+        simp only [Vector.singleton_def, OBdd.subBdd_eq, Pointer.terminal.injEq,
+          OBdd.toTree_terminal, OBdd.toTree_eq_leaf_iff_terminal] at hxy <;>
         exact hxy
     | inr hh =>
       simp only at hh
@@ -372,7 +372,7 @@ lemma var_reduced : OBdd.Reduced ⟨(var_raw n), var_ordered⟩ := by
         simp at hhh
         rcases hh with (rfl | rfl) <;>
         · symm at hxy
-          simp only [Vector.singleton_def, Pointer.terminal.injEq, Bool.false_eq,
+          simp only [Vector.singleton_def, OBdd.subBdd_eq, Pointer.terminal.injEq, Bool.false_eq,
             OBdd.toTree_terminal, OBdd.toTree_eq_leaf_iff_terminal] at hxy
           exact hxy.symm
 
