@@ -11,6 +11,134 @@ structure State m m' where
   lr : Std.HashMap (Fin m) (Fin m')
   rl : Std.HashMap (Fin m') (Fin m)
 
+def sim_helper {n m m'} (O : OBdd n m) (U : OBdd n m')
+    (p : Pointer m) (hpr : Pointer.Reachable O.1.heap O.1.root p)
+    (q : Pointer m') (hqr : Pointer.Reachable U.1.heap U.1.root q) :
+    State m m' → Option (State m m') :=
+  fun s => match p, q with
+  | .terminal b, .terminal b' => if b = b' then some s else none
+  | .terminal _, .node _ => none
+  | .node _, .terminal _ => none
+  | .node j, .node j' =>
+    if hv : O.1.heap[j].var = U.1.heap[j'].var
+    then
+      match s.lr[j]? with
+      | some i' => if j' = i' then some s else none
+      | none =>
+        match s.rl[j']? with
+        | some i => none
+        | none => do
+          let s ← sim_helper O U O.1.heap[j].low (.snoc hpr .low) U.1.heap[j'].low (.snoc hqr .low) s
+          let s ← sim_helper O U O.1.heap[j].high (.snoc hpr .high) U.1.heap[j'].high (.snoc hqr .high) s
+          return ⟨s.lr.insert j j', s.rl.insert j' j⟩
+    else none
+termination_by OBdd.size' ⟨⟨O.1.heap, p⟩, O.ordered_of_reachable hpr⟩
+decreasing_by
+  · simp [OBdd.size'_node, OBdd.low_eq, Bdd.low_eq]; omega
+  · simp [OBdd.size'_node, OBdd.high_eq, Bdd.high_eq]; omega
+
+structure Invariant {n m m'} (O : OBdd n m) (U : OBdd n m') (s : State m m') where
+  hl : ∀ j j',
+    s.lr[j]? = some j' → s.rl[j']? = some j           ∧
+    Pointer.Reachable O.1.heap O.1.root (.node j) ∧
+    ∃ hj : Bdd.Ordered ⟨O.1.heap, .node j⟩,
+      ∃ hj' : Bdd.Ordered ⟨U.1.heap, .node j'⟩,
+        OBdd.HSimilar ⟨⟨O.1.heap, .node j⟩, hj⟩ ⟨⟨U.1.heap, .node j'⟩, hj'⟩
+  hr : ∀ j j',
+    s.rl[j']? = some j → s.lr[j]? = some j'            ∧
+    Pointer.Reachable U.1.heap U.1.root (.node j') ∧
+    ∃ hj : Bdd.Ordered ⟨O.1.heap, .node j⟩,
+      ∃ hj' : Bdd.Ordered ⟨U.1.heap, .node j'⟩,
+        OBdd.HSimilar ⟨⟨O.1.heap, .node j⟩, hj⟩ ⟨⟨U.1.heap, .node j'⟩, hj'⟩
+
+lemma sim_helper_invariant {n m m'}
+    (O : OBdd n m) (hO : OBdd.Reduced O)
+    (U : OBdd n m') (hU : OBdd.Reduced U)
+    (p : Pointer m) (hpr : Pointer.Reachable O.1.heap O.1.root p)
+    (q : Pointer m') (hqr : Pointer.Reachable U.1.heap U.1.root q) {s s'} :
+    sim_helper O U p hpr q hqr s = some s' → Invariant O U s → Invariant O U s' := by
+  intro h1 I
+  fun_induction sim_helper
+  all_goals simp_all only [Option.some.injEq, reduceCtorEq]
+  case case8 s j j' hr1 hr2 h2 h3 h4 h5 h6 =>
+    simp [Option.pure_def, Option.bind_eq_bind, Option.bind] at h1
+
+    split at h1
+    simp only [OBdd.HSimilar] at ⊢ ht ht'
+    rw [OBdd.toTree_node rfl, OBdd.toTree_node (j := j') rfl]
+    simp only [OBdd.low_eq, Bdd.low_eq, OBdd.high_eq, Bdd.high_eq,
+      DecisionTree.branch.injEq]
+    exact ⟨hv, ht, ht'⟩
+    sorry
+
+lemma sim_helper_correct {n m m'}
+    (O : OBdd n m) (hO : OBdd.Reduced O)
+    (U : OBdd n m') (hU : OBdd.Reduced U)
+    (p : Pointer m) (hpr : Pointer.Reachable O.1.heap O.1.root p)
+    (q : Pointer m') (hqr : Pointer.Reachable U.1.heap U.1.root q) {s s'} :
+    sim_helper O U p hpr q hqr s = some s' → Invariant O U s →
+    Invariant O U s' ∧ (OBdd.HSimilar ⟨⟨O.1.heap, p⟩, O.ordered_of_reachable hpr⟩ ⟨⟨U.1.heap, q⟩, U.ordered_of_reachable hqr⟩) := by
+  intro h1 I
+  fun_induction sim_helper generalizing s'
+  all_goals simp_all only [Option.some.injEq, reduceCtorEq]
+  case case1 => simp only [Pointer.terminal.injEq, OBdd.HSimilar_of_terminal, and_self]
+  case case5 j hr1 j' hr2 h2 h3 =>
+    simp only [true_and]
+    exact (I.hl j j' (by simp_all)).2.2.2.2
+  case case8 s j j' hpr hqr hv hl hr ihl ihh =>
+    simp only [Option.pure_def, Option.bind_eq_bind, Option.bind] at h1
+    split at h1
+    next => simp at h1
+    next heq =>
+      simp only at h1
+      split at h1
+      next => simp at h1
+      next heq =>
+        simp_all only [getElem?_eq_none_iff, Option.some.injEq]
+        subst h1
+        specialize ihl rfl trivial
+        specialize ihh _ heq ihl.1
+        refine And.intro (Invariant.mk ?_ ?_) ?_
+        · intro jj jj' hjj
+          simp only [Std.HashMap.getElem?_insert, beq_iff_eq] at hjj
+          split at hjj
+          next heq =>
+            subst heq
+            simp only [Std.HashMap.getElem?_insert, beq_iff_eq]
+            split
+            next heqq =>
+              subst heqq
+              simp only [true_and]
+              constructor
+              · exact hpr
+              · use OBdd.ordered_of_reachable hpr
+                use OBdd.ordered_of_reachable hqr
+                simp only [OBdd.HSimilar] at ⊢ ihl
+                rw [OBdd.toTree_node rfl, OBdd.toTree_node (j := j') rfl]
+                simp only [OBdd.low_eq, Bdd.low_eq, OBdd.high_eq, Bdd.high_eq,
+                  DecisionTree.branch.injEq]
+                exact ⟨hv, ihl.2, ihh.2⟩
+            next heqq => injection hjj; contradiction
+          next heq =>
+            simp only [Std.HashMap.getElem?_insert, beq_iff_eq]
+            split
+            next heqq =>
+              subst heqq
+              have := (ihh.1.hl jj j' hjj).1
+              simp_all only [Option.some.injEq, false_and]
+              contradiction
+            next heqq =>
+              exact I.hl jj jj' hjj
+        · sorry
+        · sorry
+        split at h1
+        simp only [OBdd.HSimilar] at ⊢ ht ht'
+        rw [OBdd.toTree_node rfl, OBdd.toTree_node (j := j') rfl]
+        simp only [OBdd.low_eq, Bdd.low_eq, OBdd.high_eq, Bdd.high_eq,
+          DecisionTree.branch.injEq]
+        exact ⟨hv, ht, ht'⟩
+        sorry
+
 def sim_helper' {n m m'}
     (O : OBdd n m) (hO : OBdd.Reduced O)
     (U : OBdd n m') (hU : OBdd.Reduced U)
@@ -297,7 +425,7 @@ decreasing_by
   · simp [OBdd.size'_node, OBdd.low_eq, Bdd.low_eq]; omega
   · simp [OBdd.size'_node, OBdd.high_eq, Bdd.high_eq]; omega-/
 
-structure State {n m m'} (O : OBdd n m) (U : OBdd n m') where
+structure State1 {n m m'} (O : OBdd n m) (U : OBdd n m') where
   lr : Std.HashMap (Fin m) (Fin m')
   rl : Std.HashMap (Fin m') (Fin m)
   hl : ∀ j j',
@@ -313,13 +441,13 @@ structure State {n m m'} (O : OBdd n m) (U : OBdd n m') where
       ∃ hj' : Bdd.Ordered ⟨U.1.heap, .node j'⟩,
         OBdd.HSimilar ⟨⟨O.1.heap, .node j⟩, hj⟩ ⟨⟨U.1.heap, .node j'⟩, hj'⟩
 
-def sim_helper' {n m m'}
+def sim_helper1 {n m m'}
     (O : OBdd n m) (hO : OBdd.Reduced O)
     (U : OBdd n m') (hU : OBdd.Reduced U)
     (p : Pointer m) (hpr : Pointer.Reachable O.1.heap O.1.root p)
     (q : Pointer m') (hqr : Pointer.Reachable U.1.heap U.1.root q) :
   StateM
-    (State O U)
+    (State1 O U)
     (Decidable
       (OBdd.HSimilar
         ⟨⟨O.1.heap, p⟩, O.ordered_of_reachable hpr⟩
@@ -343,14 +471,14 @@ def sim_helper' {n m m'}
         | none =>
           match hr : s.rl[j']? with
           | none =>
-            let hll ← sim_helper O hO U hU
+            let hll ← sim_helper1 O hO U hU
               O.1.heap[j].low (Pointer.Reachable.snoc hpr .low)
               U.1.heap[j'].low (Pointer.Reachable.snoc hqr .low)
             match hll with
             | isTrue ht =>
               -- TODO : why is type declaration needed? Note that only `←` does not work, for some reason `:= ←` is needed
               let hhh : Decidable (OBdd.HSimilar ⟨Bdd.mk O.bdd.heap O.bdd.heap[j].high, _⟩ ⟨Bdd.mk U.bdd.heap U.bdd.heap[j'].high, _⟩) :=
-                ← sim_helper O hO U hU
+                ← sim_helper1 O hO U hU
                 O.1.heap[j].high (Pointer.Reachable.snoc hpr .high)
                 U.1.heap[j'].high (Pointer.Reachable.snoc hqr .high)
               match hhh with
@@ -415,7 +543,7 @@ def sim_helper' {n m m'}
                           contradiction
                         next heqq =>
                           exact s.hr jj jj' hjj
-                   ⟩ : State O U)
+                   ⟩ : State1 O U)
                 return isTrue (by
                   simp only [OBdd.HSimilar] at ⊢ ht ht'
                   rw [OBdd.toTree_node rfl, OBdd.toTree_node (j := j') rfl]
