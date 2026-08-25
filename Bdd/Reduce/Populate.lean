@@ -16,16 +16,14 @@ lemma get_id_bounded {n m : Nat} {O : OBdd n m} {ps : ProvedState n m} {i : Nat}
     (h : ∀ j, p = .node j → (ps.state.ids[j]).isSome) :
     (get_id ps p h).Bounded ps.state.size := by
   match p with
-  | .terminal b => intro k hk; exact absurd hk (by simp [get_id])
+  | .terminal b => exact RawPointer.bounded_inl
   | .node k =>
     simp only [get_id]
     obtain ⟨ptr, hkptr⟩ := Option.isSome_iff_exists.mp (h k rfl)
     have heq : (ps.state.ids[k]).get (h k rfl) = ptr := by simp [hkptr]
     rw [heq]
     obtain ⟨_, hptr, _⟩ := inv.2 k ptr hkptr
-    unfold RawPointer.Bounded
-    intro i hi
-    exact hptr hi
+    grind only
 
 /-- For any pointer `p` reachable from a node with all children in `ids`, extract the full
     semantic information from the invariant using `get_id`. -/
@@ -40,11 +38,9 @@ lemma get_id_semantic {n m : Nat} {O : OBdd n m} {ps : ProvedState n m} {i : Nat
            OBdd.evaluate ⟨⟨O.1.heap, p⟩, hp⟩ I := by
   cases p with
   | terminal b =>
-    refine ⟨fun h => absurd h (by simp [get_id]), Bdd.ordered_of_terminal rfl,
-             Bdd.reduced_of_terminal, fun I => ?_⟩
-    change OBdd.evaluate ⟨⟨cook_heap ps.state.heap ps.hh, .terminal b⟩, _⟩ I =
-           OBdd.evaluate ⟨⟨O.1.heap, .terminal b⟩, hp⟩ I
-    simp [OBdd.evaluate_terminal]
+    simp only [terminal.injEq, OBdd.evaluate_terminal, get_id, RawPointer.cook_inl]
+    exact ⟨RawPointer.bounded_inl, Bdd.ordered_of_terminal rfl,
+      Bdd.reduced_of_terminal, fun _ ↦ trivial⟩
   | node l =>
     simp only [get_id]
     obtain ⟨_, hptr, ho, hred, heval⟩ := inv.2 l _ (Option.get_mem (hch l rfl))
@@ -145,7 +141,7 @@ public def populate_queue {n m : Nat} (O : OBdd n m)
               have cook_eq_of_eq : ∀ (p q : RawPointer)
                   (hp : p.Bounded ps.state.size) (hq : q.Bounded ps.state.size),
                   p = q → p.cook hp = q.cook hq := fun p q hp hq hpq => by
-                subst hpq; exact RawPointer.cook_eq
+                subst hpq; rfl
               have hcook_eq : hid.cook hptr_h = lid.cook hptr :=
                 cook_eq_of_eq hid lid hptr_h hptr heq.symm
               -- evaluations at hid and lid in cook_heap coincide.
@@ -332,33 +328,36 @@ public lemma push_back_lt {n s : Nat} {v : Vector (RawNode n) s} {N : RawNode n}
         Pointer.Reachable (cook_heap v hh) (p.cook hp) (.node ⟨j.1, hj⟩) from
     fun j hreach => h _ hreach j rfl
   intro q hq
-  have cook_inr_node : ∀ (jj : Fin (s+1)) (bnd : RawPointer.Bounded (s+1) (.inr jj.1)),
+  have cook_inr_node : ∀ (jj : Fin (s+1)) (bnd : RawPointer.Bounded (s + 1) (.inr jj.1)),
       RawPointer.cook (.inr jj.1) bnd = .node jj := fun jj _ => by
-    simp only [RawPointer.cook, Fin.eta]
+    simp only [RawPointer.cook_inr, Fin.eta]
   induction hq with
   | refl =>
     intro j hj
-    have hp_eq : p = .inr j.1 :=
-      cook_inj (hj.trans (cook_inr_node j (fun h => by injection h; omega)).symm)
-    have hj_lt : j.1 < s := hp hp_eq
-    have hcook : p.cook hp = .node ⟨j.1, hj_lt⟩ := by
-      subst hp_eq; simp [RawPointer.cook]
-    exact ⟨hj_lt, hcook ▸ .refl⟩
+    have hp_eq : p = .inr j.val :=
+      cook_inj.1 (hj.trans (cook_inr_node j (RawPointer.bounded_inr_iff.2 j.prop)).symm)
+    subst hp_eq
+    rw [RawPointer.bounded_inr_iff] at hp
+    rw [RawPointer.cook_inr]
+    exact ⟨hp, .refl⟩
   | snoc _ _ hprev edge ih =>
     intro j hj; subst hj
     rw [edge_iff] at edge
     rcases edge with ⟨k, rfl, h⟩
-    simp only [cook_heap, Fin.getElem_fin, Vector.getElem_ofFn, RawNode.cook] at h
+    simp only [cook_heap_eq, Fin.getElem_fin, Vector.getElem_ofFn, RawNode.cook_eq] at h
+    have hb : RawPointer.Bounded (s + 1) (Sum.inr j) := by
+      simp only [RawPointer.bounded_inr_iff, Fin.is_lt]
     have hj_lt_k : j.1 < k.1 := by
+      have ⟨h1, h2⟩ := hh' k
+      rw [RawPointer.bounded_iff] at h1 h2
+      simp only [← cook_inr_node j hb, cook_inj] at h
       rcases h with h | h
-      · apply (hh' k).1
-        exact cook_inj (Eq.trans (cook_inr_node j (fun h => by injection h; omega)) h).symm
-      · apply (hh' k).2
-        exact cook_inj (Eq.trans (cook_inr_node j (fun h => by injection h; omega)) h).symm
+      · exact h1 h.symm
+      · exact h2 h.symm
     obtain ⟨hk_lt, hk_reach⟩ := ih k rfl
     have hj_lt : j.1 < s := Nat.lt_trans hj_lt_k hk_lt
     have edge : Edge (cook_heap v hh) (node ⟨k, hk_lt⟩) (node ⟨j, hj_lt⟩) := by
-      simp only [cook_heap, RawNode.cook, Fin.getElem_fin, edge_iff, node.injEq,
+      simp only [cook_heap_eq, RawNode.cook_eq, Fin.getElem_fin, edge_iff, node.injEq,
         Vector.getElem_ofFn, exists_eq_left']
       simp_rw [Vector.getElem_push_lt hk_lt] at h
       grind only [cook_aux]

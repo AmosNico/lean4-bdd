@@ -71,7 +71,7 @@ lemma push_reduced {n s : Nat} {v : Vector (RawNode n) s} {N : RawNode n}
     have hj_root := Pointer.Reachable.trans hq_root hj_q
     obtain ⟨hj_lt, _⟩ := back j hj_root
     exact ⟨hj_lt, by
-      simp only [cook_heap, Fin.getElem_fin, Vector.getElem_ofFn,
+      simp only [cook_heap_eq, Fin.getElem_fin, Vector.getElem_ofFn,
         Vector.getElem_push_lt hj_lt]
       exact Node.equiv_symm RawNode.cook_equiv⟩
   -- Helper: Pointer.equiv for same type implies equality.
@@ -250,6 +250,7 @@ lemma push_node_correct' {n m : Nat} {i : Nat}
   have hp : (push_node ps N hN).2.Bounded
       (set_id (push_node ps N hN).1 entry.2 (push_node ps N hN).2).state.size := by
     have hsize2 : (set_id (push_node ps N hN).1 entry.2 (push_node ps N hN).2).state.size = s + 1 := rfl
+    rw [RawPointer.bounded_iff]
     intro j hj
     have hjs : s = j := Sum.inr.inj hj
     omega
@@ -268,8 +269,8 @@ lemma push_node_correct' {n m : Nat} {i : Nat}
       intro hlo_ord
       have he : entry.1.1 = .inl b := hec.2.2.2.2.1 b hlow
       rw [he]
-      exact ⟨by intro j hj; simp at hj, Bdd.ordered_of_terminal rfl, Bdd.reduced_of_terminal,
-             fun I => by simp [OBdd.evaluate_terminal, RawPointer.cook]⟩
+      simp only [RawPointer.cook_inl, terminal.injEq, OBdd.evaluate_terminal]
+      use RawPointer.bounded_inl, Bdd.ordered_of_terminal rfl, Bdd.reduced_of_terminal, by simp
     | node l =>
       intro hlo_ord
       obtain ⟨_, hptr_lo, ho_lo, hred_lo, heval_lo⟩ := inv.2 l entry.1.1 (hec.2.2.1 l hlow)
@@ -288,8 +289,8 @@ lemma push_node_correct' {n m : Nat} {i : Nat}
       intro hhi_ord
       have he : entry.1.2 = .inl b := hec.2.2.2.2.2 b hhigh
       rw [he]
-      exact ⟨by intro j hj; simp at hj, Bdd.ordered_of_terminal rfl, Bdd.reduced_of_terminal,
-             fun I => by simp [OBdd.evaluate_terminal, RawPointer.cook]⟩
+      simp only [RawPointer.cook_inl, terminal.injEq, OBdd.evaluate_terminal]
+      use RawPointer.bounded_inl, Bdd.ordered_of_terminal rfl, Bdd.reduced_of_terminal, by simp
     | node l =>
       intro hhi_ord
       obtain ⟨_, hptr_hi, ho_hi, hred_hi, heval_hi⟩ := inv.2 l entry.1.2 (hec.2.2.2.1 l hhigh)
@@ -307,30 +308,30 @@ lemma push_node_correct' {n m : Nat} {i : Nat}
   -- Compute the cooked node at index s
   have hMs_var : (cook_heap (ps.state.heap.push N) hh')[(⟨s, Nat.lt_succ_self s⟩ : Fin (s + 1))].var =
       O.1.heap[entry.2].var := by
-    simp only [cook_heap, Vector.getElem_ofFn, Fin.getElem_fin,
-               show s = ps.state.size from rfl, Vector.getElem_push_eq, RawNode.cook,
+    simp only [cook_heap_eq, Vector.getElem_ofFn, Fin.getElem_fin,
+               show s = ps.state.size from rfl, Vector.getElem_push_eq, RawNode.cook_eq,
                show N.va = O.1.heap[entry.2].var from rfl]
   have hMs_low : (cook_heap (ps.state.heap.push N) hh')[(⟨s, Nat.lt_succ_self s⟩ : Fin (s + 1))].low =
       entry.1.1.cook hb1 := by
-    simp only [cook_heap, Vector.getElem_ofFn, Fin.getElem_fin,
-               show s = ps.state.size from rfl, Vector.getElem_push_eq, RawNode.cook,
+    simp only [cook_heap_eq, Vector.getElem_ofFn, Fin.getElem_fin,
+               show s = ps.state.size from rfl, Vector.getElem_push_eq, RawNode.cook_eq,
                show N.lo = entry.1.1 from rfl]
   have hMs_high : (cook_heap (ps.state.heap.push N) hh')[(⟨s, Nat.lt_succ_self s⟩ : Fin (s + 1))].high =
       entry.1.2.cook hb2 := by
-    simp only [cook_heap, Vector.getElem_ofFn, Fin.getElem_fin,
-               show s = ps.state.size from rfl, Vector.getElem_push_eq, RawNode.cook,
+    simp only [cook_heap_eq, Vector.getElem_ofFn, Fin.getElem_fin,
+               show s = ps.state.size from rfl, Vector.getElem_push_eq, RawNode.cook_eq,
                show N.hi = entry.1.2 from rfl]
   -- Helper: var of old node j < s in new heap = ps.state.heap[j].va
   have hMj_var : ∀ (j : Fin s),
       (cook_heap (ps.state.heap.push N) hh')[(⟨j.1, Nat.lt_trans j.isLt (Nat.lt_succ_self s)⟩ : Fin (s + 1))].var =
       ps.state.heap[j].va := by
     intro j
-    simp only [cook_heap, Vector.getElem_ofFn, Fin.getElem_fin,
-               Vector.getElem_push_lt (show j.1 < ps.state.size from j.isLt), RawNode.cook]
+    simp only [cook_heap_eq, Vector.getElem_ofFn, Fin.getElem_fin,
+               Vector.getElem_push_lt (show j.1 < ps.state.size from j.isLt), RawNode.cook_eq]
   -- Ordered: use ordered_of_low_high_ordered
   have hptr_cook : (push_node ps N hN).2.cook hp =
       .node (⟨s, Nat.lt_succ_self s⟩ : Fin (s + 1)) := by
-    simp [push_node, RawPointer.cook]
+    simp [push_node, RawPointer.cook_inr]
     rfl
   have ho : Bdd.Ordered ⟨cook_heap (ps.state.heap.push N) hh',
       (.node (⟨s, Nat.lt_succ_self s⟩ : Fin (s + 1)))⟩ := by
@@ -343,25 +344,19 @@ lemma push_node_correct' {n m : Nat} {i : Nat}
       cases h11 : entry.1.1 with
       | inl b =>
         have hcook : entry.1.1.cook hb1 = .terminal b := by
-          have key : ∀ (p : RawPointer) (h : p.Bounded (s+1)), p = .inl b → p.cook h = .terminal b :=
-            fun p h hp => by subst hp; rfl
-          exact key entry.1.1 hb1 h11
+          simp only [h11, RawPointer.cook_inl]
         simp only [Bdd.var_eq, Bdd.low_root_eq_low, Bdd.low_heap_eq_heap]
         rw [hMs_low, hcook, Pointer.toVar_terminal]
         simp only [Fin.lt_def, Pointer.toVar_node]
         exact Fin.isLt _
       | inr j =>
-        have hjlt0 : j < s₀ := hbound0.1 h11
+        simp only [h11, RawPointer.bounded_inr_iff] at hbound0 hb1
+        simp only [RawPointer.bounded_iff] at hbound
+        have hjlt0 : j < s₀ := hbound0.1
         have hjlt : j < s := hbound.1 h11
-        have hcook : entry.1.1.cook hb1 = .node ⟨j, hb1 h11⟩ := by
-          have key : ∀ (p : RawPointer) (h : p.Bounded (s+1)), (hp : p = .inr j) → p.cook h = .node ⟨j, h hp⟩ :=
-            fun p h hp => by subst hp; rfl
-          exact key entry.1.1 hb1 h11
         simp only [Bdd.var_eq, Bdd.low_root_eq_low, Bdd.low_heap_eq_heap]
-        rw [hMs_low, hcook]
+        simp_rw [hMs_low, h11, RawPointer.cook_inr]
         simp only [Pointer.toVar_node, Fin.lt_def]
-        rw [show (⟨j, hb1 h11⟩ : Fin (s + 1)) =
-              ⟨j, Nat.lt_trans hjlt (Nat.lt_succ_self s)⟩ from Fin.ext rfl]
         rw [hMs_var, hMj_var ⟨j, hjlt⟩]
         exact hec.2.1 ▸ hprefix ⟨j, hjlt⟩ hjlt0
     · -- high ordered
@@ -371,26 +366,18 @@ lemma push_node_correct' {n m : Nat} {i : Nat}
     · -- B.var < B.high.var
       cases h12 : entry.1.2 with
       | inl b =>
-        have hcook : entry.1.2.cook hb2 = .terminal b := by
-          have key : ∀ (p : RawPointer) (h : p.Bounded (s+1)), p = .inl b → p.cook h = .terminal b :=
-            fun p h hp => by subst hp; rfl
-          exact key entry.1.2 hb2 h12
         simp only [Bdd.var_eq, Bdd.high_root_eq_high, Bdd.high_heap_eq_heap]
-        rw [hMs_high, hcook, Pointer.toVar_terminal]
+        simp_rw [hMs_high, h12, RawPointer.cook_inl, Pointer.toVar_terminal]
         simp only [Fin.lt_def, Pointer.toVar_node]
         exact Fin.isLt _
       | inr j =>
-        have hjlt0 : j < s₀ := hbound0.2 h12
+        simp only [h12, RawPointer.bounded_inr_iff] at hbound0 hb2
+        simp only [RawPointer.bounded_iff] at hbound
+        have hjlt0 : j < s₀ := hbound0.2
         have hjlt : j < s := hbound.2 h12
-        have hcook : entry.1.2.cook hb2 = .node ⟨j, hb2 h12⟩ := by
-          have key : ∀ (p : RawPointer) (h : p.Bounded (s+1)), (hp : p = .inr j) → p.cook h = .node ⟨j, h hp⟩ :=
-            fun p h hp => by subst hp; rfl
-          exact key entry.1.2 hb2 h12
         simp only [Bdd.var_eq, Bdd.high_root_eq_high, Bdd.high_heap_eq_heap]
-        rw [hMs_high, hcook]
+        simp_rw [hMs_high, h12, RawPointer.cook_inr]
         simp only [Pointer.toVar_node, Fin.lt_def]
-        rw [show (⟨j, hb2 h12⟩ : Fin (s + 1)) =
-              ⟨j, Nat.lt_trans hjlt (Nat.lt_succ_self s)⟩ from Fin.ext rfl]
         rw [hMs_var, hMj_var ⟨j, hjlt⟩]
         exact hec.2.1 ▸ hprefix ⟨j, hjlt⟩ hjlt0
   -- NoRedundancy of the new BDD
@@ -402,7 +389,7 @@ lemma push_node_correct' {n m : Nat} {i : Nat}
       intro hred; cases hred with
       | red heq =>
         rw [hMs_low, hMs_high] at heq
-        exact hnonred (cook_inj heq)
+        exact hnonred (cook_inj.1 heq)
     · have hj' : j' = ⟨s, Nat.lt_succ_self s⟩ := Pointer.node.inj h_node.symm
       subst hj'
       rcases h_child with h_lo | h_hi
@@ -410,11 +397,8 @@ lemma push_node_correct' {n m : Nat} {i : Nat}
       · rw [hMs_high] at h_hi; exact hred_hi'.1 ⟨ptr', h_hi⟩
   -- ho_final: ordered proof with ptr.cook hp
   have ho_final : Bdd.Ordered ⟨cook_heap (ps.state.heap.push N) hh',
-      (push_node ps N hN).2.cook hp⟩ := by
-    generalize h : (push_node ps N hN).2.cook hp = root_val
-    rw [← h, hptr_cook] at *
-    clear h
-    exact ho
+      (push_node ps N hN).2.cook hp⟩ :=
+    hptr_cook ▸ ho
   -- OBdd equality: since ptr.cook hp = .node ⟨s,⋯⟩, the two OBdds are propositionally equal.
   have hO_eq : (⟨⟨cook_heap (ps.state.heap.push N) hh', (push_node ps N hN).2.cook hp⟩,
       ho_final⟩ : OBdd n (s + 1)) =
@@ -625,8 +609,8 @@ def process_record {n m : Nat} {i : Nat} (O : OBdd n m)
               (ps.state.heap.push { va := O.bdd.heap[j].var, lo := key.1, hi := key.2 })[i] := by
             intro I
             cases I using Fin.lastCases
-            · simp only [RawNode.Bounded, Fin.val_last, Fin.getElem_fin, Vector.getElem_push_eq,
-              hbound, and_self]
+            · simp only [Fin.val_last, Fin.getElem_fin, Vector.getElem_push_eq,
+                RawNode.bounded_iff, hbound, and_self]
             · simp only [Fin.val_castSucc, Fin.getElem_fin, Fin.is_lt, Vector.getElem_push_lt]
               exact ps.hh _
           use hj_k, hptr_k', ho_k', push_reduced hred_k
@@ -883,7 +867,8 @@ lemma process_record_stepinv {n m : Nat} {i : Nat} (O : OBdd n m)
         -- the target node index k must be < ps.state.size (it existed before the push)
         have hk_lt : k.1 < ps.state.size := by
           obtain ⟨_, hbnd, _, _, _⟩ := inv.2 j (.inr k.1) hjk
-          exact hbnd rfl
+          rw [RawPointer.bounded_inr_iff] at hbnd
+          exact hbnd
         simp only [Fin.getElem_fin, Vector.getElem_push_lt hk_lt]
         exact si.hvarinv j ⟨k.1, hk_lt⟩ hjk
     · -- hcurlvl (relative to new curptr = .inr ps.state.size)
@@ -1038,11 +1023,10 @@ lemma process_record_curptr_sem {n m : Nat} {i : Nat} (O : OBdd n m)
           exact Sum.inl.inj (hlid1.symm.trans hlid2)
         | node l2 =>
           have hids2 : ps.state.ids[l2] = some (.inl b1) := hlid1 ▸ h2n l2 rfl
-          obtain ⟨_, hbnd2, ho2, _, heval2⟩ := inv.2 l2 (.inl b1) hids2
-          have hb1 : OBdd.evaluate ⟨⟨cook_heap ps.state.heap ps.hh, RawPointer.cook (.inl b1) hbnd2⟩, ho2⟩ =
-                     Function.const _ b1 := OBdd.evaluate_terminal rfl
+          obtain ⟨_, _, _, _, heval2⟩ := inv.2 l2 (.inl b1) hids2
           have h := heval2 I
-          rw [hb1, Function.const_apply] at h
+          simp only [RawPointer.cook_inl] at h
+          rw [OBdd.evaluate_terminal rfl] at h
           exact h
       | node l1 =>
         have hids1 : ps.state.ids[l1] = some lid := h1n l1 rfl
@@ -1051,13 +1035,11 @@ lemma process_record_curptr_sem {n m : Nat} {i : Nat} (O : OBdd n m)
         | terminal b2 =>
           have hlid2 : lid = .inl b2 := h2t b2 rfl
           subst hlid2
-          have hb2 : OBdd.evaluate ⟨⟨cook_heap ps.state.heap ps.hh, RawPointer.cook (.inl b2) hbnd1⟩, ho1⟩ =
-                     Function.const _ b2 := OBdd.evaluate_terminal rfl
-          symm
-          rw [OBdd.evaluate_terminal rfl]
+          nth_rw 2 [OBdd.evaluate_terminal rfl]
           have h := heval1 I
-          rw [hb2, Function.const_apply] at h
-          exact h
+          simp only [RawPointer.cook_inl] at h
+          rw [OBdd.evaluate_terminal rfl] at h
+          exact h.symm
         | node l2 =>
           have hids2 : ps.state.ids[l2] = some lid := h2n l2 rfl
           obtain ⟨_, hbnd2, ho2, _, heval2⟩ := inv.2 l2 lid hids2

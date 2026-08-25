@@ -204,7 +204,7 @@ public lemma structural_canonical_reduced {n s : Nat}
   -- Helper: cook_heap nodes relate back to raw nodes
   have cook_heap_eq : ∀ k : Fin s, (cook_heap v hh)[k] = v[k].cook (RawNode.bounded_of_le (hh k) (by omega)) := by
     intro k
-    simp [cook_heap, Fin.getElem_fin, Vector.getElem_ofFn]
+    simp [cook_heap_eq, Fin.getElem_fin, Vector.getElem_ofFn]
   -- Helper: if cooked nodes at kp and kq are equal, then kp = kq
   have node_inj : ∀ (kp kq : Fin s),
       (cook_heap v hh)[kp].var  = (cook_heap v hh)[kq].var →
@@ -214,14 +214,13 @@ public lemma structural_canonical_reduced {n s : Nat}
     intro kp kq hvar hlow hhigh
     apply hsc
     rw [cook_heap_eq kp, cook_heap_eq kq] at hvar hlow hhigh
-    simp only [RawNode.cook] at hvar hlow hhigh
-    have hlo : v[kp].lo = v[kq].lo := cook_inj hlow
-    have hhi : v[kp].hi = v[kq].hi := cook_inj hhigh
+    simp only [RawNode.cook_eq] at hvar hlow hhigh
+    rw [cook_inj] at hlow hhigh
     rcases hkp : v[kp] with ⟨vap, lop, hip⟩
     rcases hkq : v[kq] with ⟨vaq, loq, hiq⟩
-    simp only [hkp] at hvar hlo hhi
-    simp only [hkq] at hvar hlo hhi
-    subst hvar; subst hlo; subst hhi
+    simp only [hkp] at hvar hlow hhigh
+    simp only [hkq] at hvar hlow hhigh
+    subst hvar hlow hhigh
     rfl
   let M := cook_heap v hh
   have key : ∀ (P Q : OBdd n s), P.1.heap = M → Q.1.heap = M →

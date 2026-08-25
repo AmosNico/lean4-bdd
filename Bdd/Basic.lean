@@ -4,6 +4,7 @@ public import Mathlib.Data.Fintype.Sum
 public import Mathlib.Tactic.DeriveFintype
 import Init.Data.ToString.Basic
 import Mathlib.Data.Fintype.Vector
+import Mathlib.Data.Sum.Order
 import Mathlib.Tactic.Linarith
 import Std.Data.HashSet.Lemmas
 public import Bdd.Nary
@@ -1505,33 +1506,49 @@ namespace RawBdd
 
 /-! ## RawPointer and RawNode -/
 
+/-
+-- The following definition would be nicer, but requires a manual instance for `LinearOrder`
+inductive RawPointer where
+  | terminal (b : Bool)
+  | node (n : ℕ)
+deriving Ord
+-/
+
 @[expose]
 def RawPointer := Bool ⊕ Nat
 
-structure RawNode (n) where
+structure RawNode n where
   va : Fin n
   lo : RawPointer
   hi : RawPointer
 
-@[expose]
-def RawPointer.Bounded (m : Nat) (p : RawPointer) := ∀ {i}, p = .inr i → i < m
+def RawPointer.Bounded (m : ℕ) (p : RawPointer) := ∀ {i}, p = .inr i → i < m
 
-lemma RawPointer.bounded_of_le {p : RawPointer} (hm : p.Bounded m) (h : m ≤ m') : p.Bounded m' := by
+lemma RawPointer.bounded_iff {m p} : Bounded m p ↔  ∀ {i}, p = .inr i → i < m := by rfl
+
+lemma RawPointer.bounded_inl {m b} : Bounded m (.inl b) := by
+  simp only [bounded_iff, reduceCtorEq, IsEmpty.forall_iff, implies_true]
+
+lemma RawPointer.bounded_inr_iff {m n} : Bounded m (.inr n) ↔ n < m := by
+  grind only [bounded_iff]
+
+lemma RawPointer.bounded_of_le {m m'} {p : RawPointer} (hm : p.Bounded m) (h : m ≤ m') :
+    p.Bounded m' := by
   intro i hi
-  cases hp : p with
-  | inl val => simp_all
+  cases p with
+  | inl val => simp only [reduceCtorEq] at hi
   | inr val =>
-    have := hm hp
-    simp_all
-    injection hi with heq
-    subst heq
-    omega
+    grind only [Bounded]
 
-@[expose]
-def RawPointer.cook (p : RawPointer) (h : p.Bounded m) : Pointer m :=
+def RawPointer.cook {m} (p : RawPointer) (h : p.Bounded m) : Pointer m :=
   match p with
   | .inl b => .terminal b
   | .inr i => .node ⟨i, h rfl⟩
+
+lemma RawPointer.cook_inl {b m} {h : Bounded m (.inl b)} : cook (.inl b) h = .terminal b := (rfl)
+
+lemma RawPointer.cook_inr {n m} {h : Bounded m (.inr n)} :
+    cook (.inr n) h = .node ⟨n, bounded_inr_iff.1 h⟩ := (rfl)
 
 lemma RawPointer.cook_equiv {h1 : RawPointer.Bounded m1 p} {h2 : RawPointer.Bounded m2 p} :
     Pointer.equiv (RawPointer.cook p h1) (RawPointer.cook p h2) := by
@@ -1543,7 +1560,7 @@ lemma RawPointer.cook_equiv {h1 : RawPointer.Bounded m1 p} {h2 : RawPointer.Boun
     cases p with
     | inl val => contradiction
     | inr val =>
-      simp only [Bounded] at h1 h2
+      simp only [bounded_iff] at h1 h2
       simp only [cook, Pointer.node.injEq] at hj
       rw [Fin.eq_mk_iff_val_eq] at hj
       simp only at hj
@@ -1551,26 +1568,26 @@ lemma RawPointer.cook_equiv {h1 : RawPointer.Bounded m1 p} {h2 : RawPointer.Boun
       use ⟨j.1, h2 rfl⟩
       simp [RawPointer.cook]
 
-/-- `cook` ignores the `Bounded` witness: the bound is a `Prop`, so two cooks of the same
-raw pointer at the same heap size are equal. -/
-lemma RawPointer.cook_eq {p : RawPointer} {h1 h2 : p.Bounded m} : p.cook h1 = p.cook h2 := by
-  cases p with
-  | inl _ => rfl
-  | inr i => exact congrArg Pointer.node (Fin.ext rfl)
-
 def RawPointer.fromPointer : Pointer m → RawPointer
   | .terminal b => .inl b
   | .node j => .inr j.1
 
-@[expose]
-def RawNode.Bounded {n} (m : Nat) (N : RawNode n) := N.lo.Bounded m ∧ N.hi.Bounded m
+structure RawNode.Bounded {n} (m : ℕ) (N : RawNode n) : Prop where
+   lo_bounded : N.lo.Bounded m
+   hi_bounded : N.hi.Bounded m
+
+lemma RawNode.bounded_iff {n m} {N : RawNode n} :
+    N.Bounded m ↔ N.lo.Bounded m ∧ N.hi.Bounded m := by
+  grind only [Bounded.mk, Bounded]
 
 lemma RawNode.bounded_of_le {N : RawNode n} (hm : N.Bounded m) (h : m ≤ m') : N.Bounded m' :=
   ⟨RawPointer.bounded_of_le hm.1 h, RawPointer.bounded_of_le hm.2 h⟩
 
-@[expose]
 def RawNode.cook {n m} (N : RawNode n) (h : N.Bounded m) : Node n m :=
   ⟨N.va, N.lo.cook h.1, N.hi.cook h.2⟩
+
+lemma RawNode.cook_eq {n m} {N : RawNode n} {h : N.Bounded m} :
+    N.cook h = ⟨N.va, N.lo.cook h.1, N.hi.cook h.2⟩ := (rfl)
 
 lemma RawNode.cook_equiv : Node.equiv (RawNode.cook N h1) (RawNode.cook N h2) := by
   simp only [Node.equiv]
@@ -1579,22 +1596,27 @@ lemma RawNode.cook_equiv : Node.equiv (RawNode.cook N h1) (RawNode.cook N h2) :=
   · rcases h1 with ⟨h11, h12⟩
     rcases h2 with ⟨h21, h22⟩
     constructor
-    · apply RawPointer.cook_equiv <;> assumption
-    · apply RawPointer.cook_equiv <;> assumption
+    · apply RawPointer.cook_equiv
+    · apply RawPointer.cook_equiv
 
-@[expose]
-def cook_heap (v : Vector (RawNode n) c) (hh : ∀ i : Fin c, v[i].Bounded i) : Vector (Node n c) c :=
+lemma cook_low {n m} {rn : RawNode n} {h1 : RawNode.Bounded m rn} :
+    (rn.cook h1).low = rn.lo.cook h1.lo_bounded := (rfl)
+
+lemma cook_high {n m} {rn : RawNode n} {h1 : RawNode.Bounded m rn} :
+    (rn.cook h1).high = rn.hi.cook h1.hi_bounded := (rfl)
+
+lemma cook_inj {m} {p q : RawPointer} {hp} {hq} : p.cook (m := m) hp = q.cook hq ↔ p = q := by
+  cases p <;> cases q <;> grind only [RawPointer.cook]
+
+def cook_heap {n c} (v : Vector (RawNode n) c) (hh : ∀ i : Fin c, v[i].Bounded i) : Vector (Node n c) c :=
   Vector.ofFn (fun i ↦ v[i].cook (RawNode.bounded_of_le (hh i) (by omega)))
 
-lemma cook_low {rn : RawNode n} {h1} {h2} : rn.lo.cook (m := m) h1 = (rn.cook h2).low := (rfl)
+lemma cook_heap_eq {n c} {v : Vector (RawNode n) c} {hh} :
+    cook_heap v hh = Vector.ofFn fun i ↦ v[i].cook (RawNode.bounded_of_le (hh i) (by omega)) :=
+  (rfl)
 
-lemma cook_high {rn : RawNode n} {h1} {h2} : rn.hi.cook (m := m) h1 = (rn.cook h2).high := (rfl)
-
-lemma cook_inj {p q : RawPointer} {hp} {hq} : p.cook (m := m) hp = q.cook hq → p = q := by
-  intro h
-  cases p <;> cases q <;> simp_all [RawPointer.cook]
-
-lemma cook_aux {p : RawPointer} {h1} {h2} : p.cook h1 = .node j → p.cook h2 = .node ⟨j, hj⟩ := by
+lemma cook_aux {p : RawPointer} {n m} {j : Fin n} {hj : j.val < m} {h1 h2} :
+    p.cook h1 = .node j → p.cook h2 = .node ⟨j, hj⟩ := by
   intro h
   cases p with
   | inl val => simp_all [RawPointer.cook]
@@ -1622,30 +1644,21 @@ private lemma push_ordered_aux {v : Vector (RawNode n) m} {h0} {h2} :
       exact .refl
   | snoc b _ r e ih =>
     rintro j rfl
-    simp only [RawNode.Bounded] at h2
     obtain ⟨jb, rfl, h4⟩ := edge_iff.1 e
     specialize h2 jb
     simp_all only [cook_heap, Fin.getElem_fin, Vector.getElem_ofFn]
-    have h5 : RawPointer.Bounded (m + 1) (Sum.inr j) := by
-      simp [RawPointer.Bounded]
-      intro i hi
-      injection hi with heq
-      rw [← heq]
-      omega
+    have h5 : RawPointer.Bounded (m + 1) (.inr j) := by
+      grind only [RawPointer.bounded_iff]
     have h6 : j < jb := by
       rcases h4 with h4 | h4
       · apply h2.1
         rw [show Pointer.node j = RawPointer.cook (.inr j.1) h5 by rfl] at h4
-        rw [← cook_low] at h4
-        exact cook_inj h4.symm
-        apply RawPointer.bounded_of_le h2.1
-        omega
+        rw [cook_low] at h4
+        exact cook_inj.1 h4.symm
       · apply h2.2
         rw [show Pointer.node j = RawPointer.cook (.inr j.1) h5 by rfl] at h4
-        rw [← cook_high] at h4
-        exact cook_inj h4.symm
-        apply RawPointer.bounded_of_le h2.2
-        omega
+        rw [cook_high] at h4
+        exact cook_inj.1 h4.symm
     use lt_of_lt_of_le h6 (Nat.le_of_lt_succ jb.2)
     rcases (ih jb rfl) with ⟨r1, r2⟩
     trans .node ⟨jb, r1⟩
@@ -1654,10 +1667,10 @@ private lemma push_ordered_aux {v : Vector (RawNode n) m} {h0} {h2} :
       apply Reachable.ofEdge
       rcases h4 with h4 | h4
       · convert Edge.low
-        simp [RawNode.cook]
+        simp only [RawNode.cook_eq, Fin.getElem_fin, Vector.getElem_ofFn]
         rw [cook_aux h4.symm]
       · convert Edge.high
-        simp [RawNode.cook]
+        simp only [RawNode.cook_eq, Fin.getElem_fin, Vector.getElem_ofFn]
         rw [cook_aux h4.symm]
 
 lemma push_ordered : Bdd.Ordered ⟨cook_heap v h0, RawPointer.cook p h1⟩ →
