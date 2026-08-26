@@ -4,21 +4,74 @@ public import Bdd.Basic
 import Bdd.Collect
 public import Mathlib.Data.Sum.Order
 
-open Pointer
+open Pointer (Reachable)
 open Bdd
 open RawBdd
+open RawPointer
 
 namespace Reduce
 
-public instance : LinearOrder RawPointer := inferInstanceAs (LinearOrder (Bool ⊕ₗ Nat))
-
-lemma rawPointer_le_refl (a : RawPointer) : a ≤ a := le_refl a
-lemma rawPointer_le_total (a b : RawPointer) : a ≤ b ∨ b ≤ a := sorry -- le_total a b
-lemma rawPointer_le_trans {a b c : RawPointer} : a ≤ b → b ≤ c → a ≤ c := le_trans
-lemma rawPointer_le_antisymm {a b : RawPointer} : a ≤ b → b ≤ a → a = b := le_antisymm
+inductive RawPointer.LE : RawPointer → RawPointer → Prop where
+  | terminal b b' : b ≤ b' → LE (terminal b) (terminal b')
+  | node n n' : n ≤ n' → LE (node n) (node n')
+  | mixed b n : LE (terminal b) (node n)
 
 @[no_expose]
-public instance : DecidableLE RawPointer := sorry -- LinearOrder.toDecidableLE
+public instance : LE RawPointer where
+  le := RawPointer.LE
+
+@[simp]
+public lemma RawPointer.terminal_le_terminal {b b'} : terminal b ≤ terminal b' ↔ b ≤ b' :=
+  ⟨by rintro ⟨_, _, h⟩; exact h, fun h ↦ .terminal b b' h⟩
+
+@[simp]
+public lemma RawPointer.terminal_le_node {b n} : terminal b ≤ node n :=
+  LE.mixed b n
+
+@[simp]
+public lemma RawPointer.node_le_node {n n'} : node n ≤ node n' ↔ n ≤ n' :=
+  ⟨by rintro ⟨⟩; assumption, fun h ↦ .node n n' h⟩
+
+@[simp]
+public lemma RawPointer.not_node_le_terminal {n b} : ¬ node n ≤ terminal b := by
+  rintro ⟨⟩
+
+@[no_expose]
+public instance : LinearOrder RawPointer where
+  le_trans p q r h1 h2 := by
+    cases h1 <;> cases h2
+    case terminal.terminal b1 b2 h1 b3 h2 => exact .terminal b1 b3 (.trans h1 h2)
+    case terminal.mixed b1 b2 h1 n3 => exact .mixed b1 n3
+    case node.node n1 n2 h1 n3 h2 => exact .node n1 n3 (.trans h1 h2)
+    case mixed.node b1 n2 n3 h2 => exact .mixed b1 n3
+
+  le_refl
+    | .terminal b => .terminal b b (le_refl b)
+    | .node n => .node n n (le_refl n)
+
+  le_total
+    | .terminal b, .terminal b' =>
+      match le_total b b' with
+      | .inl h => .inl (.terminal b b' h)
+      | .inr h => .inr (.terminal b' b h)
+    | .terminal b, .node n' => .inl (.mixed b n')
+    | .node n, .node n' =>
+      match le_total n n' with
+      | .inl h => .inl (.node n n' h)
+      | .inr h => .inr (.node n' n h)
+    | .node n, .terminal b' => .inr (.mixed b' n)
+
+  le_antisymm p q h1 h2 := by
+    cases h1 <;> cases h2 <;> grind only
+
+  toDecidableLE
+    | .terminal b, .terminal b' => decidable_of_iff' _ RawPointer.terminal_le_terminal
+    | .terminal b, .node n' => Decidable.isTrue (.mixed b n')
+    | .node n, .terminal b' => Decidable.isFalse RawPointer.not_node_le_terminal
+    | .node n, .node n' => decidable_of_iff' _ RawPointer.node_le_node
+
+@[no_expose]
+public instance : DecidableLE RawPointer := LinearOrder.toDecidableLE
 
 @[expose]
 public def leKeyPair (a b : RawPointer × RawPointer) : Bool :=
@@ -30,17 +83,17 @@ public def KeyLE (a b : RawPointer × RawPointer) : Prop := leKeyPair a b = true
 public lemma keyLE_refl (a : RawPointer × RawPointer) : KeyLE a a := by
   unfold KeyLE leKeyPair
   rw [if_pos rfl]
-  exact decide_eq_true (rawPointer_le_refl a.2)
+  exact decide_eq_true (le_refl a.2)
 
 lemma keyLE_total (a b : RawPointer × RawPointer) : KeyLE a b ∨ KeyLE b a := by
   unfold KeyLE leKeyPair
   by_cases h1 : a.1 = b.1
   · rw [if_pos h1, if_pos h1.symm]
-    rcases rawPointer_le_total a.2 b.2 with h | h
+    rcases le_total a.2 b.2 with h | h
     · exact Or.inl (decide_eq_true h)
     · exact Or.inr (decide_eq_true h)
   · rw [if_neg h1, if_neg (Ne.symm h1)]
-    rcases rawPointer_le_total a.1 b.1 with h | h
+    rcases le_total a.1 b.1 with h | h
     · exact Or.inl (decide_eq_true h)
     · exact Or.inr (decide_eq_true h)
 
@@ -49,10 +102,10 @@ public lemma keyLE_antisymm {a b : RawPointer × RawPointer} : KeyLE a b → Key
   by_cases h1 : a.1 = b.1
   · rw [if_pos h1, if_pos h1.symm]
     intro hab hba
-    exact Prod.ext h1 (rawPointer_le_antisymm (of_decide_eq_true hab) (of_decide_eq_true hba))
+    exact Prod.ext h1 (le_antisymm (of_decide_eq_true hab) (of_decide_eq_true hba))
   · rw [if_neg h1, if_neg (Ne.symm h1)]
     intro hab hba
-    exact absurd (rawPointer_le_antisymm (of_decide_eq_true hab) (of_decide_eq_true hba)) h1
+    exact absurd (le_antisymm (of_decide_eq_true hab) (of_decide_eq_true hba)) h1
 
 public lemma keyLE_trans {a b c : RawPointer × RawPointer} : KeyLE a b → KeyLE b c → KeyLE a c := by
   unfold KeyLE leKeyPair
@@ -64,7 +117,7 @@ public lemma keyLE_trans {a b c : RawPointer × RawPointer} : KeyLE a b → KeyL
     rw [if_pos h2] at hbc
     rw [if_pos h13]
     exact decide_eq_true
-      (rawPointer_le_trans (of_decide_eq_true hab) (of_decide_eq_true hbc))
+      (le_trans (of_decide_eq_true hab) (of_decide_eq_true hbc))
   · -- a.1 = b.1 and b.1 ≠ c.1
     have h13 : a.1 ≠ c.1 := h1 ▸ h2
     rw [if_neg h2] at hbc
@@ -81,12 +134,12 @@ public lemma keyLE_trans {a b c : RawPointer × RawPointer} : KeyLE a b → KeyL
     rw [if_neg h1] at hab
     rw [if_neg h2] at hbc
     have hac : a.1 ≤ c.1 :=
-      rawPointer_le_trans (of_decide_eq_true hab) (of_decide_eq_true hbc)
+      le_trans (of_decide_eq_true hab) (of_decide_eq_true hbc)
     have h13 : a.1 ≠ c.1 := by
       intro he
-      have hca : c.1 ≤ a.1 := he ▸ rawPointer_le_refl a.1
-      have hba : b.1 ≤ a.1 := rawPointer_le_trans (of_decide_eq_true hbc) hca
-      exact h1 (rawPointer_le_antisymm (of_decide_eq_true hab) hba)
+      have hca : c.1 ≤ a.1 := he ▸ le_refl a.1
+      have hba : b.1 ≤ a.1 := le_trans (of_decide_eq_true hbc) hca
+      exact h1 (le_antisymm (of_decide_eq_true hab) hba)
     rw [if_neg h13]
     exact decide_eq_true hac
 
@@ -124,7 +177,7 @@ public def provedStateInitial (n m : Nat) : ProvedState n m where
 public def get_id {n m : Nat} (ps : ProvedState n m) (p : Pointer m)
     (h : ∀ j, p = .node j → (ps.state.ids[j]).isSome) : RawPointer :=
   match p with
-  | .terminal b => .inl b
+  | .terminal b => .terminal b
   | .node j     => (ps.state.ids[j]).get (h j rfl)
 
 /-- Record that input node `j` maps to output pointer `p`. -/
@@ -155,7 +208,7 @@ public def push_node {n m : Nat} (ps : ProvedState n m) (N : RawNode n)
                  Vector.getElem_push_eq]
       exact hN
   ⟨⟨{ size := ps.state.size + 1, heap := ps.state.heap.push N, ids := ps.state.ids }, hh'⟩,
-   .inr ps.state.size⟩
+   .node ps.state.size⟩
 
 /-- Injectivity of `toTree` for sub-BDDs sharing the same heap, given heap index-injectivity. -/
 lemma structural_canonical_key {n s : Nat} {M : Vector (Node n s) s}
@@ -279,7 +332,7 @@ public lemma Invariant.ids_isSome {n m : Nat} {O : OBdd n m} {ps : ProvedState n
 @[expose]
 public def VarInvariant {n m : Nat} (O : OBdd n m) (ps : ProvedState n m) : Prop :=
   ∀ (j : Fin m) (k : Fin ps.state.size),
-    ps.state.ids[j] = some (.inr k.1) →
+    ps.state.ids[j] = some (node k.1) →
     O.1.heap[j].var.1 ≤ ps.state.heap[k].va.1
 
 @[expose]
@@ -313,8 +366,8 @@ public def EntryCorrect {n m : Nat} (O : OBdd n m) (ps : ProvedState n m) (i : N
   O.1.heap[entry.2].var.1 = i ∧
   (∀ l, O.1.heap[entry.2].low = .node l → ps.state.ids[l] = some entry.1.1) ∧
   (∀ l, O.1.heap[entry.2].high = .node l → ps.state.ids[l] = some entry.1.2) ∧
-  (∀ b, O.1.heap[entry.2].low = .terminal b → entry.1.1 = .inl b) ∧
-  (∀ b, O.1.heap[entry.2].high = .terminal b → entry.1.2 = .inl b)
+  (∀ b, O.1.heap[entry.2].low = .terminal b → entry.1.1 = terminal b) ∧
+  (∀ b, O.1.heap[entry.2].high = .terminal b → entry.1.2 = terminal b)
 
 /-- The BDD obtained by pushing a fresh node for `entry` is ordered, reduced, and
     evaluates like the original sub-BDD at `entry.2`. -/

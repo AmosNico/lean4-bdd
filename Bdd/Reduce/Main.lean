@@ -43,7 +43,7 @@ def step {n m : Nat} (O : OBdd n m)
   let hec₁ := hrest₁.2.2.1
   let hvarinv₁ := hrest₁.2.2.2
   -- Sort the queue so that equal-key entries are adjacent.
-  -- Setninel (⟨.inl false, .inl false⟩, .inl false): all real entries have key.1 ≠ key.2
+  -- Setninel (⟨.terminal false, .terminal false⟩, .terminal false): all real entries have key.1 ≠ key.2
   -- (populate_queue only enqueues non-redundant nodes), so the sentinel never matches
   -- any entry, hence the first element always starts a fresh equivalence class.
   let sorted := queue.mergeSort (fun a b => leKeyPair a.1 b.1)
@@ -62,7 +62,7 @@ def step {n m : Nat} (O : OBdd n m)
     exact hec₁ entry ((List.Perm.mem_iff (List.mergeSort_perm _ _)).mp hmem)
   -- The level invariant for the sorted queue: prefix is the whole (pre-push) heap, above
   -- level i; queue is sorted with all keys ≥ the (least) sentinel; suffix/curptr empty.
-  have si : StepInv O ps₁ i.1 ps₁.state.size ⟨.inl false, .inl false⟩ (.inl false) sorted :=
+  have si : StepInv O ps₁ i.1 ps₁.state.size ⟨.terminal false, .terminal false⟩ (.terminal false) sorted :=
     { hs0        := le_refl _
       hbase      := fun k _ => (hpres₁ ⟨hallabove, hheapinj⟩).1 k
       hsuffix    := fun k hk => absurd hk (Nat.not_le.mpr k.isLt)
@@ -74,7 +74,7 @@ def step {n m : Nat} (O : OBdd n m)
       hsorted    := keyLE_sorted_mergeSort queue
       hcur_le    := fun e _ => keyLE_sentinel e.1
       hpushed_le := fun k hk => absurd hk (Nat.not_le.mpr k.isLt) }
-  let pq := process_queue O ⟨.inl false, .inl false⟩ (.inl false) ps₁.state.size
+  let pq := process_queue O ⟨.terminal false, .terminal false⟩ (.terminal false) ps₁.state.size
               sorted ps₁ inv₁ hbounds_sorted
               -- hcurptr_sem: sentinel key never matches any real entry (key.1 ≠ key.2 for all entries).
               (fun entry hmem heq => absurd heq (sentinel_no_match sorted hnonred_sorted entry hmem))

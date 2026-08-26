@@ -17,7 +17,7 @@ public structure StepInv {n m : Nat} (O : OBdd n m) (ps : ProvedState n m) (i : 
   hsuffix    : ∀ k : Fin ps.state.size, s₀ ≤ k.1 → ps.state.heap[k].va.1 = i
   hheapinj   : HeapInjective ps
   hvarinv    : VarInvariant O ps
-  hcurlvl    : ∀ k : Fin ps.state.size, curptr = .inr k.1 → ps.state.heap[k].va.1 = i
+  hcurlvl    : ∀ k : Fin ps.state.size, curptr = .node k.1 → ps.state.heap[k].va.1 = i
   hnonred    : ∀ e ∈ Q, e.1.1 ≠ e.1.2
   hbounds0   : ∀ e ∈ Q, e.1.1.Bounded s₀ ∧ e.1.2.Bounded s₀
   hsorted    : Q.Pairwise (fun a b => KeyLE a.1 b.1)
@@ -33,16 +33,16 @@ lemma StepInv.hbnd {n m : Nat} {O : OBdd n m} {ps : ProvedState n m} {i s₀ : N
   ⟨RawPointer.bounded_of_le (si.hbounds0 e hmem).1 si.hs0,
    RawPointer.bounded_of_le (si.hbounds0 e hmem).2 si.hs0⟩
 
-/-- The sentinel key `(.inl false, .inl false)` is the least key: `.inl false` is the
+/-- The sentinel key `(.terminal false, .terminal false)` is the least key: `.terminal false` is the
 least `RawPointer`, so it is `≤` every key. Used as the initial `curkey` in `step`. -/
 public lemma keyLE_sentinel (a : RawPointer × RawPointer) :
-    KeyLE ((.inl false : RawPointer), (.inl false : RawPointer)) a := by
-  -- `.inl false` is the least `RawPointer`.  The `@LE.le RawPointer` pins our lex order
-  -- (not the ambient pointwise `Sum.instLESum`, which the bare `.inl` literal would select).
-  have hbot : ∀ x : RawPointer, @LE.le RawPointer _ (.inl false) x := by
+    KeyLE (.terminal false, .terminal false) a := by
+  -- `.terminal false` is the least `RawPointer`.  The `@LE.le RawPointer` pins our lex order
+  -- (not the ambient pointwise `Sum.instLESum`, which the bare `.terminal` literal would select).
+  have hbot : ∀ x : RawPointer, @LE.le RawPointer _ (.terminal false) x := by
     rintro (b | c)
-    · simp only [Sum.inl_le_inl_iff, Bool.false_le]
-    · sorry -- exact Sum.Lex.sep _ _
+    · simp only [RawPointer.terminal_le_terminal, Bool.false_le]
+    · exact RawPointer.terminal_le_node
   unfold KeyLE leKeyPair
   split
   · exact decide_eq_true (hbot a.2)
@@ -246,17 +246,17 @@ lemma push_node_correct' {n m : Nat} {i : Nat}
   have hheap : (push_node ps N hN).1.state.heap = ps.state.heap.push N := rfl
   -- Witness 1: hj
   have hj : Bdd.Ordered ⟨O.1.heap, .node entry.2⟩ := O.ordered_of_reachable hec.1
-  -- Witness 2: hp (ptr = .inr s, bounded by s+1)
+  -- Witness 2: hp (ptr = .node s, bounded by s+1)
   have hp : (push_node ps N hN).2.Bounded
       (set_id (push_node ps N hN).1 entry.2 (push_node ps N hN).2).state.size := by
     have hsize2 : (set_id (push_node ps N hN).1 entry.2 (push_node ps N hN).2).state.size = s + 1 := rfl
     rw [RawPointer.bounded_iff]
     intro j hj
-    have hjs : s = j := Sum.inr.inj hj
+    have hjs : s = j := RawPointer.node.inj hj
     omega
   have hlo_ord : Bdd.Ordered ⟨O.1.heap, O.1.heap[entry.2].low⟩ :=  OBdd.ordered_of_low_edge hj
   have hhi_ord : Bdd.Ordered ⟨O.1.heap, O.1.heap[entry.2].high⟩ := OBdd.ordered_of_high_edge hj
-  -- Inline child semantics for low child
+  -- terminaline child semantics for low child
   obtain ⟨hptr_lo, ho_lo, hred_lo, heval_lo⟩ :
       ∃ (hptr_lo : entry.1.1.Bounded s),
       ∃ (ho_lo : Bdd.Ordered ⟨cook_heap ps.state.heap ps.hh, entry.1.1.cook hptr_lo⟩),
@@ -267,16 +267,16 @@ lemma push_node_correct' {n m : Nat} {i : Nat}
     cases hlow : O.1.heap[entry.2].low with
     | terminal b =>
       intro hlo_ord
-      have he : entry.1.1 = .inl b := hec.2.2.2.2.1 b hlow
+      have he : entry.1.1 = .terminal b := hec.2.2.2.2.1 b hlow
       rw [he]
-      simp only [RawPointer.cook_inl, terminal.injEq, OBdd.evaluate_terminal]
-      use RawPointer.bounded_inl, Bdd.ordered_of_terminal rfl, Bdd.reduced_of_terminal, by simp
+      simp only [RawPointer.cook_terminal, terminal.injEq, OBdd.evaluate_terminal]
+      use RawPointer.bounded_terminal, Bdd.ordered_of_terminal rfl, Bdd.reduced_of_terminal, by simp
     | node l =>
       intro hlo_ord
       obtain ⟨_, hptr_lo, ho_lo, hred_lo, heval_lo⟩ := inv.2 l entry.1.1 (hec.2.2.1 l hlow)
       exact ⟨hptr_lo, ho_lo, hred_lo, fun I => (heval_lo I).trans
         (congrArg (OBdd.evaluate · I) (by simp))⟩
-  -- Inline child semantics for high child
+  -- terminaline child semantics for high child
   obtain ⟨hptr_hi, ho_hi, hred_hi, heval_hi⟩ :
       ∃ (hptr_hi : entry.1.2.Bounded s),
       ∃ (ho_hi : Bdd.Ordered ⟨cook_heap ps.state.heap ps.hh, entry.1.2.cook hptr_hi⟩),
@@ -287,10 +287,10 @@ lemma push_node_correct' {n m : Nat} {i : Nat}
     cases hhigh : O.1.heap[entry.2].high with
     | terminal b =>
       intro hhi_ord
-      have he : entry.1.2 = .inl b := hec.2.2.2.2.2 b hhigh
+      have he : entry.1.2 = .terminal b := hec.2.2.2.2.2 b hhigh
       rw [he]
-      simp only [RawPointer.cook_inl, terminal.injEq, OBdd.evaluate_terminal]
-      use RawPointer.bounded_inl, Bdd.ordered_of_terminal rfl, Bdd.reduced_of_terminal, by simp
+      simp only [RawPointer.cook_terminal, terminal.injEq, OBdd.evaluate_terminal]
+      use RawPointer.bounded_terminal, Bdd.ordered_of_terminal rfl, Bdd.reduced_of_terminal, by simp
     | node l =>
       intro hhi_ord
       obtain ⟨_, hptr_hi, ho_hi, hred_hi, heval_hi⟩ := inv.2 l entry.1.2 (hec.2.2.2.1 l hhigh)
@@ -331,7 +331,7 @@ lemma push_node_correct' {n m : Nat} {i : Nat}
   -- Ordered: use ordered_of_low_high_ordered
   have hptr_cook : (push_node ps N hN).2.cook hp =
       .node (⟨s, Nat.lt_succ_self s⟩ : Fin (s + 1)) := by
-    simp [push_node, RawPointer.cook_inr]
+    simp [push_node, RawPointer.cook_node]
     rfl
   have ho : Bdd.Ordered ⟨cook_heap (ps.state.heap.push N) hh',
       (.node (⟨s, Nat.lt_succ_self s⟩ : Fin (s + 1)))⟩ := by
@@ -342,20 +342,20 @@ lemma push_node_correct' {n m : Nat} {i : Nat}
       exact ho_lo'
     · -- B.var < B.low.var
       cases h11 : entry.1.1 with
-      | inl b =>
+      | terminal b =>
         have hcook : entry.1.1.cook hb1 = .terminal b := by
-          simp only [h11, RawPointer.cook_inl]
+          simp only [h11, RawPointer.cook_terminal]
         simp only [Bdd.var_eq, Bdd.low_root_eq_low, Bdd.low_heap_eq_heap]
         rw [hMs_low, hcook, Pointer.toVar_terminal]
         simp only [Fin.lt_def, Pointer.toVar_node]
         exact Fin.isLt _
-      | inr j =>
-        simp only [h11, RawPointer.bounded_inr_iff] at hbound0 hb1
+      | node j =>
+        simp only [h11, RawPointer.bounded_node_iff] at hbound0 hb1
         simp only [RawPointer.bounded_iff] at hbound
         have hjlt0 : j < s₀ := hbound0.1
         have hjlt : j < s := hbound.1 h11
         simp only [Bdd.var_eq, Bdd.low_root_eq_low, Bdd.low_heap_eq_heap]
-        simp_rw [hMs_low, h11, RawPointer.cook_inr]
+        simp_rw [hMs_low, h11, RawPointer.cook_node]
         simp only [Pointer.toVar_node, Fin.lt_def]
         rw [hMs_var, hMj_var ⟨j, hjlt⟩]
         exact hec.2.1 ▸ hprefix ⟨j, hjlt⟩ hjlt0
@@ -365,18 +365,18 @@ lemma push_node_correct' {n m : Nat} {i : Nat}
       exact ho_hi'
     · -- B.var < B.high.var
       cases h12 : entry.1.2 with
-      | inl b =>
+      | terminal b =>
         simp only [Bdd.var_eq, Bdd.high_root_eq_high, Bdd.high_heap_eq_heap]
-        simp_rw [hMs_high, h12, RawPointer.cook_inl, Pointer.toVar_terminal]
+        simp_rw [hMs_high, h12, RawPointer.cook_terminal, Pointer.toVar_terminal]
         simp only [Fin.lt_def, Pointer.toVar_node]
         exact Fin.isLt _
-      | inr j =>
-        simp only [h12, RawPointer.bounded_inr_iff] at hbound0 hb2
+      | node j =>
+        simp only [h12, RawPointer.bounded_node_iff] at hbound0 hb2
         simp only [RawPointer.bounded_iff] at hbound
         have hjlt0 : j < s₀ := hbound0.2
         have hjlt : j < s := hbound.2 h12
         simp only [Bdd.var_eq, Bdd.high_root_eq_high, Bdd.high_heap_eq_heap]
-        simp_rw [hMs_high, h12, RawPointer.cook_inr]
+        simp_rw [hMs_high, h12, RawPointer.cook_node]
         simp only [Pointer.toVar_node, Fin.lt_def]
         rw [hMs_var, hMj_var ⟨j, hjlt⟩]
         exact hec.2.1 ▸ hprefix ⟨j, hjlt⟩ hjlt0
@@ -759,7 +759,7 @@ lemma process_record_stepinv {n m : Nat} {i : Nat} (O : OBdd n m)
       by_cases hjh : j = head.2
       · subst hjh
         rw [set_id_self ps head.2 curptr] at hjk
-        have hcur : curptr = .inr k.1 := by injection hjk
+        have hcur : curptr = .node k.1 := by injection hjk
         have hva : ps.state.heap[k].va.1 = i := si.hcurlvl k hcur
         have hvj : O.1.heap[head.2].var.1 = i := (hec head (.head _)).2.1
         omega
@@ -793,8 +793,8 @@ lemma process_record_stepinv {n m : Nat} {i : Nat} (O : OBdd n m)
       simp only [process_record, dif_neg heq_h]
       rfl
     rw [hps', hck', hcp']
-    -- (push_node ps Nh hN).2 = .inr ps.state.size
-    have hptr_eq : (push_node ps Nh hN).2 = (.inr ps.state.size : RawPointer) := rfl
+    -- (push_node ps Nh hN).2 = .node ps.state.size
+    have hptr_eq : (push_node ps Nh hN).2 = (.node ps.state.size : RawPointer) := rfl
     -- Nh ∉ ps.state.heap (freshness).
     have hfresh : ∀ k : Fin ps.state.size, ps.state.heap[k] ≠ Nh :=
       node_fresh si.hbase si.hpushed_le hvar_head hcur_head heq_h
@@ -857,26 +857,26 @@ lemma process_record_stepinv {n m : Nat} {i : Nat} (O : OBdd n m)
       by_cases hjh : j = head.2
       · subst hjh
         rw [set_id_self (push_node ps Nh hN).1 head.2 (push_node ps Nh hN).2] at hjk
-        have hcur : (push_node ps Nh hN).2 = .inr k.1 := by injection hjk
+        have hcur : (push_node ps Nh hN).2 = .node k.1 := by injection hjk
         rw [hptr_eq] at hcur
-        have hkσ : k.1 = ps.state.size := (Sum.inr.inj hcur).symm
+        have hkσ : k.1 = ps.state.size := (RawPointer.node.inj hcur).symm
         simp only [Fin.getElem_fin, show k.1 = ps.state.size from hkσ, Vector.getElem_push_eq, hNh]
         exact Nat.le_refl _
       · rw [set_id_ne (push_node ps Nh hN).1 head.2 j (push_node ps Nh hN).2 hjh] at hjk
-        change ps.state.ids[j] = some (.inr k.1) at hjk
+        change ps.state.ids[j] = some (.node k.1) at hjk
         -- the target node index k must be < ps.state.size (it existed before the push)
         have hk_lt : k.1 < ps.state.size := by
-          obtain ⟨_, hbnd, _, _, _⟩ := inv.2 j (.inr k.1) hjk
-          rw [RawPointer.bounded_inr_iff] at hbnd
+          obtain ⟨_, hbnd, _, _, _⟩ := inv.2 j (.node k.1) hjk
+          rw [RawPointer.bounded_node_iff] at hbnd
           exact hbnd
         simp only [Fin.getElem_fin, Vector.getElem_push_lt hk_lt]
         exact si.hvarinv j ⟨k.1, hk_lt⟩ hjk
-    · -- hcurlvl (relative to new curptr = .inr ps.state.size)
-      show ∀ k : Fin (ps.state.size + 1), (push_node ps Nh hN).2 = .inr k.1 →
+    · -- hcurlvl (relative to new curptr = .node ps.state.size)
+      show ∀ k : Fin (ps.state.size + 1), (push_node ps Nh hN).2 = .node k.1 →
           (ps.state.heap.push Nh)[k].va.1 = i
       intro k hk
       rw [hptr_eq] at hk
-      have hkσ : k.1 = ps.state.size := (Sum.inr.inj hk).symm
+      have hkσ : k.1 = ps.state.size := (RawPointer.node.inj hk).symm
       simp only [Fin.getElem_fin, show k.1 = ps.state.size from hkσ, Vector.getElem_push_eq]
       exact hvar_head
     · -- hnonred for tail
@@ -1006,26 +1006,26 @@ lemma process_record_curptr_sem {n m : Nat} {i : Nat} (O : OBdd n m)
     have eval_child_eq : ∀ (lid : RawPointer) (p1 p2 : Pointer m)
         (hord1 : Bdd.Ordered ⟨O.1.heap, p1⟩) (hord2 : Bdd.Ordered ⟨O.1.heap, p2⟩)
         (h1n : ∀ l : Fin m, p1 = .node l → ps.state.ids[l] = some lid)
-        (h1t : ∀ b : Bool, p1 = .terminal b → lid = .inl b)
+        (h1t : ∀ b : Bool, p1 = .terminal b → lid = .terminal b)
         (h2n : ∀ l : Fin m, p2 = .node l → ps.state.ids[l] = some lid)
-        (h2t : ∀ b : Bool, p2 = .terminal b → lid = .inl b)
+        (h2t : ∀ b : Bool, p2 = .terminal b → lid = .terminal b)
         (I : Vector Bool n),
         OBdd.evaluate ⟨⟨O.1.heap, p1⟩, hord1⟩ I = OBdd.evaluate ⟨⟨O.1.heap, p2⟩, hord2⟩ I := by
       intro lid p1 p2 hord1 hord2 h1n h1t h2n h2t I
       cases p1 with
       | terminal b1 =>
-        have hlid1 : lid = .inl b1 := h1t b1 rfl
+        have hlid1 : lid = .terminal b1 := h1t b1 rfl
         rw [OBdd.evaluate_terminal rfl]
         cases p2 with
         | terminal b2 =>
           rw [OBdd.evaluate_terminal rfl]
-          have hlid2 : lid = .inl b2 := h2t b2 rfl
-          exact Sum.inl.inj (hlid1.symm.trans hlid2)
+          have hlid2 : lid = .terminal b2 := h2t b2 rfl
+          exact RawPointer.terminal.inj (hlid1.symm.trans hlid2)
         | node l2 =>
-          have hids2 : ps.state.ids[l2] = some (.inl b1) := hlid1 ▸ h2n l2 rfl
-          obtain ⟨_, _, _, _, heval2⟩ := inv.2 l2 (.inl b1) hids2
+          have hids2 : ps.state.ids[l2] = some (.terminal b1) := hlid1 ▸ h2n l2 rfl
+          obtain ⟨_, _, _, _, heval2⟩ := inv.2 l2 (.terminal b1) hids2
           have h := heval2 I
-          simp only [RawPointer.cook_inl] at h
+          simp only [RawPointer.cook_terminal] at h
           rw [OBdd.evaluate_terminal rfl] at h
           exact h
       | node l1 =>
@@ -1033,11 +1033,11 @@ lemma process_record_curptr_sem {n m : Nat} {i : Nat} (O : OBdd n m)
         obtain ⟨_, hbnd1, ho1, _, heval1⟩ := inv.2 l1 lid hids1
         cases p2 with
         | terminal b2 =>
-          have hlid2 : lid = .inl b2 := h2t b2 rfl
+          have hlid2 : lid = .terminal b2 := h2t b2 rfl
           subst hlid2
           nth_rw 2 [OBdd.evaluate_terminal rfl]
           have h := heval1 I
-          simp only [RawPointer.cook_inl] at h
+          simp only [RawPointer.cook_terminal] at h
           rw [OBdd.evaluate_terminal rfl] at h
           exact h.symm
         | node l2 =>
@@ -1072,16 +1072,16 @@ lemma process_record_curptr_sem {n m : Nat} {i : Nat} (O : OBdd n m)
     rw [hps', hcurptr']
     exact ⟨hj_entry, hp_h, ho_h, hred_h, fun I => (heval_h I).trans (heval_eq I)⟩
 
-/-- In a non-redundant queue, no entry's key matches the sentinel ⟨.inl false, .inl false⟩. -/
+/-- In a non-redundant queue, no entry's key matches the sentinel ⟨.terminal false, .terminal false⟩. -/
 public lemma sentinel_no_match
     (Q : List ((RawPointer × RawPointer) × Fin m))
     (hnonred : ∀ entry ∈ Q, entry.1.1 ≠ entry.1.2) :
-    ∀ entry ∈ Q, entry.1 ≠ ((.inl false : RawPointer), (.inl false : RawPointer)) := by
+    ∀ entry ∈ Q, entry.1 ≠ ((.terminal false : RawPointer), (.terminal false : RawPointer)) := by
   intro entry hmem heq
   have h := hnonred entry hmem
   have : entry.1.1 = entry.1.2 := by
-    have h1 : entry.1.1 = .inl false := congrArg Prod.fst heq
-    have h2 : entry.1.2 = .inl false := congrArg Prod.snd heq
+    have h1 : entry.1.1 = .terminal false := congrArg Prod.fst heq
+    have h2 : entry.1.2 = .terminal false := congrArg Prod.snd heq
     rw [h1, h2]
   exact h this
 

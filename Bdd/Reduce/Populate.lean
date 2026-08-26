@@ -16,7 +16,7 @@ lemma get_id_bounded {n m : Nat} {O : OBdd n m} {ps : ProvedState n m} {i : Nat}
     (h : ∀ j, p = .node j → (ps.state.ids[j]).isSome) :
     (get_id ps p h).Bounded ps.state.size := by
   match p with
-  | .terminal b => exact RawPointer.bounded_inl
+  | .terminal b => exact RawPointer.bounded_terminal
   | .node k =>
     simp only [get_id]
     obtain ⟨ptr, hkptr⟩ := Option.isSome_iff_exists.mp (h k rfl)
@@ -38,8 +38,8 @@ lemma get_id_semantic {n m : Nat} {O : OBdd n m} {ps : ProvedState n m} {i : Nat
            OBdd.evaluate ⟨⟨O.1.heap, p⟩, hp⟩ I := by
   cases p with
   | terminal b =>
-    simp only [terminal.injEq, OBdd.evaluate_terminal, get_id, RawPointer.cook_inl]
-    exact ⟨RawPointer.bounded_inl, Bdd.ordered_of_terminal rfl,
+    simp only [terminal.injEq, OBdd.evaluate_terminal, get_id, RawPointer.cook_terminal]
+    exact ⟨RawPointer.bounded_terminal, Bdd.ordered_of_terminal rfl,
       Bdd.reduced_of_terminal, fun _ ↦ trivial⟩
   | node l =>
     simp only [get_id]
@@ -197,17 +197,17 @@ public def populate_queue {n m : Nat} (O : OBdd n m)
             rw [hjj₀] at hids₀ ⊢
             rw [ids_set_self] at hids₀
             simp only [Option.some.injEq] at hids₀
-            -- hids₀ : lid = .inr k₀.1
+            -- hids₀ : lid = .node k₀.1
             -- lid = get_id ps O.1.heap[j].low h. Examine O.1.heap[j].low.
-            -- lid = .inr k₀.1 (from hids₀). Need: O.heap[j].var ≤ ps.heap[k₀].va
+            -- lid = .node k₀.1 (from hids₀). Need: O.heap[j].var ≤ ps.heap[k₀].va
             -- lid came from get_id on the low child.
             -- Use a helper lemma to extract the child node index.
             have ⟨l, hlow, hids_l⟩ : ∃ l, O.1.heap[j].low = .node l ∧
-                ps.state.ids[l] = some (.inr k₀.1) := by
+                ps.state.ids[l] = some (.node k₀.1) := by
               -- lid = get_id ps O.1.heap[j].low _. Case-split on the low pointer.
               cases hlow_case : O.1.heap[j].low with
               | terminal b =>
-                have hlid_bool : lid = .inl b := by
+                have hlid_bool : lid = .terminal b := by
                   simp only [lid]; simp_rw [hlow_case]; rfl
                 exact absurd (hlid_bool ▸ hids₀) (by simp)
               | node l =>
@@ -253,9 +253,9 @@ public def populate_queue {n m : Nat} (O : OBdd n m)
         -- Helper: get_id on a node pointer yields (ids[l]).get
         have get_id_node : ∀ (l : Fin m) (h : ∀ k, Pointer.node l = .node k → (ps.state.ids[k]).isSome),
             get_id ps (.node l) h = (ps.state.ids[l]).get (h l rfl) := fun _ _ => rfl
-        -- Helper: get_id on terminal yields .inl b
+        -- Helper: get_id on terminal yields .terminal b
         have get_id_terminal : ∀ (b : Bool) (h : ∀ k, Pointer.terminal b = .node k → (ps.state.ids[k]).isSome),
-            get_id ps (.terminal b) h = .inl b := fun _ _ => rfl
+            get_id ps (.terminal b) h = .terminal b := fun _ _ => rfl
         have hec_new : EntryCorrect O ps i.1 ⟨⟨lid, hid⟩, j⟩ := by
           refine ⟨hreach_j, hvar_j, fun l hl => ?_, fun l hl => ?_, fun b hb => ?_, fun b hb => ?_⟩
           · -- lid = get_id ps (.node l) _, i.e., (ids[l]).get _
@@ -269,12 +269,12 @@ public def populate_queue {n m : Nat} (O : OBdd n m)
               simp_rw [hl]
               rfl
             rw [hhid]; exact (Option.some_get _).symm
-          · have : lid = .inl b := by
+          · have : lid = .terminal b := by
               simp only [lid]
               simp_rw [hb]
               rfl
             exact this
-          · have : hid = .inl b := by
+          · have : hid = .terminal b := by
               simp only [hid]
               simp_rw [hb]
               rfl
@@ -328,29 +328,29 @@ public lemma push_back_lt {n s : Nat} {v : Vector (RawNode n) s} {N : RawNode n}
         Pointer.Reachable (cook_heap v hh) (p.cook hp) (.node ⟨j.1, hj⟩) from
     fun j hreach => h _ hreach j rfl
   intro q hq
-  have cook_inr_node : ∀ (jj : Fin (s+1)) (bnd : RawPointer.Bounded (s + 1) (.inr jj.1)),
-      RawPointer.cook (.inr jj.1) bnd = .node jj := fun jj _ => by
-    simp only [RawPointer.cook_inr, Fin.eta]
+  have cook_node_node : ∀ (jj : Fin (s+1)) (bnd : RawPointer.Bounded (s + 1) (.node jj.1)),
+      RawPointer.cook (.node jj.1) bnd = .node jj := fun jj _ => by
+    simp only [RawPointer.cook_node, Fin.eta]
   induction hq with
   | refl =>
     intro j hj
-    have hp_eq : p = .inr j.val :=
-      cook_inj.1 (hj.trans (cook_inr_node j (RawPointer.bounded_inr_iff.2 j.prop)).symm)
+    have hp_eq : p = .node j.val :=
+      cook_inj.1 (hj.trans (cook_node_node j (RawPointer.bounded_node_iff.2 j.prop)).symm)
     subst hp_eq
-    rw [RawPointer.bounded_inr_iff] at hp
-    rw [RawPointer.cook_inr]
+    rw [RawPointer.bounded_node_iff] at hp
+    rw [RawPointer.cook_node]
     exact ⟨hp, .refl⟩
   | snoc _ _ hprev edge ih =>
     intro j hj; subst hj
     rw [edge_iff] at edge
     rcases edge with ⟨k, rfl, h⟩
     simp only [cook_heap_eq, Fin.getElem_fin, Vector.getElem_ofFn, RawNode.cook_eq] at h
-    have hb : RawPointer.Bounded (s + 1) (Sum.inr j) := by
-      simp only [RawPointer.bounded_inr_iff, Fin.is_lt]
+    have hb : RawPointer.Bounded (s + 1) (.node j) := by
+      simp only [RawPointer.bounded_node_iff, Fin.is_lt]
     have hj_lt_k : j.1 < k.1 := by
       have ⟨h1, h2⟩ := hh' k
       rw [RawPointer.bounded_iff] at h1 h2
-      simp only [← cook_inr_node j hb, cook_inj] at h
+      simp only [← cook_node_node j hb, cook_inj] at h
       rcases h with h | h
       · exact h1 h.symm
       · exact h2 h.symm
