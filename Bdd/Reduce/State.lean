@@ -1,8 +1,10 @@
 module
 
-public import Bdd.Basic
-import Bdd.Collect
+public import Mathlib.Data.Prod.Lex
 public import Mathlib.Data.Sum.Order
+public import Bdd.Basic
+
+import Bdd.Collect
 
 open Pointer (Reachable)
 open Bdd
@@ -36,126 +38,44 @@ public lemma RawPointer.node_le_node {n n'} : node n ≤ node n' ↔ n ≤ n' :=
 public lemma RawPointer.not_node_le_terminal {n b} : ¬ node n ≤ terminal b := by
   rintro ⟨⟩
 
-@[no_expose]
-public instance : LinearOrder RawPointer where
-  le_trans p q r h1 h2 := by
-    cases h1 <;> cases h2
-    case terminal.terminal b1 b2 h1 b3 h2 => exact .terminal b1 b3 (.trans h1 h2)
-    case terminal.mixed b1 b2 h1 n3 => exact .mixed b1 n3
-    case node.node n1 n2 h1 n3 h2 => exact .node n1 n3 (.trans h1 h2)
-    case mixed.node b1 n2 n3 h2 => exact .mixed b1 n3
+public lemma RawPointer.le_trans (p q r : RawPointer) (h1 : p ≤ q) (h2 : q ≤ r) : p ≤ r := by
+  cases h1 <;> cases h2
+  case terminal.terminal b1 b2 h1 b3 h2 => exact .terminal b1 b3 (.trans h1 h2)
+  case terminal.mixed b1 b2 h1 n3 => exact .mixed b1 n3
+  case node.node n1 n2 h1 n3 h2 => exact .node n1 n3 (.trans h1 h2)
+  case mixed.node b1 n2 n3 h2 => exact .mixed b1 n3
 
-  le_refl
-    | .terminal b => .terminal b b (le_refl b)
-    | .node n => .node n n (le_refl n)
+public lemma RawPointer.le_refl : ∀ (p : RawPointer), p ≤ p
+  | .terminal b => .terminal b b (Bool.le_refl b)
+  | .node n => .node n n (Nat.le_refl n)
 
-  le_total
-    | .terminal b, .terminal b' =>
-      match le_total b b' with
-      | .inl h => .inl (.terminal b b' h)
-      | .inr h => .inr (.terminal b' b h)
-    | .terminal b, .node n' => .inl (.mixed b n')
-    | .node n, .node n' =>
-      match le_total n n' with
-      | .inl h => .inl (.node n n' h)
-      | .inr h => .inr (.node n' n h)
-    | .node n, .terminal b' => .inr (.mixed b' n)
+public lemma RawPointer.le_total : ∀ (p q : RawPointer), p ≤ q ∨ q ≤ p
+  | .terminal b, .terminal b' =>
+    match Bool.le_total b b' with
+    | .inl h => .inl (.terminal b b' h)
+    | .inr h => .inr (.terminal b' b h)
+  | .terminal b, .node n' => .inl (.mixed b n')
+  | .node n, .node n' =>
+    match Nat.le_total n n' with
+    | .inl h => .inl (.node n n' h)
+    | .inr h => .inr (.node n' n h)
+  | .node n, .terminal b' => .inr (.mixed b' n)
 
-  le_antisymm p q h1 h2 := by
+public lemma RawPointer.le_antisymm (p q : RawPointer) (h1 : p ≤ q) (h2 : q ≤ p) : p = q := by
     cases h1 <;> cases h2 <;> grind only
 
+public instance : LinearOrder RawPointer where
+  le_trans := RawPointer.le_trans
+  le_refl := RawPointer.le_refl
+  le_total := RawPointer.le_total
+  le_antisymm := RawPointer.le_antisymm
   toDecidableLE
     | .terminal b, .terminal b' => decidable_of_iff' _ RawPointer.terminal_le_terminal
-    | .terminal b, .node n' => Decidable.isTrue (.mixed b n')
+    | .terminal b, .node n' => Decidable.isTrue RawPointer.terminal_le_node
     | .node n, .terminal b' => Decidable.isFalse RawPointer.not_node_le_terminal
     | .node n, .node n' => decidable_of_iff' _ RawPointer.node_le_node
 
-@[no_expose]
-public instance : DecidableLE RawPointer := LinearOrder.toDecidableLE
-
-@[expose]
-public def leKeyPair (a b : RawPointer × RawPointer) : Bool :=
-  if a.1 = b.1 then decide (a.2 ≤ b.2) else decide (a.1 ≤ b.1)
-
-@[expose]
-public def KeyLE (a b : RawPointer × RawPointer) : Prop := leKeyPair a b = true
-
-public lemma keyLE_refl (a : RawPointer × RawPointer) : KeyLE a a := by
-  unfold KeyLE leKeyPair
-  rw [if_pos rfl]
-  exact decide_eq_true (le_refl a.2)
-
-lemma keyLE_total (a b : RawPointer × RawPointer) : KeyLE a b ∨ KeyLE b a := by
-  unfold KeyLE leKeyPair
-  by_cases h1 : a.1 = b.1
-  · rw [if_pos h1, if_pos h1.symm]
-    rcases le_total a.2 b.2 with h | h
-    · exact Or.inl (decide_eq_true h)
-    · exact Or.inr (decide_eq_true h)
-  · rw [if_neg h1, if_neg (Ne.symm h1)]
-    rcases le_total a.1 b.1 with h | h
-    · exact Or.inl (decide_eq_true h)
-    · exact Or.inr (decide_eq_true h)
-
-public lemma keyLE_antisymm {a b : RawPointer × RawPointer} : KeyLE a b → KeyLE b a → a = b := by
-  unfold KeyLE leKeyPair
-  by_cases h1 : a.1 = b.1
-  · rw [if_pos h1, if_pos h1.symm]
-    intro hab hba
-    exact Prod.ext h1 (le_antisymm (of_decide_eq_true hab) (of_decide_eq_true hba))
-  · rw [if_neg h1, if_neg (Ne.symm h1)]
-    intro hab hba
-    exact absurd (le_antisymm (of_decide_eq_true hab) (of_decide_eq_true hba)) h1
-
-public lemma keyLE_trans {a b c : RawPointer × RawPointer} : KeyLE a b → KeyLE b c → KeyLE a c := by
-  unfold KeyLE leKeyPair
-  intro hab hbc
-  by_cases h1 : a.1 = b.1 <;> by_cases h2 : b.1 = c.1
-  · -- a.1 = b.1 and b.1 = c.1
-    have h13 : a.1 = c.1 := h1.trans h2
-    rw [if_pos h1] at hab
-    rw [if_pos h2] at hbc
-    rw [if_pos h13]
-    exact decide_eq_true
-      (le_trans (of_decide_eq_true hab) (of_decide_eq_true hbc))
-  · -- a.1 = b.1 and b.1 ≠ c.1
-    have h13 : a.1 ≠ c.1 := h1 ▸ h2
-    rw [if_neg h2] at hbc
-    rw [if_neg h13]
-    rw [h1]
-    exact hbc
-  · -- a.1 ≠ b.1 and b.1 = c.1
-    have h13 : a.1 ≠ c.1 := h2 ▸ h1
-    rw [if_neg h1] at hab
-    rw [if_neg h13]
-    rw [← h2]
-    exact hab
-  · -- a.1 ≠ b.1 and b.1 ≠ c.1
-    rw [if_neg h1] at hab
-    rw [if_neg h2] at hbc
-    have hac : a.1 ≤ c.1 :=
-      le_trans (of_decide_eq_true hab) (of_decide_eq_true hbc)
-    have h13 : a.1 ≠ c.1 := by
-      intro he
-      have hca : c.1 ≤ a.1 := he ▸ le_refl a.1
-      have hba : b.1 ≤ a.1 := le_trans (of_decide_eq_true hbc) hca
-      exact h1 (le_antisymm (of_decide_eq_true hab) hba)
-    rw [if_neg h13]
-    exact decide_eq_true hac
-
-public lemma keyLE_sorted_mergeSort {m : Nat}
-    (l : List ((RawPointer × RawPointer) × Fin m)) :
-    (l.mergeSort (fun a b => leKeyPair a.1 b.1)).Pairwise (fun a b => KeyLE a.1 b.1) := by
-  have htrans : ∀ (a b c : (RawPointer × RawPointer) × Fin m),
-      leKeyPair a.1 b.1 → leKeyPair b.1 c.1 → leKeyPair a.1 c.1 :=
-    fun a b c hab hbc => keyLE_trans (a := a.1) (b := b.1) (c := c.1) hab hbc
-  have htotal : ∀ (a b : (RawPointer × RawPointer) × Fin m),
-      leKeyPair a.1 b.1 || leKeyPair b.1 a.1 :=
-    fun a b => by
-      rcases keyLE_total a.1 b.1 with h | h
-      · exact (Bool.or_eq_true _ _).mpr (Or.inl h)
-      · exact (Bool.or_eq_true _ _).mpr (Or.inr h)
-  exact (List.pairwise_mergeSort htrans htotal l).imp (fun h => h)
+public abbrev KeyPair := Lex (RawPointer × RawPointer)
 
 public structure State (n) (m) where
   size : Nat

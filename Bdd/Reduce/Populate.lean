@@ -50,7 +50,7 @@ lemma get_id_semantic {n m : Nat} {O : OBdd n m} {ps : ProvedState n m} {i : Nat
 otherwise add to accumulator. -/
 public def populate_queue {n m : Nat} (O : OBdd n m)
     (i : Fin n)
-    (acc : List ((RawPointer × RawPointer) × Fin m)) :
+    (acc : List (KeyPair × Fin m)) :
     (l : List (Fin m)) →
     (ps : ProvedState n m) →
     Invariant O ps i.1 →
@@ -63,7 +63,7 @@ public def populate_queue {n m : Nat} (O : OBdd n m)
     (∀ entry ∈ acc, EntryCorrect O ps i.1 entry) →
     -- VarInvariant is preserved.
     VarInvariant O ps →
-    { p : ProvedState n m × List ((RawPointer × RawPointer) × Fin m) //
+    { p : ProvedState n m × List (KeyPair × Fin m) //
         Invariant O p.1 i.1 ∧
         p.1.state.size = ps.state.size ∧
         -- AllAbove and HeapInjective are preserved (populate_queue only calls set_id).

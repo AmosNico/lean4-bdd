@@ -46,7 +46,7 @@ def step {n m : Nat} (O : OBdd n m)
   -- Setninel (⟨.terminal false, .terminal false⟩, .terminal false): all real entries have key.1 ≠ key.2
   -- (populate_queue only enqueues non-redundant nodes), so the sentinel never matches
   -- any entry, hence the first element always starts a fresh equivalence class.
-  let sorted := queue.mergeSort (fun a b => leKeyPair a.1 b.1)
+  let sorted := queue.mergeSort (fun a b => a.1 ≤ b.1)
   -- Process the sorted queue, assigning output pointers to each equivalence class.
   -- Bounds for sorted entries: sorting is a permutation, so bounds transfer from queue.
   have hbounds_sorted : ∀ entry ∈ sorted,
@@ -71,7 +71,7 @@ def step {n m : Nat} (O : OBdd n m)
       hcurlvl    := fun k h => by simp at h
       hnonred    := hnonred_sorted
       hbounds0   := hbounds_sorted
-      hsorted    := keyLE_sorted_mergeSort queue
+      hsorted    := List.pairwise_mergeSort' (fun (a b : KeyPair × Fin m) => a.1 ≤ b.1) queue
       hcur_le    := fun e _ => keyLE_sentinel e.1
       hpushed_le := fun k hk => absurd hk (Nat.not_le.mpr k.isLt) }
   let pq := process_queue O ⟨.terminal false, .terminal false⟩ (.terminal false) ps₁.state.size

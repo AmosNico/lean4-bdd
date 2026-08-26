@@ -10,8 +10,8 @@ open RawBdd
 namespace Reduce
 
 public structure StepInv {n m : Nat} (O : OBdd n m) (ps : ProvedState n m) (i : Nat) (s₀ : Nat)
-    (curkey : RawPointer × RawPointer) (curptr : RawPointer)
-    (Q : List ((RawPointer × RawPointer) × Fin m)) : Prop where
+    (curkey : KeyPair) (curptr : RawPointer)
+    (Q : List (KeyPair × Fin m)) : Prop where
   hs0        : s₀ ≤ ps.state.size
   hbase      : ∀ k : Fin ps.state.size, k.1 < s₀ → i < ps.state.heap[k].va.1
   hsuffix    : ∀ k : Fin ps.state.size, s₀ ≤ k.1 → ps.state.heap[k].va.1 = i
@@ -20,33 +20,32 @@ public structure StepInv {n m : Nat} (O : OBdd n m) (ps : ProvedState n m) (i : 
   hcurlvl    : ∀ k : Fin ps.state.size, curptr = .node k.1 → ps.state.heap[k].va.1 = i
   hnonred    : ∀ e ∈ Q, e.1.1 ≠ e.1.2
   hbounds0   : ∀ e ∈ Q, e.1.1.Bounded s₀ ∧ e.1.2.Bounded s₀
-  hsorted    : Q.Pairwise (fun a b => KeyLE a.1 b.1)
-  hcur_le    : ∀ e ∈ Q, KeyLE curkey e.1
+  hsorted    : Q.Pairwise (fun a b => a.1 ≤ b.1)
+  hcur_le    : ∀ e ∈ Q, curkey ≤ e.1
   hpushed_le : ∀ k : Fin ps.state.size, s₀ ≤ k.1 →
-                 KeyLE (ps.state.heap[k].lo, ps.state.heap[k].hi) curkey
+                toLex (ps.state.heap[k].lo, ps.state.heap[k].hi) ≤ curkey
 
 lemma StepInv.hbnd {n m : Nat} {O : OBdd n m} {ps : ProvedState n m} {i s₀ : Nat}
-    {curkey : RawPointer × RawPointer} {curptr : RawPointer}
-    {Q : List ((RawPointer × RawPointer) × Fin m)}
-    (si : StepInv O ps i s₀ curkey curptr Q) {e : (RawPointer × RawPointer) × Fin m}
+    {curkey : KeyPair} {curptr : RawPointer}
+    {Q : List (KeyPair × Fin m)}
+    (si : StepInv O ps i s₀ curkey curptr Q) {e : KeyPair × Fin m}
     (hmem : e ∈ Q) : e.1.1.Bounded ps.state.size ∧ e.1.2.Bounded ps.state.size :=
   ⟨RawPointer.bounded_of_le (si.hbounds0 e hmem).1 si.hs0,
    RawPointer.bounded_of_le (si.hbounds0 e hmem).2 si.hs0⟩
 
-/-- The sentinel key `(.terminal false, .terminal false)` is the least key: `.terminal false` is the
-least `RawPointer`, so it is `≤` every key. Used as the initial `curkey` in `step`. -/
-public lemma keyLE_sentinel (a : RawPointer × RawPointer) :
-    KeyLE (.terminal false, .terminal false) a := by
-  -- `.terminal false` is the least `RawPointer`.  The `@LE.le RawPointer` pins our lex order
-  -- (not the ambient pointwise `Sum.instLESum`, which the bare `.terminal` literal would select).
-  have hbot : ∀ x : RawPointer, @LE.le RawPointer _ (.terminal false) x := by
+/--
+The sentinel key `(.terminal false, .terminal false)` is the least key: `.terminal false` is the
+least `RawPointer`, so it is `≤` every key. Used as the initial `curkey` in `step`.
+-/
+public lemma keyLE_sentinel (a : KeyPair) :
+    toLex (.terminal false, .terminal false) ≤ a := by
+  have hbot : ∀ x : RawPointer, .terminal false ≤ x := by
     rintro (b | c)
     · simp only [RawPointer.terminal_le_terminal, Bool.false_le]
     · exact RawPointer.terminal_le_node
-  unfold KeyLE leKeyPair
-  split
-  · exact decide_eq_true (hbot a.2)
-  · exact decide_eq_true (hbot a.1)
+  rw [← toLex_ofLex a]
+  rcases ofLex a with ⟨a1, a2⟩
+  grind only [Prod.Lex.toLex_ge_toLex, hbot a1]
 
 /-- Pushing a new node to the heap preserves reducedness of existing sub-BDDs,
 because old reachable nodes are unchanged. -/
@@ -215,7 +214,7 @@ lemma push_node_correct' {n m : Nat} {i : Nat}
     (O : OBdd n m)
     (ps : ProvedState n m)
     (inv : Invariant O ps i)
-    (entry : (RawPointer × RawPointer) × Fin m)
+    (entry : KeyPair × Fin m)
     (hec : EntryCorrect O ps i entry)
     (hbound : entry.1.1.Bounded ps.state.size ∧ entry.1.2.Bounded ps.state.size)
     (hnonred : entry.1.1 ≠ entry.1.2)
@@ -470,7 +469,7 @@ lemma push_node_correct {n m : Nat} {i : Nat}
     (O : OBdd n m)
     (ps : ProvedState n m)
     (inv : Invariant O ps i)
-    (entry : (RawPointer × RawPointer) × Fin m)
+    (entry : KeyPair × Fin m)
     (hec : EntryCorrect O ps i entry)
     (hbound : entry.1.1.Bounded ps.state.size ∧ entry.1.2.Bounded ps.state.size)
     (hnonred : entry.1.1 ≠ entry.1.2)
@@ -498,8 +497,8 @@ lemma push_node_correct {n m : Nat} {i : Nat}
 /-- Process one entry from the sorted queue.
 `hbound` witnesses that the entry's key pointers are bounded by the current heap size. -/
 def process_record {n m : Nat} {i : Nat} (O : OBdd n m)
-    (curkey : RawPointer × RawPointer) (curptr : RawPointer)
-    (entry  : (RawPointer × RawPointer) × Fin m)
+    (curkey : KeyPair) (curptr : RawPointer)
+    (entry  : KeyPair × Fin m)
     (ps : ProvedState n m)
     (inv : Invariant O ps i)
     (hbound : entry.1.1.Bounded ps.state.size ∧ entry.1.2.Bounded ps.state.size)
@@ -524,7 +523,7 @@ def process_record {n m : Nat} {i : Nat} (O : OBdd n m)
           OBdd.Reduced ⟨⟨cook_heap ps₂'.state.heap ps₂'.hh, ptr'.cook hp⟩, ho⟩ ∧
           ∀ I, OBdd.evaluate ⟨⟨cook_heap ps₂'.state.heap ps₂'.hh, ptr'.cook hp⟩, ho⟩ I =
                OBdd.evaluate ⟨⟨O.1.heap, .node entry.2⟩, hj⟩ I) :
-    { p : ProvedState n m × (RawPointer × RawPointer) × RawPointer //
+    { p : ProvedState n m × KeyPair × RawPointer //
         Invariant O p.1 i ∧
         (p.1.state.ids[entry.2]).isSome ∧
         (∀ k : Fin m, (ps.state.ids[k]).isSome → (p.1.state.ids[k]).isSome) ∧
@@ -632,8 +631,8 @@ def process_record {n m : Nat} {i : Nat} (O : OBdd n m)
      hps₁_size ▸ Nat.le_succ _⟩
 
 lemma process_record_iso {n m : Nat} {i : Nat} (O : OBdd n m)
-    (curkey : RawPointer × RawPointer) (curptr : RawPointer)
-    (entry : (RawPointer × RawPointer) × Fin m) (ps : ProvedState n m)
+    (curkey : KeyPair) (curptr : RawPointer)
+    (entry : KeyPair × Fin m) (ps : ProvedState n m)
     (inv : Invariant O ps i)
     (hb : entry.1.1.Bounded ps.state.size ∧ entry.1.2.Bounded ps.state.size)
     (hcc : entry.1 = curkey → CurptrSemantic O ps curptr entry)
@@ -644,8 +643,8 @@ lemma process_record_iso {n m : Nat} {i : Nat} (O : OBdd n m)
   simp only [process_record, dif_pos heq]
 
 lemma process_record_nc {n m : Nat} {i : Nat} (O : OBdd n m)
-    (curkey : RawPointer × RawPointer) (curptr : RawPointer)
-    (entry : (RawPointer × RawPointer) × Fin m) (ps : ProvedState n m)
+    (curkey : KeyPair) (curptr : RawPointer)
+    (entry : KeyPair × Fin m) (ps : ProvedState n m)
     (inv : Invariant O ps i)
     (hb : entry.1.1.Bounded ps.state.size ∧ entry.1.2.Bounded ps.state.size)
     (hcc : entry.1 = curkey → CurptrSemantic O ps curptr entry)
@@ -663,12 +662,12 @@ the sort order is absent from the heap: it differs from every prefix node by its
 (those are `> i`) and from every suffix node by its key (those are `≤ curkey < K`).  This is
 the freshness fact that lets the reduction push a new node without breaking heap injectivity. -/
 lemma node_fresh {n m : Nat} {ps : ProvedState n m} {i s₀ : Nat}
-    {curkey K : RawPointer × RawPointer} {vi : Fin n}
+    {curkey K : KeyPair} {vi : Fin n}
     (hbase : ∀ k : Fin ps.state.size, k.1 < s₀ → i < ps.state.heap[k].va.1)
     (hpushed_le : ∀ k : Fin ps.state.size, s₀ ≤ k.1 →
-        KeyLE (ps.state.heap[k].lo, ps.state.heap[k].hi) curkey)
+      toLex (ps.state.heap[k].lo, ps.state.heap[k].hi) ≤ curkey)
     (hvi : vi.1 = i)
-    (hKcur : KeyLE curkey K) (hKne : K ≠ curkey) :
+    (hKcur : curkey ≤ K) (hKne : K ≠ curkey) :
     ∀ k : Fin ps.state.size, ps.state.heap[k] ≠ (⟨vi, K.1, K.2⟩ : RawNode n) := by
   intro k hk
   by_cases hks : k.1 < s₀
@@ -677,16 +676,15 @@ lemma node_fresh {n m : Nat} {ps : ProvedState n m} {i s₀ : Nat}
     have hva : (⟨vi, K.1, K.2⟩ : RawNode n).va.1 = i := hvi
     omega
   · have hle := hpushed_le k (Nat.le_of_not_lt hks)
-    have hkey : (ps.state.heap[k].lo, ps.state.heap[k].hi) = K := by rw [hk]
-    rw [hkey] at hle
-    exact hKne (keyLE_antisymm hKcur hle).symm
+    simp only [hk] at hle
+    exact hKne (le_antisymm hKcur hle).symm
 
 /-- Pushing a fresh node for a non-matching queue entry is correct. -/
 lemma StepInv.nc {n m : Nat} {O : OBdd n m} {ps : ProvedState n m} {i s₀ : Nat}
-    {curkey : RawPointer × RawPointer} {curptr : RawPointer}
-    {Q : List ((RawPointer × RawPointer) × Fin m)}
+    {curkey : KeyPair} {curptr : RawPointer}
+    {Q : List (KeyPair × Fin m)}
     (si : StepInv O ps i s₀ curkey curptr Q) (inv : Invariant O ps i)
-    {e : (RawPointer × RawPointer) × Fin m} (hec : EntryCorrect O ps i e) (hmem : e ∈ Q) :
+    {e : KeyPair × Fin m} (hec : EntryCorrect O ps i e) (hmem : e ∈ Q) :
     ¬(e.1 = curkey) → NodePushedCorrectly O ps e (si.hbnd hmem) :=
   fun hne => push_node_correct' O ps inv e hec (si.hbnd hmem) (si.hnonred e hmem)
     s₀ si.hs0 (si.hbounds0 e hmem) si.hbase si.hheapinj
@@ -694,9 +692,9 @@ lemma StepInv.nc {n m : Nat} {O : OBdd n m} {ps : ProvedState n m} {i s₀ : Nat
 
 /-- `StepInv` is preserved by one `process_record` step. -/
 lemma process_record_stepinv {n m : Nat} {i : Nat} (O : OBdd n m)
-    (curkey : RawPointer × RawPointer) (curptr : RawPointer)
-    (head : (RawPointer × RawPointer) × Fin m)
-    (tail : List ((RawPointer × RawPointer) × Fin m))
+    (curkey : KeyPair) (curptr : RawPointer)
+    (head : KeyPair × Fin m)
+    (tail : List (KeyPair × Fin m))
     (ps : ProvedState n m)
     (inv : Invariant O ps i)
     (s₀ : Nat)
@@ -773,7 +771,7 @@ lemma process_record_stepinv {n m : Nat} {i : Nat} (O : OBdd n m)
     let Nh : RawNode n := ⟨O.1.heap[head.2].var, head.1.1, head.1.2⟩
     have hNh : Nh = ⟨O.1.heap[head.2].var, head.1.1, head.1.2⟩ := rfl
     have hvar_head : O.1.heap[head.2].var.1 = i := (hec head (.head _)).2.1
-    have hcur_head : KeyLE curkey head.1 := si.hcur_le head (.head _)
+    have hcur_head : curkey ≤ head.1 := si.hcur_le head (.head _)
     have hps' : result.1.1 = set_id (push_node ps Nh hN).1 head.2 (push_node ps Nh hN).2 := by
       show (process_record O curkey curptr head ps inv (hbounds head (.head _))
         (hcurptr_sem head (.head _))
@@ -889,23 +887,23 @@ lemma process_record_stepinv {n m : Nat} {i : Nat} (O : OBdd n m)
       exact (List.pairwise_cons.mp si.hsorted).1
     · -- hpushed_le (relative to head.1)
       show ∀ k : Fin (ps.state.size + 1), s₀ ≤ k.1 →
-          KeyLE ((ps.state.heap.push Nh)[k].lo, (ps.state.heap.push Nh)[k].hi) head.1
+        toLex ((ps.state.heap.push Nh)[k].lo, (ps.state.heap.push Nh)[k].hi) ≤ head.1
       intro k hk
       by_cases hks : k.1 < ps.state.size
       · simp only [Fin.getElem_fin, Vector.getElem_push_lt hks]
-        exact keyLE_trans (si.hpushed_le ⟨k.1, hks⟩ hk) hcur_head
+        exact le_trans (si.hpushed_le ⟨k.1, hks⟩ hk) hcur_head
       · have hkσ : k.1 = ps.state.size := by omega
         simp only [Fin.getElem_fin, show k.1 = ps.state.size from hkσ, Vector.getElem_push_eq]
-        show KeyLE (Nh.lo, Nh.hi) head.1
+        show toLex (Nh.lo, Nh.hi) ≤ head.1
         rw [hNh]
-        exact keyLE_refl head.1
+        exact le_refl head.1
 
 /-- After processing one record, the new curkey'/curptr' pair correctly represents
 any entry in the remaining queue whose key matches curkey'. -/
 lemma process_record_curptr_sem {n m : Nat} {i : Nat} (O : OBdd n m)
-    (curkey : RawPointer × RawPointer) (curptr : RawPointer)
-    (head : (RawPointer × RawPointer) × Fin m)
-    (tail : List ((RawPointer × RawPointer) × Fin m))
+    (curkey : KeyPair) (curptr : RawPointer)
+    (head : KeyPair × Fin m)
+    (tail : List (KeyPair × Fin m))
     (ps : ProvedState n m)
     (inv : Invariant O ps i)
     (hbounds : ∀ entry ∈ head :: tail, entry.1.1.Bounded ps.state.size ∧ entry.1.2.Bounded ps.state.size)
@@ -1074,7 +1072,7 @@ lemma process_record_curptr_sem {n m : Nat} {i : Nat} (O : OBdd n m)
 
 /-- In a non-redundant queue, no entry's key matches the sentinel ⟨.terminal false, .terminal false⟩. -/
 public lemma sentinel_no_match
-    (Q : List ((RawPointer × RawPointer) × Fin m))
+    (Q : List (KeyPair × Fin m))
     (hnonred : ∀ entry ∈ Q, entry.1.1 ≠ entry.1.2) :
     ∀ entry ∈ Q, entry.1 ≠ ((.terminal false : RawPointer), (.terminal false : RawPointer)) := by
   intro entry hmem heq
@@ -1086,8 +1084,8 @@ public lemma sentinel_no_match
   exact h this
 
 public def process_queue {n m : Nat} {i : Nat} (O : OBdd n m)
-    (curkey : RawPointer × RawPointer) (curptr : RawPointer) (s₀ : Nat) :
-    (Q : List ((RawPointer × RawPointer) × Fin m)) →
+    (curkey : KeyPair) (curptr : RawPointer) (s₀ : Nat) :
+    (Q : List (KeyPair × Fin m)) →
     (ps : ProvedState n m) →
     Invariant O ps i →
     (∀ entry ∈ Q, entry.1.1.Bounded ps.state.size ∧ entry.1.2.Bounded ps.state.size) →
