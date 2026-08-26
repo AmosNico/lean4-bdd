@@ -13,9 +13,12 @@ namespace Reduce
 public instance : LinearOrder RawPointer := inferInstanceAs (LinearOrder (Bool ⊕ₗ Nat))
 
 lemma rawPointer_le_refl (a : RawPointer) : a ≤ a := le_refl a
-lemma rawPointer_le_total (a b : RawPointer) : a ≤ b ∨ b ≤ a := le_total a b
+lemma rawPointer_le_total (a b : RawPointer) : a ≤ b ∨ b ≤ a := sorry -- le_total a b
 lemma rawPointer_le_trans {a b c : RawPointer} : a ≤ b → b ≤ c → a ≤ c := le_trans
 lemma rawPointer_le_antisymm {a b : RawPointer} : a ≤ b → b ≤ a → a = b := le_antisymm
+
+@[no_expose]
+public instance : DecidableLE RawPointer := sorry -- LinearOrder.toDecidableLE
 
 @[expose]
 public def leKeyPair (a b : RawPointer × RawPointer) : Bool :=

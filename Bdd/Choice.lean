@@ -30,7 +30,7 @@ public def choice (O : OBdd n m) : (∃ I, O.evaluate I) → Vector Bool n := fu
 lemma Vector.get_set_ne {xs : Vector α n} {x : α} (hi : i < n) {j : Fin n} (h : i ≠ j) :
     (xs.set i x hi).get j = xs.get j := by
   simp only [Vector.get]
-  aesop
+  grind only [= Vector.getElem_toArray, = Fin.val_cast, = Vector.getElem_set]
 
 lemma choice_helper_spec' {O : OBdd n m} (hr : O.Reduced) (hj : O.1.root = .node j) (i : Fin n) :
     i < O.1.heap[j].var → (choice_helper O hj (Vector.replicate n false)).get i = false := by
@@ -47,7 +47,7 @@ lemma choice_helper_spec' {O : OBdd n m} (hr : O.Reduced) (hj : O.1.root = .node
   next hl =>
     split
     next bh hh =>
-      simp [Vector.get]
+      simp [Vector.get, Fin.cast]
       rw [Array.getElem_set_ne]
       · simp
       · simp

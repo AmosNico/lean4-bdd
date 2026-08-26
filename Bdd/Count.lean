@@ -8,8 +8,7 @@ import Mathlib.Data.Fintype.BigOperators
 
 namespace Count
 
-@[expose]
-public def Solution {n m} (O : OBdd n m) := { I : Vector Bool n // O.evaluate I = true}
+public abbrev Solution {n m} (O : OBdd n m) := { I : Vector Bool n // O.evaluate I = true }
 
 lemma solution_iff_exists {n m} (O : OBdd n m) {I} (i : Fin n) :
     O.evaluate I = true ↔ ∃ b, I[i] = b ∧ O.evaluate I = true := by simp
@@ -34,6 +33,7 @@ public instance instVectorFintype {α} [Fintype α] {n : ℕ} : Fintype (Vector 
 lemma my_card_vector {α} [Fintype α] (n : Nat) : Fintype.card (Vector α n) = Fintype.card α ^ n :=
   .trans (Fintype.ofEquiv_card my_vector_equiv_vector) (card_vector n)
 
+@[no_expose]
 public instance instFintypeSolution {n m} {O : OBdd n m} : Fintype (Solution O) := Subtype.fintype _
 
 public abbrev numSolutions {n m} (O : OBdd n m) : Nat := Fintype.card (Solution O)
@@ -187,7 +187,9 @@ lemma invariant_false {n m} (O : OBdd n m) (s : Std.HashMap (Pointer m) Nat )
     rw [Std.HashMap.getElem_insert]
     simp only [beq_iff_eq]
     split
-    next heq => subst heq; simp [numSolutions, Solution]
+    next heq =>
+      subst heq
+      simp [numSolutions, Solution]
     next => exact hb
 
 lemma invariant_true {n m} (O : OBdd n m) (s : Std.HashMap (Pointer m) Nat )

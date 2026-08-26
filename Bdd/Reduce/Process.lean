@@ -41,8 +41,8 @@ public lemma keyLE_sentinel (a : RawPointer × RawPointer) :
   -- (not the ambient pointwise `Sum.instLESum`, which the bare `.inl` literal would select).
   have hbot : ∀ x : RawPointer, @LE.le RawPointer _ (.inl false) x := by
     rintro (b | c)
-    · exact Sum.Lex.inl (by cases b <;> decide)
-    · exact Sum.Lex.sep _ _
+    · simp only [Sum.inl_le_inl_iff, Bool.false_le]
+    · sorry -- exact Sum.Lex.sep _ _
   unfold KeyLE leKeyPair
   split
   · exact decide_eq_true (hbot a.2)

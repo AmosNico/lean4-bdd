@@ -1513,9 +1513,7 @@ inductive RawPointer where
   | node (n : ℕ)
 deriving Ord
 -/
-
-@[expose]
-def RawPointer := Bool ⊕ Nat
+abbrev RawPointer := Bool ⊕ Nat
 
 structure RawNode n where
   va : Fin n

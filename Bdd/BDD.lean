@@ -295,35 +295,23 @@ public lemma const_dependsOn {b} : ∀ i, ¬(const b).DependsOn i := by
   simp only [const_nvars, ge_iff_le, Nat.zero_le, not_dependsOn_of_ge, not_false_eq_true,
     implies_true]
 
-abbrev var_raw (n : Nat) : Bdd (n+1) 1 :=
+def var_raw (n : Nat) : Bdd (n + 1) 1 :=
   ⟨Vector.singleton ⟨⟨n, Nat.lt_add_one n⟩, .terminal false, .terminal true⟩, .node 0⟩
 
-lemma var_ordered : Bdd.Ordered (var_raw n) := by
+lemma var_ordered {n} : Bdd.Ordered (var_raw n) := by
+  simp only [var_raw, Vector.singleton_def, Fin.isValue]
   apply Bdd.ordered_of_low_high_ordered rfl
   · simp only [Bdd.low_eq]
-    conv =>
-      congr
-      right
-      rw [Vector.singleton_def]
-      simp [Vector.getElem_singleton (show 0 < 1 by omega)]
     exact Bdd.ordered_of_terminal rfl
   · simp [Bdd.low_eq, Bdd.var_eq]
-    apply Fin.lt_def.mpr
-    refine Nat.lt_succ_of_le ?_
-    simp
+    grind only [!Pointer.toVar_node, = Lean.Grind.toInt_fin]
   · simp only [Bdd.high_eq]
-    conv =>
-      congr
-      right
-      rw [Vector.singleton_def]
-      simp [Vector.getElem_singleton (show 0 < 1 by omega)]
     exact Bdd.ordered_of_terminal rfl
   · simp [Bdd.high_eq, Bdd.var_eq]
-    apply Fin.lt_def.mpr
-    refine Nat.lt_succ_of_le ?_
-    simp
+    grind only [!Pointer.toVar_node, = Lean.Grind.toInt_fin]
 
 lemma var_reduced : OBdd.Reduced ⟨(var_raw n), var_ordered⟩ := by
+  simp only [var_raw, Vector.singleton_def, Fin.isValue]
   constructor
   · rintro ⟨p, hp⟩
     simp only [Fin.isValue] at hp
@@ -346,10 +334,11 @@ lemma var_reduced : OBdd.Reduced ⟨(var_raw n), var_ordered⟩ := by
         simp only at hhh
         rw [← hj] at hhh
         simp at hhh
-        rcases hhh with rfl | rfl <;>
-        simp only [Vector.singleton_def, OBdd.subBdd_eq, Pointer.terminal.injEq,
-          OBdd.toTree_terminal, OBdd.toTree_eq_leaf_iff_terminal] at hxy <;>
-        exact hxy
+        rcases hhh with rfl | rfl
+        all_goals
+          simp only [OBdd.subBdd_eq, Pointer.terminal.injEq, OBdd.toTree_terminal,
+            OBdd.toTree_eq_leaf_iff_terminal] at hxy
+          exact hxy
     | inr hh =>
       simp only at hh
       rcases hh with ⟨j, hj, hh⟩
@@ -361,7 +350,7 @@ lemma var_reduced : OBdd.Reduced ⟨(var_raw n), var_ordered⟩ := by
         simp only at hhh
         symm at hxy
         rcases hh with rfl | rfl <;>
-        simp [Vector.singleton_def, Pointer.terminal.injEq, Bool.true_eq, OBdd.toTree_terminal,
+        simp [Pointer.terminal.injEq, Bool.true_eq, OBdd.toTree_terminal,
           OBdd.toTree_eq_leaf_iff_terminal] at hxy <;>
         exact hxy.symm
       | inr hhh =>
@@ -372,7 +361,7 @@ lemma var_reduced : OBdd.Reduced ⟨(var_raw n), var_ordered⟩ := by
         simp at hhh
         rcases hh with (rfl | rfl) <;>
         · symm at hxy
-          simp only [Vector.singleton_def, OBdd.subBdd_eq, Pointer.terminal.injEq, Bool.false_eq,
+          simp only [OBdd.subBdd_eq, Pointer.terminal.injEq, Bool.false_eq,
             OBdd.toTree_terminal, OBdd.toTree_eq_leaf_iff_terminal] at hxy
           exact hxy.symm
 
@@ -426,17 +415,14 @@ public lemma getElem_apply {n} {B C : BDD} {op} {h1 : max B.nvars C.nvars ≤ n}
     ∀ I : Vector Bool n, (apply op B C)[I] = op B[I] C[I] := by
   wlog h2 : n = max B.nvars C.nvars
   · intro I
-    have h3 : B[I] = B[I.take (apply op B C).nvars] := by
-      rw [getElem_take] <;> simp_all
-    have h4 : C[I] = C[I.take (apply op B C).nvars] := by
-      rw [getElem_take] <;> simp_all
-    rw [← getElem_take', h3, h4]
-    apply this
-    simp_all only [sup_le_iff, forall_and_index, Vector.take_eq_extract, apply_nvars,
-      inf_of_le_left]
+    suffices h : (apply op B C)[I.take (max B.nvars C.nvars)] =
+        op B[I.take (max B.nvars C.nvars)] C[I.take (max B.nvars C.nvars)] by
+      grind only [= min_def, getElem_take]
+    exact this (by omega) _
   · rcases h2 with ⟨rfl⟩
-    simp only [getElem_eq_evaluate, Evaluate.evaluate_evaluate, lift, Lift.olift_evaluate]
-    simp [apply, Apply.oapply_correct]
+    simp only [getElem_eq_evaluate, Evaluate.evaluate_evaluate, lift, Lift.olift_evaluate, apply]
+    simp only [Reduce.oreduce_evaluate, Apply.oapply_correct]
+    simp
 
 public lemma apply_dependsOn {o} {B C : BDD} {i} :
     (apply o B C).DependsOn i → B.DependsOn i ∨ C.DependsOn i := by
@@ -559,14 +545,13 @@ public lemma relabel_nvars {B : BDD} {f : _ → Fin n} {h} : (relabel B f h).nva
 @[simp]
 lemma getElem_relabel' {B : BDD} {f : Nat → Nat} {hf hu n} {I : Vector Bool n} {h} :
     (relabel' B f hf hu)[I] = B[Vector.ofFn fun i ↦ I[f i]'(lt_of_lt_of_le (hf i) h)] := by
-  simp_rw [getElem_eq_evaluate, Evaluate.evaluate_evaluate, lift, relabel']
-  simp
+  simp [getElem_eq_evaluate, Evaluate.evaluate_evaluate, lift, relabel']
   grind only [Vector.getElem_extract]
 
 @[simp]
 public lemma getElem_relabel {B : BDD} {n} {f : Fin B.nvars → Fin n} {hf} {m} {I : Vector Bool m}
     (h1 : n ≤ m) : (relabel B f hf)[I] = B[Vector.ofFn (I[f ·])] := by
-  simp only [relabel, getElem_relabel', relabel_helper_aux', Fin.getElem_fin]
+  grind [relabel, getElem_relabel', relabel_helper_aux']
 
 noncomputable def relabel_vector (B : BDD) {n} (f : Fin B.nvars → Fin n) (v : Vector Bool B.nvars) :
     Vector Bool n :=
