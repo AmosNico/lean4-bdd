@@ -1237,12 +1237,10 @@ lemma OBdd.toTree_usesVar {O : OBdd n m} : O.1.usesVar i ↔ O.toTree.usesVar i 
       cases h with
       | inl h =>
         left
-        rw [toTree_usesVar (O := (O.low hj))] at h
-        assumption
+        rwa [toTree_usesVar (O := (O.low hj))] at h
       | inr h =>
         right
-        rw [toTree_usesVar (O := (O.high hj))] at h
-        assumption
+        rwa [toTree_usesVar (O := (O.high hj))] at h
   · intro h
     cases O_root_def : O.1.root with
     | terminal _ =>

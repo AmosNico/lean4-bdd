@@ -453,10 +453,10 @@ lemma push_node_correct' {n m : Nat} {i : Nat}
     rw [OBdd.evaluate_node rfl]
     simp only [hMs_var]
     by_cases hI : I[O.1.heap[entry.2].var] = true
-    · simp only [node.injEq, OBdd.evaluate_node, if_pos hI, OBdd.high_eq, Bdd.high_eq]
+    · simp only [node.injEq, OBdd.evaluate_node, ite_eq_left hI, OBdd.high_eq, Bdd.high_eq]
       refine Eq.trans ?_ eval_hi
       congr
-    · simp only [node.injEq, OBdd.evaluate_node, if_neg hI, OBdd.low_eq, Bdd.low_eq]
+    · simp only [node.injEq, OBdd.evaluate_node, ite_eq_right hI, OBdd.low_eq, Bdd.low_eq]
       refine Eq.trans ?_ eval_lo
       congr
   exact ⟨hj, hp, ho_final, hred_full, heval_full⟩
@@ -640,7 +640,7 @@ lemma process_record_iso {n m : Nat} {i : Nat} (O : OBdd n m)
     (heq : entry.1 = curkey) :
     (process_record O curkey curptr entry ps inv hb hcc hnc).val
       = (set_id ps entry.2 curptr, curkey, curptr) := by
-  simp only [process_record, dif_pos heq]
+  simp only [process_record, dite_eq_left heq]
 
 lemma process_record_nc {n m : Nat} {i : Nat} (O : OBdd n m)
     (curkey : KeyPair) (curptr : RawPointer)
@@ -655,7 +655,7 @@ lemma process_record_nc {n m : Nat} {i : Nat} (O : OBdd n m)
             (push_node ps ⟨O.1.heap[entry.2].var, entry.1.1, entry.1.2⟩ ⟨hb.1, hb.2⟩).2,
           entry.1,
           (push_node ps ⟨O.1.heap[entry.2].var, entry.1.1, entry.1.2⟩ ⟨hb.1, hb.2⟩).2) := by
-  simp only [process_record, dif_neg hne]
+  simp only [process_record, dite_eq_right hne]
 
 /-- A node whose variable is at level `i` and whose key `K` is strictly above `curkey` in
 the sort order is absent from the heap: it differs from every prefix node by its variable
@@ -733,17 +733,17 @@ lemma process_record_stepinv {n m : Nat} {i : Nat} (O : OBdd n m)
       show (process_record O curkey curptr head ps inv (hbounds head (.head _))
         (hcurptr_sem head (.head _))
         (hnewnode_sem head (.head _) (hbounds head (.head _)))).val.1 = set_id ps head.2 curptr
-      simp only [process_record, dif_pos heq_h]
+      simp only [process_record, dite_eq_left heq_h]
     have hck' : result.1.2.1 = curkey := by
       show (process_record O curkey curptr head ps inv (hbounds head (.head _))
         (hcurptr_sem head (.head _))
         (hnewnode_sem head (.head _) (hbounds head (.head _)))).val.2.1 = curkey
-      simp only [process_record, dif_pos heq_h]
+      simp only [process_record, dite_eq_left heq_h]
     have hcp' : result.1.2.2 = curptr := by
       show (process_record O curkey curptr head ps inv (hbounds head (.head _))
         (hcurptr_sem head (.head _))
         (hnewnode_sem head (.head _) (hbounds head (.head _)))).val.2.2 = curptr
-      simp only [process_record, dif_pos heq_h]
+      simp only [process_record, dite_eq_left heq_h]
     rw [hps', hck', hcp']
     -- set_id leaves size/heap/hh defeq; only ids change.
     refine ⟨si.hs0, si.hbase, si.hsuffix, si.hheapinj, ?_, ?_,
@@ -777,18 +777,18 @@ lemma process_record_stepinv {n m : Nat} {i : Nat} (O : OBdd n m)
         (hcurptr_sem head (.head _))
         (hnewnode_sem head (.head _) (hbounds head (.head _)))).val.1 =
           set_id (push_node ps Nh hN).1 head.2 (push_node ps Nh hN).2
-      simp only [process_record, dif_neg heq_h]
+      simp only [process_record, dite_eq_right heq_h]
       rfl
     have hck' : result.1.2.1 = head.1 := by
       show (process_record O curkey curptr head ps inv (hbounds head (.head _))
         (hcurptr_sem head (.head _))
         (hnewnode_sem head (.head _) (hbounds head (.head _)))).val.2.1 = head.1
-      simp only [process_record, dif_neg heq_h]
+      simp only [process_record, dite_eq_right heq_h]
     have hcp' : result.1.2.2 = (push_node ps Nh hN).2 := by
       show (process_record O curkey curptr head ps inv (hbounds head (.head _))
         (hcurptr_sem head (.head _))
         (hnewnode_sem head (.head _) (hbounds head (.head _)))).val.2.2 = (push_node ps Nh hN).2
-      simp only [process_record, dif_neg heq_h]
+      simp only [process_record, dite_eq_right heq_h]
       rfl
     rw [hps', hck', hcp']
     -- (push_node ps Nh hN).2 = .node ps.state.size
@@ -949,17 +949,17 @@ lemma process_record_curptr_sem {n m : Nat} {i : Nat} (O : OBdd n m)
       show (process_record O curkey curptr head ps inv (hbounds head (.head _))
         (hcurptr_sem head (.head _))
         (hnewnode_sem head (.head _) (hbounds head (.head _)))).val.2.1 = curkey
-      simp only [process_record, dif_pos heq_h]
+      simp only [process_record, dite_eq_left heq_h]
     have hcurptr' : curptr' = curptr := by
       show (process_record O curkey curptr head ps inv (hbounds head (.head _))
         (hcurptr_sem head (.head _))
         (hnewnode_sem head (.head _) (hbounds head (.head _)))).val.2.2 = curptr
-      simp only [process_record, dif_pos heq_h]
+      simp only [process_record, dite_eq_left heq_h]
     have hps' : ps' = set_id ps head.2 curptr := by
       show (process_record O curkey curptr head ps inv (hbounds head (.head _))
         (hcurptr_sem head (.head _))
         (hnewnode_sem head (.head _) (hbounds head (.head _)))).val.1 = set_id ps head.2 curptr
-      simp only [process_record, dif_pos heq_h]
+      simp only [process_record, dite_eq_left heq_h]
     rw [hcurkey'] at heq_entry
     rw [hps', hcurptr']
     exact hcurptr_sem entry (.tail _ hmem) heq_entry
@@ -974,18 +974,18 @@ lemma process_record_curptr_sem {n m : Nat} {i : Nat} (O : OBdd n m)
       show (process_record O curkey curptr head ps inv (hbounds head (.head _))
         (hcurptr_sem head (.head _))
         (hnewnode_sem head (.head _) (hbounds head (.head _)))).val.2.1 = head.1
-      simp only [process_record, dif_neg heq_h]
+      simp only [process_record, dite_eq_right heq_h]
     have hcurptr' : curptr' = ptr' := by
       show (process_record O curkey curptr head ps inv (hbounds head (.head _))
         (hcurptr_sem head (.head _))
         (hnewnode_sem head (.head _) (hbounds head (.head _)))).val.2.2 = ptr'
-      simp only [process_record, dif_neg heq_h]
+      simp only [process_record, dite_eq_right heq_h]
       rfl
     have hps' : ps' = ps₂' := by
       show (process_record O curkey curptr head ps inv (hbounds head (.head _))
         (hcurptr_sem head (.head _))
         (hnewnode_sem head (.head _) (hbounds head (.head _)))).val.1 = ps₂'
-      simp only [process_record, dif_neg heq_h]
+      simp only [process_record, dite_eq_right heq_h]
       rfl
     obtain ⟨hj_h, hp_h, ho_h, hred_h, heval_h⟩ :=
       hnewnode_sem head (.head _) (hbounds head (.head _)) heq_h

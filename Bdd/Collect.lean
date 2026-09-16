@@ -47,8 +47,7 @@ theorem collect_helper_retains_found {O : OBdd n m} {I : Vector Bool m × List (
   intro h
   cases O_root_def : O.1.root with
   | terminal b =>
-    rw [collect_helper_terminal' O_root_def]
-    assumption
+    rwa [collect_helper_terminal' O_root_def]
   | node i =>
     rw [collect_helper_node O O_root_def]
     cases I.1[i]
@@ -69,8 +68,7 @@ theorem collect_helper_retains_marked {O : OBdd n m} {I : Vector Bool m × List 
   intro h
   cases O_root_def : O.1.root with
   | terminal b =>
-    rw [collect_helper_terminal' O_root_def]
-    assumption
+    rwa [collect_helper_terminal' O_root_def]
   | node i =>
     rw [collect_helper_node O O_root_def]
     cases I.1[i]
@@ -85,8 +83,7 @@ theorem collect_helper_retains_marked {O : OBdd n m} {I : Vector Bool m × List 
           have : i.1 ≠ j.1 := by
             exact Fin.val_ne_of_ne hf
           simp only [Fin.getElem_fin]
-          rw [Vector.getElem_set_ne _ _ this]
-          assumption
+          rwa [Vector.getElem_set_ne _ _ this]
         | isTrue ht => rw [ht]; simp
       exact collect_helper_retains_marked this
 termination_by O
@@ -126,8 +123,7 @@ theorem collect_helper_only_marks_reachable {j : Fin m} {O : OBdd n m} {I : Vect
             · have : i.1 ≠ j.1 := by
                 exact Fin.val_ne_of_ne hf
               simp only [Fin.getElem_fin]
-              rw [Vector.getElem_set_ne _ _ this]
-              assumption
+              rwa [Vector.getElem_set_ne _ _ this]
             · assumption
           simp at this
           exact .trans (O.bdd.reachable_low O_root_def) this

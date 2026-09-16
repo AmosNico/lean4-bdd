@@ -494,7 +494,7 @@ lemma restrict_helper_correct {n m} (O : OBdd n m) (b : Bool) (i : Fin n) (s0 : 
         (by
           simp only [N]
           simp only [Nat.succ_eq_add_one, O_root_def, Pointer.toVar_node,
-            gt_iff_lt, lt_self_iff_false, if_false_left, and_true, Fin.val_inj]
+            gt_iff_lt, lt_self_iff_false, ite_false_left, and_true, Fin.val_inj]
           exact hlt
         )
         (by

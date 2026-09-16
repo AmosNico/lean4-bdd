@@ -58,7 +58,7 @@ lemma eq_of_forall_dependency_getElem_eq {f : Func n α β} {I J : Vector α n} 
       next hh => simp only [Vector.getElem_pop']
       next hh =>
         have : i = n := by omega
-        simp_all only [DependsOn, IndependentOf, Fin.getElem_fin, lt_self_iff_false, not_false_eq_true]
+        simp_all only [DependsOn, IndependentOf, Fin.getElem_fin]
     by_cases hf : DependsOn f ⟨n, Nat.lt_add_one n⟩
     · have h1 := h ⟨⟨n, Nat.lt_add_one n⟩, hf⟩
       rw [h2 I rfl]

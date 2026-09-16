@@ -11,7 +11,7 @@ deriving DecidableEq
 
 namespace DecisionTree
 
-def evaluate : DecisionTree n → Vector Bool n → Bool
+def evaluate {n} : DecisionTree n → Vector Bool n → Bool
   | leaf b, _ => b
   | branch j l h, v => if v[j] then h.evaluate v else l.evaluate v
 
@@ -27,10 +27,10 @@ def size {n} : DecisionTree n → Nat
   | leaf _ => 0
   | branch _ l h => 1 + l.size + h.size
 
-inductive usesVar (i : Fin n) : DecisionTree n → Prop where
+inductive usesVar {n} (i : Fin n) : DecisionTree n → Prop where
   | here : usesVar i (.branch i _ _)
-  | low : usesVar i l → usesVar i (.branch _ l _)
-  | high : usesVar i h → usesVar i (.branch _ _ h)
+  | low {l} : usesVar i l → usesVar i (.branch _ l _)
+  | high {h} : usesVar i h → usesVar i (.branch _ _ h)
 
 lemma usesVar_iff (i : Fin n) (T : DecisionTree n) :
     T.usesVar i ↔ (∃ i' l h, T = .branch i' l h ∧ (i = i' ∨ l.usesVar i ∨ h.usesVar i)) := by
@@ -72,7 +72,7 @@ lemma lift_injective {n n' : Nat} {h : n ≤ n'} : Function.Injective (lift h) :
       simp_all only
 
 lemma lift_evaluate {h : n ≤ n'} {T : DecisionTree n} {I : Vector Bool n'} :
-    (lift h T).evaluate I = T.evaluate (Vector.cast (show (min n n') = n by simpa) (I.take n)) := by
+    (lift h T).evaluate I = T.evaluate (Vector.cast (show (min n n') = n by omega) (I.take n)) := by
   cases T with
   | leaf => simp [lift, DecisionTree.evaluate]
   | branch _ _ _ =>
@@ -88,7 +88,7 @@ lemma lift_evaluate {h : n ≤ n'} {T : DecisionTree n} {I : Vector Bool n'} :
     rfl
 
 @[expose, simp]
-def relabel {f : Nat → Nat} (hf : ∀ i : Fin n, f i < f n) : DecisionTree n → DecisionTree (f n)
+def relabel {n} {f : ℕ → ℕ} (hf : ∀ i : Fin n, f i < f n) : DecisionTree n → DecisionTree (f n)
   | .leaf b => .leaf b
   | .branch i l h => .branch ⟨f i, hf i⟩ (relabel hf l) (relabel hf h)
 

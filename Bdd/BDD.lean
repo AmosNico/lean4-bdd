@@ -384,7 +384,7 @@ public lemma getElem_var {i n} {h : i < n} :
     Evaluate.evaluate_evaluate, Lift.olift_evaluate, Pointer.node.injEq,
     OBdd.evaluate_node, Fin.getElem_fin, Fin.val_eq_zero, Vector.getElem_mk, List.getElem_toArray,
     List.getElem_cons_zero, Vector.getElem_cast, OBdd.high_root_eq_high, Pointer.terminal.injEq,
-    Bool.true_eq, OBdd.evaluate_terminal, OBdd.low_root_eq_low, Bool.false_eq, Bool.if_false_right,
+    Bool.true_eq, OBdd.evaluate_terminal, OBdd.low_root_eq_low, Bool.false_eq, Bool.ite_false_right,
     Bool.decide_eq_true, Bool.and_true, Vector.getElem_take]
 
 @[simp]
