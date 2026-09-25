@@ -82,15 +82,6 @@ public lemma getElem_cast {B : BDD} {n m} {I : Vector Bool n} {hn : B.nvars ≤ 
   subst h
   simp
 
-/--
-Two `BDD`s are semantically equivalent when they have the same evaluation on all variable assignemts.
--/
-@[expose]
-public def SemanticEquiv (B C : BDD) := ∀ I : Vector Bool (max B.nvars C.nvars), B[I] = C[I]
-
-def Similar (B : BDD) (B' : BDD) :=
-  (Lift.olift (Nat.le_max_left ..) B.obdd).Similar (Lift.olift (Nat.le_max_right ..) B'.obdd)
-
 public lemma getElem_take {B : BDD} {n} {I : Vector Bool n} {m} {h1 : B.nvars ≤ m} {h2 : m ≤ n} :
     B[I.take m] = B[I] := by
   simp only [getElem_eq_evaluate, lift, Evaluate.evaluate_evaluate, Lift.olift_evaluate]
@@ -213,6 +204,15 @@ public lemma lift_dependsOn {B : BDD} {n} {h1 : B.nvars ≤ n} {i} :
     (B.lift h1).DependsOn i ↔ B.DependsOn i := by
   repeat rw [dependsOn_iff n (by simp [h1])]
   simp only [ne_eq, Fin.getElem_fin, getElem_lift]
+
+/--
+Two `BDD`s are semantically equivalent when they have the same evaluation on all variable assignemts.
+-/
+@[expose]
+public def SemanticEquiv (B C : BDD) := ∀ I : Vector Bool (max B.nvars C.nvars), B[I] = C[I]
+
+def Similar (B : BDD) (B' : BDD) :=
+  (Lift.olift (Nat.le_max_left ..) B.obdd).Similar (Lift.olift (Nat.le_max_right ..) B'.obdd)
 
 /-- `SemanticEquiv` is an equivalence relation on `BDD`. -/
 public theorem SemanticEquiv.equivalence : Equivalence SemanticEquiv :=
