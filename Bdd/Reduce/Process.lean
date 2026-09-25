@@ -74,28 +74,17 @@ lemma push_reduced {n s : Nat} {v : Vector (RawNode n) s} {N : RawNode n}
         Vector.getElem_push_lt hj_lt]
       exact Node.equiv_symm RawNode.cook_equiv⟩
   -- Helper: Pointer.equiv for same type implies equality.
-  have equiv_eq : ∀ {m : Nat} (a b : Pointer m), Pointer.equiv a b → a = b := by
+  have equiv_eq : ∀ {m : Nat} (a b : Pointer m), Pointer.Equiv a b → a = b := by
     intro m a b hab
     cases a with
     | terminal ba =>
-      have := hab.1 ba rfl
-      exact this ▸ rfl
+      rw [terminal_equiv] at hab
+      exact hab.symm
     | node ja =>
-      obtain ⟨jb, hjb_eq, hjab⟩ := hab.2 ja rfl
-      rw [hjb_eq]
-      congr 1
+      simp only [node_equiv] at hab
+      rcases hab with ⟨jb, hjb_eq, hjab⟩
+      simp only [hjb_eq, node.injEq]
       exact Fin.ext hjab
-  -- Helper: Pointer.equiv is transitive.
-  have equiv_trans : ∀ {m1 m2 m3 : Nat} {a : Pointer m1} {b : Pointer m2} {c : Pointer m3},
-      Pointer.equiv a b → Pointer.equiv b c → Pointer.equiv a c := by
-    intro m1 m2 m3 a b c hab hbc
-    constructor
-    · intro ba ha
-      exact hbc.1 ba (hab.1 ba ha)
-    · intro ja hja
-      obtain ⟨jb, hjb, hjab⟩ := hab.2 ja hja
-      obtain ⟨jc, hjc, hjbc⟩ := hbc.2 jb hjb
-      exact ⟨jc, hjc, hjab.trans hjbc⟩
   -- Part 1: NoRedundancy
   constructor
   · intro ⟨_, hq_reach⟩ hred
@@ -111,7 +100,7 @@ lemma push_reduced {n s : Nat} {v : Vector (RawNode n) s} {N : RawNode n}
       -- hlow_eq_high : new_heap[j].low = new_heap[j].high
       -- Therefore old.low ≡ new.low = new.high ≡ old.high
       -- i.e., Pointer.equiv old.low old.high
-      have hequiv_high' : Pointer.equiv
+      have hequiv_high' : Pointer.Equiv
           (cook_heap v hh)[(⟨j.1, hj_lt⟩ : Fin s)].low
           (cook_heap v hh)[(⟨j.1, hj_lt⟩ : Fin s)].high :=
         equiv_trans hequiv_low (hlow_eq_high ▸ Pointer.equiv_symm hequiv_high)
@@ -171,19 +160,13 @@ lemma push_reduced {n s : Nat} {v : Vector (RawNode n) s} {N : RawNode n}
           apply OBdd.toTree_eq_toTree_of_ordered_heap_all_reachable_eq
           · exact sub_back (Pointer.node jp) hrp_reach
           · -- Pointer.equiv (.node jp : Pointer (s+1)) (.node jp' : Pointer s), jp.1 = jp'.1
-            constructor
-            · intro b hb; exact absurd hb (by simp)
-            · intro j hj
-              exact ⟨jp', rfl, by have h := Pointer.node.inj hj; subst h; rfl⟩
+            simp only [node_equiv, node.injEq, exists_eq_left', jp']
         have htree_q :
             OBdd.toTree ⟨⟨cook_heap v hh, Pointer.node jq'⟩, hoq⟩ =
             OBdd.toTree ⟨⟨cook_heap (v.push N) hh', Pointer.node jq⟩, hoq'⟩ := by
           apply OBdd.toTree_eq_toTree_of_ordered_heap_all_reachable_eq
           · exact sub_back (Pointer.node jq) hrq_reach
-          · constructor
-            · intro b hb; exact absurd hb (by simp)
-            · intro j hj
-              exact ⟨jq', rfl, by have h := Pointer.node.inj hj; subst h; rfl⟩
+          · simp only [node_equiv, node.injEq, exists_eq_left', jq']
         -- SimilarRP in old BDD
         have hsim_old : OBdd.SimilarRP
             (O := ⟨⟨cook_heap v hh, p.cook hp⟩, ho⟩) (U := ⟨⟨cook_heap v hh, p.cook hp⟩, ho⟩)

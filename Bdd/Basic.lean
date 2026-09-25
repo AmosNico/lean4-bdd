@@ -657,14 +657,13 @@ lemma Pointer.node_redundant_iff {n m} (M : Vector (Node n m) m) {j} :
   grind only [Redundant.red, Pointer.Redundant]
 
 instance Pointer.Redundant.instDecidable {n m} (w : Vector (Node n m) m) :
-    DecidablePred (Redundant w) := by
-  intro p
-  cases p
-  case terminal => apply isFalse; intro; contradiction
-  case node j =>
-    cases decEq w[j].low w[j].high
-    case isFalse => apply isFalse; intro contra; cases contra; contradiction
-    case isTrue h => exact isTrue (.red j h)
+    DecidablePred (Redundant w)
+  | .terminal b => .isFalse (by rintro ⟨⟩)
+  | .node j =>
+    if h : w[j].low = w[j].high then
+      .isTrue (.red j h)
+    else
+      .isFalse fun ⟨_, h'⟩ ↦ h h'
 
 -- TODO : this definition seems redundant
 def Bdd.NoRedundancy {n m} (B : Bdd n m) := ∀ (p : B.RelevantPointer), ¬ Redundant B.heap p.1
@@ -897,17 +896,13 @@ theorem OBdd.Canonicity_reverse {n m m'} {O : OBdd n m} {U : OBdd n m'}:
 
 /-! ## Lemmas about Ordered -/
 
-lemma OBdd.ordered_of_low_edge {j : Fin n} :
-    Bdd.Ordered {heap := v, root := node j} → Bdd.Ordered {heap := v, root := v[j].low} := by
-  intro o x y h
-  apply ordered_of_relevant ⟨{ heap := v, root := node j }, o⟩ ⟨v[j].low, (Reachable.ofEdge Edge.low)⟩
-  simpa
+lemma OBdd.ordered_of_low_edge {n m} {v : Vector (Node m n) n} {j : Fin n} :
+    Bdd.Ordered {heap := v, root := node j} → Bdd.Ordered {heap := v, root := v[j].low} :=
+  fun o ↦ low_ordered (B := {heap := v, root := node j}) rfl o
 
-lemma OBdd.ordered_of_high_edge {j : Fin n} :
-    Bdd.Ordered {heap := v, root := node j} → Bdd.Ordered {heap := v, root := v[j].high} := by
-  intro o x y h
-  apply ordered_of_relevant ⟨{ heap := v, root := node j }, o⟩ ⟨v[j].high, (Reachable.ofEdge Edge.high)⟩
-  simpa
+lemma OBdd.ordered_of_high_edge {n m} {v : Vector (Node m n) n} {j : Fin n} :
+    Bdd.Ordered {heap := v, root := node j} → Bdd.Ordered {heap := v, root := v[j].high} :=
+  fun o ↦ high_ordered (B := {heap := v, root := node j}) rfl o
 
 lemma Bdd.ordered_of_low_high_ordered {n m} {B : Bdd n m} {j} (h : B.root = node j):
     (B.low h).Ordered → B.var < (B.low h).var →
@@ -946,8 +941,9 @@ lemma OBdd.not_reachable_high_root {n m} {O : OBdd n m} {j} (h : O.bdd.root = no
     ¬Reachable O.bdd.heap O.bdd.heap[j].high O.bdd.root :=
   OBdd.not_edge_reachable .refl (O.bdd.edge_high h)
 
-lemma Pointer.Reachable_iff {M : Vector (Node n m) m } :
-  Pointer.Reachable M r p ↔ (r = p ∨ (∃ j, r = .node j ∧ (Pointer.Reachable M M[j].low p ∨ Pointer.Reachable M M[j].high p))) := by
+lemma Pointer.Reachable_iff {n m} {M : Vector (Node n m) m} {r p} :
+  Pointer.Reachable M r p ↔ (r = p ∨ (∃ j, r = .node j ∧
+    (Pointer.Reachable M M[j].low p ∨ Pointer.Reachable M M[j].high p))) := by
   rw [Reachable.iff_eq_or_cons]
   apply or_congr Iff.rfl
   constructor
@@ -976,7 +972,8 @@ lemma OBdd.reachable_or_eq_low_high {n m} {O : OBdd n m} {p} : Reachable O.1.hea
 /-! ## Bdd.usesVar -/
 
 @[expose]
-def Bdd.usesVar {n m} (B : Bdd n m) (i : Fin n) := ∃ j, Reachable B.heap B.root (node j) ∧ B.heap[j].var = i
+def Bdd.usesVar {n m} (B : Bdd n m) (i : Fin n) :=
+  ∃ j, Reachable B.heap B.root (node j) ∧ B.heap[j].var = i
 
 lemma Bdd.usesVar_of_high_usesVar {n m} {B : Bdd n m} {j} {h : B.root = node j} {i} :
     (B.high h).usesVar i → B.usesVar i := by
@@ -1118,14 +1115,14 @@ private lemma OBdd.usesVar_of_dependsOn {n m} {O : OBdd n m} {v} {i : Fin n} {b}
         split at h
         next hh =>
           simp only [Fin.getElem_fin] at h hh hf
-          simp_rw [Vector.getElem_set_ne (xs := v) (i := i.1) (j := O.1.heap[j.1].var) (by omega) (by omega) (by omega)] at h
+          simp_rw [Vector.getElem_set_ne i.isLt O.1.heap[j.1].var.isLt (by omega)] at h
           rw [hh] at h
           simp only [↓reduceIte] at h
           exact usesVar_of_high_usesVar (usesVar_of_dependsOn h)
         next hh =>
           simp only [Bool.not_eq_true] at hh
           simp only [Fin.getElem_fin] at h hh hf
-          simp_rw [Vector.getElem_set_ne (xs := v) (i := i.1) (j := O.1.heap[j.1].var) (by omega) (by omega) (by omega)] at h
+          simp_rw [Vector.getElem_set_ne i.isLt O.1.heap[j.1].var.isLt (by omega)] at h
           rw [hh] at h
           simp only [Bool.false_eq_true, ↓reduceIte, ne_eq] at h
           exact usesVar_of_low_usesVar (usesVar_of_dependsOn h)
@@ -1197,7 +1194,7 @@ private lemma OBdd.usesVar_iff {n m} (O : OBdd n m) (i : Fin n) : O.1.usesVar i 
       | inl h => exact usesVar_of_low_usesVar h
       | inr h => exact usesVar_of_high_usesVar h
 
-lemma OBdd.toTree_usesVar {O : OBdd n m} : O.1.usesVar i ↔ O.toTree.usesVar i := by
+lemma OBdd.toTree_usesVar {n m} {O : OBdd n m} {i} : O.1.usesVar i ↔ O.toTree.usesVar i := by
   constructor
   · rw [OBdd.usesVar_iff]
     rw [DecisionTree.usesVar_iff]
@@ -1247,7 +1244,8 @@ private lemma Bdd.not_usesVar_of_terminal {n m} {M : Vector (Node n m) m} {b i} 
   grind only [usesVar, Reachable.terminal_iff]
 
 private lemma Pointer.mayPrecede_of_reachable {n m} {B : Bdd n m} {p} :
-    B.Ordered → Reachable B.heap B.root p → Pointer.toVar B.heap B.root ≤ Pointer.toVar B.heap p := by
+    B.Ordered → Reachable B.heap B.root p →
+    Pointer.toVar B.heap B.root ≤ Pointer.toVar B.heap p := by
   intro ho hp
   induction hp with
   | refl => simp
@@ -1258,7 +1256,7 @@ private lemma Pointer.mayPrecede_of_reachable {n m} {B : Bdd n m} {p} :
         ordered_iff'.1 ho b c r e
       omega
 
-private lemma Bdd.not_usesVar_of_var_gt {n m i} {M : Vector (Node n m) m} {j : Fin m} :
+private lemma Bdd.not_usesVar_of_var_gt {n m} {M : Vector (Node n m) m} {j : Fin m} {i} :
     Bdd.Ordered ⟨M, .node j⟩ → M[j].var > i → ¬ Bdd.usesVar ⟨M, .node j⟩ i := by
   intro o h
   simp only [usesVar, not_exists]
@@ -1270,7 +1268,7 @@ private lemma Bdd.not_usesVar_of_var_gt {n m i} {M : Vector (Node n m) m} {j : F
   simp_all only [toVar, Nat.succ_eq_add_one, Fin.getElem_fin, Fin.mk_le_mk, Fin.val_fin_le]
   omega
 
-private def usesVar_helper
+private def usesVar_helper {n m}
     (O : OBdd n m) (i : Fin n) (p : Pointer m) (hpr : Reachable O.1.heap O.1.root p) :
   StateM
     { s : Std.HashSet (Fin m) //
@@ -1318,29 +1316,49 @@ decreasing_by
   · simp [OBdd.size'_node, OBdd.high, Bdd.high]
 
 @[no_expose]
-instance OBdd.instDecidableUsesVar {O : OBdd n m} : DecidablePred O.1.usesVar :=
+instance OBdd.instDecidableUsesVar {n m} {O : OBdd n m} : DecidablePred O.1.usesVar :=
   fun i ↦ (usesVar_helper O i O.1.root .refl ⟨Std.HashSet.emptyWithCapacity, by simp⟩).1
 
 /-! # Raw Bdds -/
 
 /-! ## Pointer.equiv and Node.equiv -/
 
+inductive Pointer.Equiv {m m'} : Pointer m → Pointer m' → Prop where
+  | terminal b : Equiv (.terminal b) (.terminal b)
+  | node j j' : j.val = j'.val → Equiv (.node j) (.node j')
+
+lemma Pointer.equiv_iff {m m'} {p : Pointer m} {q : Pointer m'} : p.Equiv q ↔
+    (∀ b, p = .terminal b → q = .terminal b) ∧
+    (∀ j, p = .node j → ∃ (j' : Fin m'), q = .node j' ∧ j.1 = j'.1) := by
+  cases p <;> grind only [Equiv.terminal, Equiv]
+
+@[simp]
+lemma Pointer.terminal_equiv {m m'} {b} {p : Pointer m'}:
+    (@terminal m b).Equiv p ↔ p = .terminal b := by
+  grind only [Equiv.terminal, Equiv]
+
+@[simp]
+lemma Pointer.node_equiv {m m'} {j : Fin m} {p : Pointer m'}:
+    (node j).Equiv p ↔ ∃ (j' : Fin m'), p = node j' ∧ j.val = j'.val := by
+  grind only [Equiv.node, Equiv]
+
+lemma Pointer.equiv_refl {m} (p : Pointer m) : p.Equiv p := by
+  cases p <;> grind only [Equiv.node, Equiv]
+
+@[symm]
+lemma Pointer.equiv_symm {m m'} {p : Pointer m} {q : Pointer m'} : p.Equiv q → q.Equiv p := by
+  cases p <;> grind only [Equiv.node, Equiv]
+
+@[trans]
+lemma Pointer.equiv_trans {m m' m''} {p : Pointer m} {q : Pointer m'} {r : Pointer m''} :
+    p.Equiv q → q.Equiv r → p.Equiv r := by
+  cases p <;> grind only [Equiv.node, Equiv]
+
 @[expose]
-def Pointer.equiv (p : Pointer m) (p' : Pointer m') :=
-  (∀ b, p = .terminal b → p' = .terminal b) ∧ (∀ j, p = .node j → ∃ (j' : Fin m'), p' = .node j' ∧ j.1 = j'.1)
+def Node.equiv {n m n' m'} (N : Node n m) (N' : Node n' m') :=
+  N.var.1 = N'.var.1 ∧ Pointer.Equiv N.low N'.low ∧ Pointer.Equiv N.high N'.high
 
-lemma Pointer.equiv_refl (p : Pointer m) : p.equiv p := by
-  grind only [Pointer.equiv]
-
-lemma Pointer.equiv_symm {p : Pointer m} : p.equiv q → q.equiv p := by
-  simp only [Pointer.equiv]
-  cases p <;> grind only
-
-@[expose]
-def Node.equiv (N : Node n m) (N' : Node n' m') :=
-  N.var.1 = N'.var.1 ∧ Pointer.equiv N.low N'.low ∧ Pointer.equiv N.high N'.high
-
-lemma Node.equiv_refl (N : Node n m) : N.equiv N := by
+lemma Node.equiv_refl {n m} (N : Node n m) : N.equiv N := by
   grind only [Node.equiv, Pointer.equiv_refl]
 
 lemma Node.equiv_symm : Node.equiv N M → Node.equiv M N := by
@@ -1365,10 +1383,11 @@ private lemma Bdd.ordered_of_ordered_heap_all_reachable_eq (O : OBdd n m) (B : B
         simp only [OBdd.low, Bdd.low, Fin.getElem_fin]
         rcases h1 jl (.snoc .refl (by rw [← B_low_def]; exact B.edge_low _)) with ⟨hjl1, _⟩
         rcases h1 j (by rw [← B_root_def]; left) with ⟨hj1, hj2, hj3, hj4⟩
-        rcases Pointer.equiv_symm hj3 with ⟨hj31, hj32⟩
+        symm at hj3
+        rw [Pointer.equiv_iff] at hj3
         use hjl1
         simp only [Bdd.low] at B_low_def
-        rcases hj32 _ B_low_def with ⟨j', hj1', hj2'⟩
+        rcases hj3.2 _ B_low_def with ⟨j', hj1', hj2'⟩
         rw [hj1']
         simp only [node.injEq]
         exact Fin.eq_mk_iff_val_eq.mpr (id (Eq.symm hj2'))
@@ -1378,12 +1397,13 @@ private lemma Bdd.ordered_of_ordered_heap_all_reachable_eq (O : OBdd n m) (B : B
       apply Fin.lt_def.mpr
       simp only [toVar]
       have that : (toVar B.heap B.heap[j.1].low).1 = (toVar O.1.heap O.1.heap[j.1].low).1 := by
-        rcases Pointer.equiv_symm hj3 with ⟨hj31, hj32⟩
+        symm at hj3
+        rw [Pointer.equiv_iff] at hj3
         cases hl : B.heap[↑j].low with
         | terminal b =>
-          simp [hj31 b hl]
+          simp [hj3.1 b hl]
         | node jl =>
-          rcases hj32 jl hl with ⟨jl', hjl1', hjl2'⟩
+          rcases hj3.2 jl hl with ⟨jl', hjl1', hjl2'⟩
           rw [hjl1']
           simp only [Nat.succ_eq_add_one, toVar_node, Fin.getElem_fin]
           simp_rw [← hjl2']
@@ -1401,10 +1421,11 @@ private lemma Bdd.ordered_of_ordered_heap_all_reachable_eq (O : OBdd n m) (B : B
         simp only [OBdd.high, Bdd.high, Fin.getElem_fin]
         rcases h1 jl (.snoc .refl (by rw [← B_high_def]; exact B.edge_high _)) with ⟨hjl1, _⟩
         rcases h1 j (by rw [← B_root_def]; left) with ⟨hj1, hj2, hj3, hj4⟩
-        rcases Pointer.equiv_symm hj4 with ⟨hj41, hj42⟩
+        symm at hj4
+        rw [Pointer.equiv_iff] at hj4
         use hjl1
         simp only [Bdd.high] at B_high_def
-        rcases hj42 _ B_high_def with ⟨j', hj1', hj2'⟩
+        rcases hj4.2 _ B_high_def with ⟨j', hj1', hj2'⟩
         rw [hj1']
         simp only [node.injEq]
         exact Fin.eq_mk_iff_val_eq.mpr (id (Eq.symm hj2'))
@@ -1414,12 +1435,13 @@ private lemma Bdd.ordered_of_ordered_heap_all_reachable_eq (O : OBdd n m) (B : B
       apply Fin.lt_def.mpr
       simp only [toVar]
       have that : (toVar B.heap B.heap[j.1].high).1 = (toVar O.1.heap O.1.heap[j.1].high).1 := by
-        rcases Pointer.equiv_symm hj4 with ⟨hj41, hj42⟩
+        symm at hj4
+        rw [Pointer.equiv_iff] at hj4
         cases hl : B.heap[↑j].high with
         | terminal b =>
-          simp [hj41 b hl]
+          simp [hj4.1 b hl]
         | node jl =>
-          rcases hj42 jl hl with ⟨jl', hjl1', hjl2'⟩
+          rcases hj4.2 jl hl with ⟨jl', hjl1', hjl2'⟩
           rw [hjl1']
           simp only [Nat.succ_eq_add_one, toVar_node, Fin.getElem_fin]
           simp_rw [← hjl2']
@@ -1434,18 +1456,16 @@ lemma OBdd.toTree_eq_toTree_of_ordered_heap_all_reachable_eq {n m m'}
     (O : OBdd n m) (U : OBdd n m') :
     (∀ j : Fin m', Reachable U.1.heap U.1.root (node j) →
       ∃ hj : j.1 < m, Node.equiv O.1.heap[j.1] U.1.heap[j]) →
-    Pointer.equiv U.1.root O.1.root →
+    Pointer.Equiv U.1.root O.1.root →
     O.toTree = U.toTree := by
   intro h1 h2
   cases U_root_def : U.1.root with
   | terminal b =>
-    simp only [Pointer.equiv] at h2
-    have := h2.1 b U_root_def
+    simp only [U_root_def, terminal_equiv] at h2
     simp_all [OBdd.toTree_terminal]
   | node j =>
-    simp only [Pointer.equiv] at h2
-    have := h2.2 j U_root_def
-    rcases this with ⟨j', hj', hjj'⟩
+    simp only [U_root_def, node_equiv] at h2
+    rcases h2 with ⟨j', hj', hjj'⟩
     rw [OBdd.toTree_node U_root_def]
     rw [OBdd.toTree_node hj']
     have := h1 j (by simp [U_root_def]; left)
@@ -1472,7 +1492,7 @@ lemma OBdd.evaluate_eq_evaluate_of_ordered_heap_all_reachable_eq {n m m'}
     (O : OBdd n m) (U : OBdd n m') :
     (∀ j : Fin m', Reachable U.1.heap U.1.root (node j) →
       ∃ hj : j.1 < m, Node.equiv O.1.heap[j.1] U.1.heap[j]) →
-    Pointer.equiv U.1.root O.1.root →
+    Pointer.Equiv U.1.root O.1.root →
     O.evaluate = U.evaluate := by
   intro h1 h2
   ext I
@@ -1523,24 +1543,12 @@ lemma RawPointer.cook_node {n m} {h : Bounded m (.node n)} :
 
 lemma RawPointer.cook_equiv {m1 m2 p}
     {h1 : RawPointer.Bounded m1 p} {h2 : RawPointer.Bounded m2 p} :
-    Pointer.equiv (RawPointer.cook p h1) (RawPointer.cook p h2) := by
-  simp only [Pointer.equiv]
-  constructor
-  · intro b hb
-    cases p <;> simp_all [RawPointer.cook]
-  · intro j hj
-    cases p with
-    | terminal val => contradiction
-    | node val =>
-      simp only [bounded_iff] at h1 h2
-      simp only [cook, Pointer.node.injEq] at hj
-      rw [Fin.eq_mk_iff_val_eq] at hj
-      simp only at hj
-      subst hj
-      use ⟨j.1, h2 rfl⟩
-      simp [RawPointer.cook]
+    Pointer.Equiv (RawPointer.cook p h1) (RawPointer.cook p h2) := by
+  cases p with
+  | terminal b => simp only [cook, terminal_equiv]
+  | node j => simp only [cook, node_equiv, Pointer.node.injEq, exists_eq_left']
 
-def RawPointer.fromPointer : Pointer m → RawPointer
+def RawPointer.fromPointer {m} : Pointer m → RawPointer
   | .terminal b => .terminal b
   | .node j => .node j.1
 
