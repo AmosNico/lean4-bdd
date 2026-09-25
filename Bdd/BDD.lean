@@ -318,7 +318,6 @@ lemma var_reduced : OBdd.Reduced ⟨(var_raw n), var_ordered⟩ := by
     rintro ⟨contra⟩
     simp_all
   · rintro ⟨x, hx⟩ ⟨y, hy⟩ hxy
-    simp only [InvImage]
     simp only [OBdd.similarRP_iff] at hxy
     cases Pointer.Reachable_iff.mp hx with
     | inl hh =>

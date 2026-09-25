@@ -148,7 +148,7 @@ def sim_helper {n m m'}
                 rw [OBdd.similarRP_iff, contra]
                 exact h4
               have h := hO.2 hsim
-              simp [InvImage] at h
+              simp only [Pointer.node.injEq] at h
               subst h
               rw [h1] at hl
               contradiction
@@ -167,7 +167,7 @@ def sim_helper {n m m'}
                 rw [c] at h4
                 exact h4
               have := hU.2 hsim
-              simp [InvImage] at this
+              simp only [Pointer.node.injEq] at this
               exact heq this
       else return isFalse <| by simp_all [OBdd.similar_iff, OBdd.toTree_node]
 termination_by OBdd.size' ⟨⟨O.1.heap, p⟩, O.ordered_of_reachable hpr⟩

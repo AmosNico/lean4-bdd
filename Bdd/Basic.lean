@@ -650,7 +650,11 @@ lemma OBdd.Similar_of_terminal {n m m' : Nat} {b : Bool} {O : OBdd n m} {U : OBd
 
 /-- A pointer is redundant if it point to node `N` with `N.low = N.high`. -/
 inductive Pointer.Redundant {n m} (M : Vector (Node n m) m) : Pointer m → Prop where
-  | red {j} : M[j].low = M[j].high → Redundant M (node j)
+  | red j : M[j].low = M[j].high → Redundant M (node j)
+
+lemma Pointer.node_redundant_iff {n m} (M : Vector (Node n m) m) {j} :
+    (Pointer.node j).Redundant M ↔ M[j].low = M[j].high := by
+  grind only [Redundant.red, Pointer.Redundant]
 
 instance Pointer.Redundant.instDecidable {n m} (w : Vector (Node n m) m) :
     DecidablePred (Redundant w) := by
@@ -660,20 +664,22 @@ instance Pointer.Redundant.instDecidable {n m} (w : Vector (Node n m) m) :
   case node j =>
     cases decEq w[j].low w[j].high
     case isFalse => apply isFalse; intro contra; cases contra; contradiction
-    case isTrue h => exact isTrue ⟨h⟩
+    case isTrue h => exact isTrue (.red j h)
 
-@[expose]
-def Bdd.NoRedundancy (B : Bdd n m) := ∀ (p : B.RelevantPointer), ¬ Redundant B.heap p.1
+-- TODO : this definition seems redundant
+def Bdd.NoRedundancy {n m} (B : Bdd n m) := ∀ (p : B.RelevantPointer), ¬ Redundant B.heap p.1
+
+lemma Bdd.noRedundancy_iff {n m} (B : Bdd n m) :
+    B.NoRedundancy ↔ ∀ (p : B.RelevantPointer), ¬ Redundant B.heap p.val := by rfl
 
 /--
 A BDD is `Reduced` if its graph does not contain redundant nodes or distinct similar subgraphs.
 -/
-@[expose]
-def OBdd.Reduced {n m} (O : OBdd n m) : Prop
+structure OBdd.Reduced {n m} (O : OBdd n m) : Prop where
   -- No redundant pointers.
-  := NoRedundancy O.1
+  noRedundancy : ∀ (p : O.bdd.RelevantPointer), ¬ Redundant O.bdd.heap p.1
   -- Similarity implies pointer-equality.
-   ∧ Subrelation O.SimilarRP (InvImage Eq Subtype.val)
+  eq_of_similarRP : ∀ {p q : O.bdd.RelevantPointer}, SimilarRP p q → p.val = q.val
 
 /-- The graph induced by a terminal BDD consists of a sole terminal pointer. -/
 private lemma Bdd.terminal_relevant_iff {n m} {B : Bdd n m} {b} (h : B.root = terminal b)
@@ -696,10 +702,8 @@ lemma OBdd.reduced_of_terminal {n m} {O : OBdd n m} {b}
   · intro p R
     have contra : Redundant O.1.heap (terminal b) := by apply (terminal_relevant_iff h p).mp R
     contradiction
-  · intro p q _
-    calc p.1
-      _ = terminal b :=         (eq_terminal_of_relevant (by rw [← h]) p)
-      _ = q.1        := Eq.symm (eq_terminal_of_relevant (by rw [← h]) q)
+  · intro p q hpq
+    grind only [eq_terminal_of_relevant]
 
 lemma Bdd.reduced_of_terminal {n m} {M : Vector (Node n m) m} {b o} :
     OBdd.Reduced ⟨⟨M, terminal b⟩, o⟩ :=
@@ -720,7 +724,7 @@ private lemma OBdd.reduced_subBdd {n m} {O : OBdd n m} (S : O.1.RelevantPointer)
     · intro q p _
       have : O'.SimilarRP ⟨q.1, Reachable.trans S.2 q.2⟩ ⟨p.1, Reachable.trans S.2 p.2⟩ := by
         simp_all only [similarRP_iff, subBdd_eq]
-      apply R.2 this
+      apply R.eq_of_similarRP this
 
 lemma OBdd.high_reduced {n m} {O : OBdd n m} {j : Fin m} {h : O.1.root = node j} :
     O.Reduced → (O.high h).Reduced := by

@@ -98,30 +98,28 @@ lemma push_reduced {n s : Nat} {v : Vector (RawNode n) s} {N : RawNode n}
       exact ⟨jc, hjc, hjab.trans hjbc⟩
   -- Part 1: NoRedundancy
   constructor
-  · intro ⟨q, hq_reach⟩ hred_q
-    cases q with
-    | terminal b => cases hred_q
-    | node j =>
+  · intro ⟨_, hq_reach⟩ hred
+    cases hred with
+    | red j hlow_eq_high =>
+      simp only at hq_reach
       obtain ⟨hj_lt, hj_reach_old⟩ := back j hq_reach
-      cases hred_q with
-      | red hlow_eq_high =>
-        -- Node.equiv between old and new heaps at index j
-        obtain ⟨_, hnode_equiv⟩ := sub_back (.node j) hq_reach j .refl
-        obtain ⟨_, hequiv_low, hequiv_high⟩ := hnode_equiv
-        -- hequiv_low : Pointer.equiv old_heap[j'].low new_heap[j].low
-        -- hequiv_high : Pointer.equiv old_heap[j'].high new_heap[j].high
-        -- hlow_eq_high : new_heap[j].low = new_heap[j].high
-        -- Therefore old.low ≡ new.low = new.high ≡ old.high
-        -- i.e., Pointer.equiv old.low old.high
-        have hequiv_high' : Pointer.equiv
-            (cook_heap v hh)[(⟨j.1, hj_lt⟩ : Fin s)].low
-            (cook_heap v hh)[(⟨j.1, hj_lt⟩ : Fin s)].high :=
-          equiv_trans hequiv_low (hlow_eq_high ▸ Pointer.equiv_symm hequiv_high)
-        -- Since both are in Pointer s, equiv implies equality
-        have hred_old : (cook_heap v hh)[(⟨j.1, hj_lt⟩ : Fin s)].low =
-                        (cook_heap v hh)[(⟨j.1, hj_lt⟩ : Fin s)].high :=
-          equiv_eq _ _ hequiv_high'
-        exact hred.1 ⟨.node ⟨j.1, hj_lt⟩, hj_reach_old⟩ (Pointer.Redundant.red hred_old)
+      -- Node.equiv between old and new heaps at index j
+      obtain ⟨_, hnode_equiv⟩ := sub_back (.node j) hq_reach j .refl
+      obtain ⟨_, hequiv_low, hequiv_high⟩ := hnode_equiv
+      -- hequiv_low : Pointer.equiv old_heap[j'].low new_heap[j].low
+      -- hequiv_high : Pointer.equiv old_heap[j'].high new_heap[j].high
+      -- hlow_eq_high : new_heap[j].low = new_heap[j].high
+      -- Therefore old.low ≡ new.low = new.high ≡ old.high
+      -- i.e., Pointer.equiv old.low old.high
+      have hequiv_high' : Pointer.equiv
+          (cook_heap v hh)[(⟨j.1, hj_lt⟩ : Fin s)].low
+          (cook_heap v hh)[(⟨j.1, hj_lt⟩ : Fin s)].high :=
+        equiv_trans hequiv_low (hlow_eq_high ▸ Pointer.equiv_symm hequiv_high)
+      -- Since both are in Pointer s, equiv implies equality
+      have hred_old : (cook_heap v hh)[(⟨j.1, hj_lt⟩ : Fin s)].low =
+                      (cook_heap v hh)[(⟨j.1, hj_lt⟩ : Fin s)].high :=
+        equiv_eq _ _ hequiv_high'
+      exact hred.1 ⟨.node ⟨j.1, hj_lt⟩, hj_reach_old⟩ (.red _ hred_old)
   · -- Part 2: SimilarRP injectivity
     -- Need: if SimilarRP O' rp rq, then rp.val = rq.val
     intro ⟨rp, hrp_reach⟩ ⟨rq, hrq_reach⟩ hsim
@@ -196,9 +194,9 @@ lemma push_reduced {n s : Nat} {v : Vector (RawNode n) s} {N : RawNode n}
           rw [htree_p, htree_q]
           exact htree_sim
         have hval_eq := hred.2 hsim_old
-        -- hval_eq : (InvImage Eq Subtype.val) ⟨.node jp', _⟩ ⟨.node jq', _⟩
+        -- hval_eq : ↑⟨node jp, hrp_reach⟩ = ↑⟨node jq, hrq_reach⟩
         --         = (.node jp' = .node jq')
-        simp only [InvImage, Pointer.node.injEq] at hval_eq
+        simp only [Pointer.node.injEq] at hval_eq
         -- hval_eq : jp' = jq' (as Fin s); since jp.1 = jp'.1 and jq.1 = jq'.1, jp = jq
         have hjpjq : jp.1 = jq.1 := by simpa using Fin.ext_iff.mp hval_eq
         exact congrArg Pointer.node (Fin.ext hjpjq)
@@ -382,11 +380,12 @@ lemma push_node_correct' {n m : Nat} {i : Nat}
   -- NoRedundancy of the new BDD
   have hnored : Bdd.NoRedundancy ⟨cook_heap (ps.state.heap.push N) hh',
       .node (⟨s, Nat.lt_succ_self s⟩ : Fin (s + 1))⟩ := by
+    rw [noRedundancy_iff]
     intro ⟨ptr', hreach'⟩
     rcases Pointer.Reachable_iff.mp hreach' with h_root | ⟨j', h_node, h_child⟩
     · obtain rfl : ptr' = .node ⟨s, Nat.lt_succ_self s⟩ := h_root.symm
       intro hred; cases hred with
-      | red heq =>
+      | red _ heq =>
         rw [hMs_low, hMs_high] at heq
         exact hnonred (cook_inj.1 heq)
     · have hj' : j' = ⟨s, Nat.lt_succ_self s⟩ := Pointer.node.inj h_node.symm

@@ -74,24 +74,6 @@ lemma toTree_subBdd_olift {n n' m} {h : n ≤ n'} {O : OBdd n m} {p} :
   simp only [OBdd.subBdd_eq]
   rfl
 
-lemma NoRedundancy_of_olift {n n' m} {h : n ≤ n'} {O : OBdd n m} :
-    O.1.NoRedundancy → (olift h O).1.NoRedundancy := by
-  rintro hnr ⟨p, hp⟩ contra
-  simp only at contra
-  cases p_def : p with
-  | terminal _ =>
-    cases contra with
-    | red _ => contradiction
-  | node j =>
-    rw [p_def] at contra
-    cases contra with
-    | red red =>
-      simp only [olift, lift, Fin.getElem_fin] at red
-      apply hnr ⟨p, (lift_reachable_iff h).mp hp⟩
-      simp_rw [p_def]
-      constructor
-      simp_all
-
 lemma olift_preserves_toTree {n n' m} {h : n ≤ n'} {O : OBdd n m} :
     (olift h O).toTree = DecisionTree.lift h O.toTree := by
   cases O_root_def : O.1.root with
@@ -131,10 +113,14 @@ lemma olift_SimilarRP {n n' m} {h : n ≤ n'} {O : OBdd n m} {p q : Pointer m}
   simp only [olift_preserves_toTree] at sim
   rw [DecisionTree.lift_injective sim]
 
-public lemma olift_reduced {n n' m} {h : n ≤ n'} {O : OBdd n m} : O.Reduced → (olift h O).Reduced := by
+public lemma olift_reduced {n n' m} {h : n ≤ n'} {O : OBdd n m} :
+    O.Reduced → (olift h O).Reduced := by
   rintro ⟨r1, r2⟩
   constructor
-  · exact NoRedundancy_of_olift r1
+  · rintro ⟨_, hp⟩ ⟨j, red⟩
+    simp only [olift, lift, Fin.getElem_fin, Vector.getElem_map] at red
+    apply r1 ⟨.node j, (lift_reachable_iff h).mp hp⟩
+    exact .red j red
   · rintro _ _ sim; exact r2 (olift_SimilarRP sim)
 
 @[simp]

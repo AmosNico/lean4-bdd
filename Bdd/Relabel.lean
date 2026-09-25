@@ -132,25 +132,6 @@ public theorem orelabel_evaluate (O : OBdd n m) {f : Nat → Nat} {hf : ∀ i : 
       rfl
 termination_by O
 
-lemma relabel_preserves_noRedundancy {B : Bdd n m} : B.NoRedundancy → (relabel hf B).NoRedundancy := by
-  rintro hnr ⟨p, hp⟩ contra
-  simp only at contra
-  cases p_def : p with
-  | terminal _ =>
-    cases contra with
-    | red _ => contradiction
-  | node j =>
-    rw [p_def] at contra
-    cases contra with
-    | red red =>
-      simp only [relabel, relabel_heap, Fin.getElem_fin] at red
-      apply hnr ⟨p, relabel_reachable_iff.mp hp⟩
-      simp_rw [p_def]
-      constructor
-      simp_all only [Vector.getElem_map, Fin.getElem_fin]
-      simp only [relabel_node] at red
-      exact red
-
 lemma relabel_toTree_relabel (O : OBdd n m) {f : Nat → Nat} (hf : ∀ i : Fin n, f i < f n)
     (hu : ∀ i i' : Fin n, i < i' → O.1.usesVar i → O.1.usesVar i' → f i < f i') :
     OBdd.toTree (orelabel O hf hu) = DecisionTree.relabel hf (OBdd.toTree O) := by
@@ -281,7 +262,11 @@ public lemma orelabel_reduced {O : OBdd n m} {f : Nat → Nat} {hf : ∀ i : Fin
     O.Reduced → (orelabel O hf hu).Reduced := by
   rintro ⟨r1, r2⟩
   constructor
-  · exact relabel_preserves_noRedundancy r1
+  · rintro ⟨_, hp⟩ ⟨j, red⟩
+    simp only [orelabel, relabel, relabel_heap, Fin.getElem_fin, Vector.getElem_map] at red
+    simp only [relabel_node] at red
+    apply r1 ⟨.node j, relabel_reachable_iff.mp hp⟩
+    exact .red j red
   · rintro _ _ sim
     exact r2 (orelabel_preserves_similarRP sim)
 

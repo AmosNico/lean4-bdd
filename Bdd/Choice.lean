@@ -93,11 +93,10 @@ lemma choice_helper_spec {O : OBdd n m} (hr : O.Reduced) (hj : O.1.root = node j
     next bh hh =>
       rw [evaluate_node' hj]
       have : (O.high hj).1.root = terminal true := by
-        simp only [high_root_eq_high, hh]
-        congr
-        cases bh with
-        | false => exact False.elim (hr.1 ⟨node j, by simp_all; exact Pointer.Reachable.refl⟩ ⟨by simp_all⟩)
-        | true => rfl
+        simp only [high_root_eq_high, hh, terminal.injEq]
+        have h := hr.1 ⟨node j, by simp_all; exact Pointer.Reachable.refl⟩
+        rw [node_redundant_iff] at h
+        grind only
       simp [evaluate_terminal this]
     next jh hh =>
       rw [evaluate_node' hj]

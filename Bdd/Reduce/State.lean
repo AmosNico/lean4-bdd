@@ -204,7 +204,8 @@ public lemma structural_canonical_reduced {n s : Nat}
     structural_canonical_key node_inj
   -- Now prove Reduced
   constructor
-  · exact hnored
+  · rw [noRedundancy_iff] at hnored
+    exact hnored
   · intro ⟨p, hp_reach⟩ ⟨q, hq_reach⟩ hsim
     -- hsim : SimilarRP O ⟨p, hp_reach⟩ ⟨q, hq_reach⟩
     -- = toTree of sub-BDD at p = toTree of sub-BDD at q
