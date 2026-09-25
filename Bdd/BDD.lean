@@ -242,7 +242,7 @@ theorem SemanticEquiv_iff_Similar {B C : BDD} :
     B.SemanticEquiv C ↔ B.Similar C := ⟨l_to_r, r_to_l⟩ where
   l_to_r h := by
     simp [getElem_eq_evaluate, Evaluate.evaluate_evaluate, SemanticEquiv] at h
-    apply OBdd.Canonicity (Lift.olift_reduced B.hred) (Lift.olift_reduced C.hred)
+    apply OBdd.canonicity (Lift.olift_reduced B.hred) (Lift.olift_reduced C.hred)
     ext I
     exact h I
   r_to_l h := by
