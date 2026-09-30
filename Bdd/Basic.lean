@@ -973,25 +973,13 @@ lemma OBdd.reachable_or_eq_low_high {n m} {O : OBdd n m} {p} : Reachable O.1.hea
 def Bdd.usesVar {n m} (B : Bdd n m) (i : Fin n) :=
   ∃ j, Reachable B.heap B.root (node j) ∧ B.heap[j].var = i
 
-lemma Bdd.usesVar_of_high_usesVar {n m} {B : Bdd n m} {j} {h : B.root = node j} {i} :
-    (B.high h).usesVar i → B.usesVar i := by
+lemma OBdd.usesVar_of_subBdd_usesVar {n m} {O : OBdd n m} {p} {i} :
+    (O.subBdd p).1.usesVar i → O.1.usesVar i := by
   rintro ⟨j, h1, h2⟩
   use j
   constructor
-  · trans (B.high h).root
-    · exact B.reachable_high h
-    · exact h1
-  · simp_all [high_heap_eq_heap]
-
-lemma Bdd.usesVar_of_low_usesVar {n m} {B : Bdd n m} {j} {h : B.root = node j} {i} :
-    (B.low h).usesVar i → B.usesVar i := by
-  rintro ⟨j, h1, h2⟩
-  use j
-  constructor
-  · trans (B.low h).root
-    · exact B.reachable_low h
-    · exact h1
-  · simp_all [low_heap_eq_heap]
+  · exact .trans p.2 h1
+  · rwa [heap_subBdd] at h2
 
 lemma OBdd.usesVar_of_high_usesVar {n m} {O : OBdd n m} {j} {h : O.1.root = node j} {i} :
     (O.high h).1.usesVar i → O.1.usesVar i := by
@@ -1265,6 +1253,26 @@ private lemma Bdd.not_usesVar_of_var_gt {n m} {M : Vector (Node n m) m} {j : Fin
   simp_all only [Fin.getElem_fin, gt_iff_lt, Nat.succ_eq_add_one]
   simp_all only [toVar, Nat.succ_eq_add_one, Fin.getElem_fin, Fin.mk_le_mk, Fin.val_fin_le]
   omega
+
+private lemma Bdd.usesVar_of_high_usesVar {n m} {B : Bdd n m} {j} {h : B.root = node j} {i} :
+    (B.high h).usesVar i → B.usesVar i := by
+  rintro ⟨j, h1, h2⟩
+  use j
+  constructor
+  · trans (B.high h).root
+    · exact B.reachable_high h
+    · exact h1
+  · simp_all [high_heap_eq_heap]
+
+private lemma Bdd.usesVar_of_low_usesVar {n m} {B : Bdd n m} {j} {h : B.root = node j} {i} :
+    (B.low h).usesVar i → B.usesVar i := by
+  rintro ⟨j, h1, h2⟩
+  use j
+  constructor
+  · trans (B.low h).root
+    · exact B.reachable_low h
+    · exact h1
+  · simp_all [low_heap_eq_heap]
 
 private def usesVar_helper {n m}
     (O : OBdd n m) (i : Fin n) (p : Pointer m) (hpr : Reachable O.1.heap O.1.root p) :

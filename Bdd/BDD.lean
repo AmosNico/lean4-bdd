@@ -506,17 +506,16 @@ public lemma not_dependsOn {B : BDD} {i} : B.not.DependsOn i ↔ B.DependsOn i :
   repeat rw [dependsOn_iff B.nvars (by simp)]
   simp [getElem_not]
 
-def relabel' (B : BDD) (f : Nat → Nat)
-      (h1 : ∀ i : Fin B.nvars, f i < f B.nvars)
-      (h2 : ∀ i i' : Fin B.nvars, B.DependsOn i → B.DependsOn i' → i < i' → f i < f i') :
-    BDD :=
+def relabel' (B : BDD) (f : Nat → Nat) (h1 : ∀ i : Fin B.nvars, f i < f B.nvars)
+    (h2 : ∀ i i' : Fin B.nvars, B.DependsOn i → B.DependsOn i' → i < i' → f i < f i') : BDD :=
+  have hf : B.obdd.bdd.Monotone f := by
+    refine ⟨h1, ?_⟩
+    intro i i' hii' hi hi'
+    rw [OBdd.usesVar_iff_dependsOn_of_reduced B.hred] at hi hi'
+    grind only [Fin.is_lt, dependsOn_iff_evaluate, Evaluate.evaluate_evaluate]
   ⟨ f B.nvars, _,
-    Relabel.orelabel B.obdd h1 (by
-      intro i i' hii' hi hi'
-      rw [OBdd.usesVar_iff_dependsOn_of_reduced B.hred] at hi
-      rw [OBdd.usesVar_iff_dependsOn_of_reduced B.hred] at hi'
-      grind only [Fin.is_lt, dependsOn_iff_evaluate, Evaluate.evaluate_evaluate]),
-    Relabel.orelabel_reduced B.hred
+    Relabel.orelabel B.obdd hf,
+    Relabel.orelabel_reduced hf B.hred
   ⟩
 
 def relabel_wrap (m n : Nat) (f : Fin m → Fin n) : Nat → Nat :=
