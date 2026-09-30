@@ -10,11 +10,11 @@ abbrev Func n α β := Vector α n → β
 
 /-- `IndependentOf f i` if the output of `f` does not depend on the value of the `i`th input. -/
 @[simp, expose]
-def IndependentOf (f : Func n α β) (i : Fin n) := ∀ a v, f v = f (Vector.set v i a)
+def IndependentOf {n α β} (f : Func n α β) (i : Fin n) := ∀ a v, f v = f (Vector.set v i a)
 
 /-- `DependsOn f i` if the output of `f` depends on the value of the `i`th input. -/
 @[expose]
-def DependsOn (f : Func n α β) (i : Fin n) := ¬ IndependentOf f i
+def DependsOn {n α β} (f : Func n α β) (i : Fin n) := ¬ IndependentOf f i
 
 -- TODO : use this as the definition instead?
 lemma dependsOn_iff {n α β} {f : Func n α β} {i : Fin n} :
@@ -35,9 +35,9 @@ lemma dependsOn_iff {n α β} {f : Func n α β} {i : Fin n} :
 
 /-- The type of indices that a given function depends on. -/
 @[expose]
-def Dependency (f : Func n α β) := { i // DependsOn f i }
+def Dependency {n α β} (f : Func n α β) := { i // DependsOn f i }
 
-lemma eq_of_forall_dependency_getElem_eq {f : Func n α β} {I J : Vector α n} :
+lemma eq_of_forall_dependency_getElem_eq {n α β} {f : Func n α β} {I J : Vector α n} :
     (∀ (x : Dependency f), I[x.1] = J[x.1]) → f I = f J := by
   induction n with
   | zero =>
@@ -69,7 +69,8 @@ lemma eq_of_forall_dependency_getElem_eq {f : Func n α β} {I J : Vector α n} 
       have : DependsOn f x.castSucc := by
         simp only [DependsOn, IndependentOf, not_forall] at hx
         rcases hx with ⟨a, V, hav⟩
-        rw [show (V.set x a).push I[n] = (V.push I[n]).set x a by simp only [Vector.set_push, Fin.is_lt, ↓reduceDIte]] at hav
+        rw [show (V.set x a).push I[n] = (V.push I[n]).set x a by
+          simp only [Vector.set_push, Fin.is_lt, ↓reduceDIte]] at hav
         simp only [DependsOn, IndependentOf, not_forall]
         use a, V.push I[n]
         exact hav
@@ -79,7 +80,7 @@ lemma eq_of_forall_dependency_getElem_eq {f : Func n α β} {I J : Vector α n} 
     · simp only [DependsOn, not_not, IndependentOf] at hf
       rw [hf I[n] J]
       rw [h2 I rfl]
-      rw [h2 (J.set (⟨n, Nat.lt_add_one n⟩ : Fin (n + 1)) I[n]) (by simp only [Vector.getElem_set_self])]
+      rw [h2 (J.set (Fin.mk n n.lt_add_one) I[n]) (by simp only [Vector.getElem_set_self])]
       apply ih
       rintro ⟨x, hx⟩
       simp only [g] at hx
@@ -95,30 +96,34 @@ lemma eq_of_forall_dependency_getElem_eq {f : Func n α β} {I J : Vector α n} 
       rw [Vector.getElem_set_ne _ _ (by omega)]
       simp_all only [DependsOn, IndependentOf, Fin.getElem_fin, Fin.val_castSucc]
 
-lemma ne_implies_dependency_getElem_ne {f : Func n α β} {I J : Vector α n} :
+lemma ne_implies_dependency_getElem_ne {n α β} {f : Func n α β} {I J : Vector α n} :
     f I ≠ f J → ∃ i : Nary.Dependency f, I[i.1] ≠ J[i.1] := by
   contrapose
   simp only [Fin.getElem_fin, ne_eq, not_exists, not_not]
   exact Nary.eq_of_forall_dependency_getElem_eq
 
 @[expose, simp]
-def restrict (f : Func n α β) : α → Fin n → Func n α β := fun a i I ↦ f (I.set i a)
+def restrict {n α β} (f : Func n α β) : α → Fin n → Func n α β := fun a i I ↦ f (I.set i a)
 
 @[simp]
-lemma restrict_const : restrict (fun _ ↦ b) c i = (fun _ ↦ b) := by ext; simp
+lemma restrict_const {n α β} {c : α} {b : β} {i : Fin n} :
+    restrict (fun _ ↦ b) c i = (fun _ ↦ b) := by
+  ext; simp
 
-lemma restrict_independentOf : IndependentOf (restrict f c i) i := by simp
+lemma restrict_independentOf {n α β} {f : Func n α β} {c : α} {i} :
+    IndependentOf (restrict f c i) i := by simp
 
-lemma restrict_eq_self_of_independentOf : IndependentOf f i → (restrict f c i) = f := by
+lemma restrict_eq_self_of_independentOf {n α β} {f : Func n α β} {c : α} {i} :
+    IndependentOf f i → (restrict f c i) = f := by
   intro h
   ext I
   symm
   simp_all only [IndependentOf, restrict]
   apply h
 
-lemma restrict_if {c : Func n α Bool} :
-    restrict (fun I ↦ if c I then f I else g I) b i =
-    fun I ↦ if (restrict c b i I) then (restrict f b i I) else (restrict g b i I) :=
+lemma restrict_if {n α β} {f g : Func n α β} {b : α} {i : Fin n} {c : Func n α Bool} :
+    restrict (fun I ↦ bif c I then f I else g I) b i =
+    fun I ↦ bif (restrict c b i I) then (restrict f b i I) else (restrict g b i I) :=
   funext (fun _ ↦ rfl)
 
 end

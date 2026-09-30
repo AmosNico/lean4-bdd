@@ -9,10 +9,10 @@ public section
 def evaluate {n m} (O : OBdd n m) : Vector Bool n → Bool := fun I ↦
   match h : O.1.root with
   | .terminal b => b
-  | .node j => if I[O.1.heap[j].var] then evaluate (O.high h) I else evaluate (O.low h) I
+  | .node j => bif I[O.1.heap[j].var] then evaluate (O.high h) I else evaluate (O.low h) I
 termination_by O
 
-lemma evaluate_evaluate : evaluate O = OBdd.evaluate O := by
+lemma evaluate_evaluate {n m} {O : OBdd n m} : evaluate O = OBdd.evaluate O := by
   ext I
   unfold evaluate
   split

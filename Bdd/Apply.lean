@@ -234,25 +234,17 @@ lemma insert_terminal_invariant {n n' m m' op} {O : OBdd n m} {U : OBdd n' m'} {
     · exact (inv.2 _ _ hp).1
     exact (inv.2 _ _ hp).2
 
-lemma op_if1 (op : Bool → Bool → Bool) {c l rt rf : Bool} :
-    op l (if c then rt else rf) = if c then (op l rt) else (op l rf) :=
-  apply_ite (op l) (c = true) rt rf
+lemma op_bif1 (op : Bool → Bool → Bool) {c l rt rf : Bool} :
+    op l (bif c then rt else rf) = bif c then (op l rt) else (op l rf) :=
+  Bool.apply_cond (op l)
 
-lemma op_if2 (op : Bool → Bool → Bool) {c lt lf r : Bool} :
-    op  (if c then lt else lf) r = if c then (op lt r) else (op lf r) := by
-  split
-  next h =>
-    subst h
-    simp_all only
-  next h => simp_all only [Bool.not_eq_true]
+lemma op_bif2 (op : Bool → Bool → Bool) {c lt lf r : Bool} :
+    op (bif c then lt else lf) r = bif c then (op lt r) else (op lf r) := by
+  grind only
 
-lemma op_if3 (op : Bool → Bool → Bool) {c lt lf rt rf : Bool} :
-    op (if c then lt else lf) (if c then rt else rf) = if c then (op lt rt) else (op lf rf) := by
-  split
-  next h =>
-    subst h
-    simp_all only
-  next h => simp_all only [Bool.not_eq_true]
+lemma op_bif3 (op : Bool → Bool → Bool) {c lt lf rt rf : Bool} :
+    op (bif c then lt else lf) (bif c then rt else rf) = bif c then (op lt rt) else (op lf rf) := by
+  grind only
 
 lemma aux_lt1_low {n m n' m' b j'} {O : OBdd n m} {U : OBdd n' m'}
     (O_root_def : O.1.root = .terminal b) (U_root_def : U.1.root = .node j') :
@@ -519,7 +511,7 @@ lemma apply_helper_correct {n m n' m'} (op : (Bool → Bool → Bool)) (O : OBdd
       (by
         intro h0 h1 I
         simp only [OBdd.evaluate_node U_root_def, OBdd.evaluate_terminal O_root_def]
-        rw [op_if1 op]
+        rw [op_bif1 op]
         simp only [Pointer.node.injEq, OBdd.evaluate_node, Fin.getElem_fin, Vector.getElem_cast]
         congr 1
         · simp only [cook_heap_eq, RawNode.cook_eq, Vector.getElem_ofFn]
@@ -626,7 +618,7 @@ lemma apply_helper_correct {n m n' m'} (op : (Bool → Bool → Bool)) (O : OBdd
       (by
         intro h0 h1 I
         simp only [OBdd.evaluate_node O_root_def, OBdd.evaluate_terminal U_root_def]
-        rw [op_if2 op]
+        rw [op_bif2 op]
         simp only [Pointer.node.injEq, OBdd.evaluate_node, Fin.getElem_fin, Vector.getElem_cast]
         congr 1
         · simp only [cook_heap_eq, RawNode.cook_eq, Vector.getElem_ofFn]
@@ -734,7 +726,7 @@ lemma apply_helper_correct {n m n' m'} (op : (Bool → Bool → Bool)) (O : OBdd
       (by
         intro h0 h1 I
         simp only [OBdd.evaluate_node O_root_def, OBdd.evaluate_node U_root_def]
-        rw [op_if2 op]
+        rw [op_bif2 op]
         simp only [Pointer.node.injEq, OBdd.evaluate_node, Fin.getElem_fin, Vector.getElem_cast]
         congr 1
         · simp only [cook_heap_eq, RawNode.cook_eq, Vector.getElem_ofFn]
@@ -842,7 +834,7 @@ lemma apply_helper_correct {n m n' m'} (op : (Bool → Bool → Bool)) (O : OBdd
       (by
         intro h0 h1 I
         simp only [OBdd.evaluate_node O_root_def, OBdd.evaluate_node U_root_def]
-        rw [op_if1 op]
+        rw [op_bif1 op]
         simp only [Pointer.node.injEq, OBdd.evaluate_node, Fin.getElem_fin, Vector.getElem_cast]
         congr 1
         · simp only [cook_heap_eq, RawNode.cook_eq, Vector.getElem_ofFn]
@@ -968,7 +960,7 @@ lemma apply_helper_correct {n m n' m'} (op : (Bool → Bool → Bool)) (O : OBdd
           symm
           exact heeq
         rw [this]
-        rw [op_if3 op]
+        rw [op_bif3 op]
         simp only [Pointer.node.injEq, OBdd.evaluate_node, Fin.getElem_fin, Vector.getElem_cast]
         congr 1
         · simp only [cook_heap_eq, RawNode.cook_eq, Vector.getElem_ofFn]

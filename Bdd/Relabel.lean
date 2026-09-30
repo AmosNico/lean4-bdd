@@ -113,8 +113,7 @@ public theorem orelabel_evaluate (O : OBdd n m) {f : Nat → Nat} {hf : ∀ i : 
     rw [OBdd.evaluate_node' that]
     simp only
     congr 1
-    · simp only [eq_iff_iff, Bool.coe_iff_coe]
-      simp only [relabel, relabel_heap, Fin.getElem_fin, Vector.getElem_map, relabel_node]
+    · simp only [relabel, relabel_heap, Fin.getElem_fin, Vector.getElem_map, relabel_node]
       simp_all only [Vector.getElem_ofFn]
     · have := orelabel_evaluate
         (hu := (fun i i' hii' hi hi' ↦ hu i i' hii' (OBdd.usesVar_of_high_usesVar hi) (OBdd.usesVar_of_high_usesVar hi')))

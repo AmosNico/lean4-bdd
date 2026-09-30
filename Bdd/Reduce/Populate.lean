@@ -161,7 +161,7 @@ public def populate_queue {n m : Nat} (O : OBdd n m)
               calc OBdd.evaluate ⟨⟨cook_heap ps.state.heap ps.hh, lid.cook hptr⟩, ho⟩ I
                   = OBdd.evaluate ⟨⟨O.1.heap, O.1.heap[k].low⟩, hlow_ord⟩ I :=
                     heval_low I
-                _ = if I[O.1.heap[k].var]
+                _ = bif I[O.1.heap[k].var]
                       then OBdd.evaluate ⟨⟨O.1.heap, O.1.heap[k].high⟩, hhigh_ord⟩ I
                       else OBdd.evaluate ⟨⟨O.1.heap, O.1.heap[k].low⟩, hlow_ord⟩ I := by
                     rw [branches_eq]; simp

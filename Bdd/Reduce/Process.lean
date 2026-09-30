@@ -434,11 +434,11 @@ lemma push_node_correct' {n m : Nat} {i : Nat}
       rw [push_evaluate rfl rfl (h0 := hh') (ho := ho_hi)]; exact heval_hi I
     rw [OBdd.evaluate_node rfl]
     simp only [hMs_var]
-    by_cases hI : I[O.1.heap[entry.2].var] = true
-    · simp only [node.injEq, OBdd.evaluate_node, ite_eq_left hI, OBdd.high_eq, Bdd.high_eq]
+    by_cases hI : I[O.1.heap[entry.2].var]
+    · simp only [hI, OBdd.high_eq, high_eq, Bool.cond_true, node.injEq, OBdd.evaluate_node]
       refine Eq.trans ?_ eval_hi
       congr
-    · simp only [node.injEq, OBdd.evaluate_node, ite_eq_right hI, OBdd.low_eq, Bdd.low_eq]
+    · simp only [hI, node.injEq, OBdd.evaluate_node, Bool.cond_false, OBdd.low_eq, Bdd.low_eq]
       refine Eq.trans ?_ eval_lo
       congr
   exact ⟨hj, hp, ho_final, hred_full, heval_full⟩
@@ -1033,7 +1033,7 @@ lemma process_record_curptr_sem {n m : Nat} {i : Nat} (O : OBdd n m)
                          OBdd.evaluate ⟨⟨O.1.heap, .node entry.2⟩, hj_entry⟩ I := fun I => by
       rw [OBdd.evaluate_node rfl]
       conv => rhs; rw [OBdd.evaluate_node rfl]
-      simp only [hvar_eq, OBdd.high_eq, Bdd.high_eq, OBdd.low_eq, Bdd.low_eq]
+      simp only [cond_eq_ite, hvar_eq, OBdd.high_eq, Bdd.high_eq, OBdd.low_eq, Bdd.low_eq]
       split_ifs
       · exact eval_child_eq head.1.2
             (O.1.heap[head.2].high) (O.1.heap[entry.2].high)

@@ -379,12 +379,12 @@ public lemma var_nvars {i} : (var i).nvars = i + 1 := (rfl)
 public lemma getElem_var {i n} {h : i < n} :
     ∀ I : Vector Bool n, (var i)[I]'(by rw [var_nvars]; omega) = I[i] := by
   intro I
-  simp only [var, Vector.singleton_def, getElem_eq_evaluate, lift,
-    Evaluate.evaluate_evaluate, Lift.olift_evaluate, Pointer.node.injEq,
-    OBdd.evaluate_node, Fin.getElem_fin, Fin.val_eq_zero, Vector.getElem_mk, List.getElem_toArray,
-    List.getElem_cons_zero, Vector.getElem_cast, OBdd.high_root_eq_high, Pointer.terminal.injEq,
-    Bool.true_eq, OBdd.evaluate_terminal, OBdd.low_root_eq_low, Bool.false_eq, Bool.ite_false_right,
-    Bool.decide_eq_true, Bool.and_true, Vector.getElem_take]
+  simp only [var, Vector.singleton_def, getElem_eq_evaluate, lift, Evaluate.evaluate_evaluate,
+    Lift.olift_evaluate, Pointer.node.injEq, OBdd.evaluate_node, Fin.getElem_fin, Fin.val_eq_zero,
+    Vector.getElem_mk, List.getElem_toArray, List.getElem_cons_zero, Vector.getElem_cast,
+    Vector.getElem_take, OBdd.high_root_eq_high, Pointer.terminal.injEq, Bool.true_eq,
+    OBdd.evaluate_terminal, OBdd.low_root_eq_low, Bool.false_eq, Bool.cond_false_right,
+    Bool.and_true]
 
 @[simp]
 public lemma var_dependsOn {n i} :

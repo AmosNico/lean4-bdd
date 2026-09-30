@@ -572,12 +572,12 @@ lemma OBdd.evaluate_terminal {n m} {O : OBdd m n} {b} :
 @[simp, grind =>]
 lemma OBdd.evaluate_node {n m} {O : OBdd n m} {I : Vector Bool n} {j : Fin m}
     (h : O.bdd.root = node j) : O.evaluate I =
-    if I[O.bdd.heap[j].var] then OBdd.evaluate (O.high h) I else OBdd.evaluate (O.low h) I := by
-  simp only [evaluate_def, OBdd.toTree_node h, DecisionTree.evaluate_branch]
+    bif I[O.bdd.heap[j].var] then OBdd.evaluate (O.high h) I else OBdd.evaluate (O.low h) I := by
+  simp only [evaluate_def, OBdd.toTree_node h, DecisionTree.evaluate_branch, cond_eq_ite]
 
 lemma OBdd.evaluate_node' {n m} {O : OBdd n m} {j : Fin m} (h : O.1.root = node j) :
     O.evaluate = fun I ↦
-      if I[O.1.heap[j].var] then (O.high h).evaluate I else (O.low h).evaluate I := by
+      bif I[O.1.heap[j].var] then (O.high h).evaluate I else (O.low h).evaluate I := by
   ext I
   exact OBdd.evaluate_node h
 
@@ -588,8 +588,7 @@ lemma OBdd.not_dependsOn_lt_root {n m} {O : OBdd n m} {I J}
   | step O' j h2 h3 ih_low ih_high =>
     simp only [evaluate_node' h3]
     congr 1
-    · simp only [eq_iff_iff, Bool.coe_iff_coe]
-      apply h
+    · apply h
       grind only [var_eq, = Lean.Grind.toInt_fin, !toVar_node, = Fin.val_castLE]
     · exact ih_high (by grind only [!var_lt_high_var])
     · exact ih_low (by grind only [!var_lt_low_var])
@@ -605,8 +604,7 @@ lemma OBdd.independentOf_lt_root {n m} (O : OBdd n m) (i : Fin O.var) :
     simp only
     rcases i with ⟨i, hi⟩
     congr 1
-    · simp only [eq_iff_iff, Bool.coe_iff_coe]
-      symm
+    · symm
       apply Vector.getElem_set_ne _ _ (Nat.ne_of_lt (by grind [O.var_node]))
     · exact (independentOf_lt_root (O.high h) ⟨i, .trans hi var_lt_high_var⟩) b I
     · exact (independentOf_lt_root (O.low  h) ⟨i, .trans hi var_lt_low_var⟩) b I
@@ -785,7 +783,7 @@ lemma OBdd.evaluate_high_eq_evaluate_set_true {n m} {O : OBdd n m} {j} {h : O.1.
   ext I
   simp only [Function.comp_apply]
   rw [evaluate_node' h (j := j)]
-  simp only [Fin.getElem_fin, Vector.getElem_set_self, ↓reduceIte]
+  simp only [Fin.getElem_fin, Vector.getElem_set_self]
   apply not_dependsOn_lt_root
   have h' := var_lt_high_var (h := h)
   simp only [var_node h, Fin.getElem_fin] at h'
@@ -796,7 +794,7 @@ lemma OBdd.evaluate_low_eq_evaluate_set_false {n m} {O : OBdd n m} {j} {h : O.1.
   ext I
   simp only [Function.comp_apply]
   rw [evaluate_node' h (j := j)]
-  simp only [Fin.getElem_fin, Vector.getElem_set_self, Bool.false_eq_true, ↓reduceIte]
+  simp only [Fin.getElem_fin, Vector.getElem_set_self]
   apply not_dependsOn_lt_root
   have h' := var_lt_low_var (h := h)
   simp only [var_node h, Fin.getElem_fin] at h'
@@ -1111,7 +1109,7 @@ private lemma OBdd.usesVar_of_dependsOn {n m} {O : OBdd n m} {v} {i : Fin n} {b}
       cases lt_or_gt_of_ne hf with
       | inl hl =>
         rw [evaluate_node' O_root_def] at h
-        simp only at h
+        simp only [cond_eq_ite] at h
         split at h
         next hh =>
           simp only [Fin.getElem_fin] at h hh hf
@@ -1124,7 +1122,7 @@ private lemma OBdd.usesVar_of_dependsOn {n m} {O : OBdd n m} {v} {i : Fin n} {b}
           simp only [Fin.getElem_fin] at h hh hf
           simp_rw [Vector.getElem_set_ne i.isLt O.1.heap[j.1].var.isLt (by omega)] at h
           rw [hh] at h
-          simp only [Bool.false_eq_true, ↓reduceIte, ne_eq] at h
+          simp only [Bool.false_eq_true, ↓reduceIte] at h
           exact usesVar_of_low_usesVar (usesVar_of_dependsOn h)
       | inr hr =>
         have := (independentOf_lt_root O ⟨i.1, by simp [var, Bdd.var, O_root_def]; omega⟩) b v

@@ -78,7 +78,7 @@ lemma choice_helper_spec {O : OBdd n m} (hr : O.Reduced) (hj : O.1.root = node j
     simp only
     suffices s : (choice_helper (O.low hj) hl (Vector.replicate n false))[O.1.heap[j].var] = false by
       rw [s]
-      simp only [Bool.false_eq_true, ↓reduceIte]
+      simp only [Bool.cond_false]
       apply choice_helper_spec (low_reduced hr)
     rw [choice_helper_spec'' (low_reduced hr) hl]
     have := var_lt_low_var (h := hj)
@@ -101,7 +101,7 @@ lemma choice_helper_spec {O : OBdd n m} (hr : O.Reduced) (hj : O.1.root = node j
     next jh hh =>
       rw [evaluate_node' hj]
       rw [← high_root_eq_high hj] at hh
-      simp only [Fin.getElem_fin, Vector.getElem_set_self, ↓reduceIte]
+      simp only [Fin.getElem_fin, Vector.getElem_set_self, Bool.cond_true]
       have : (O.high hj).evaluate ((choice_helper (O.high hj) hh (Vector.replicate n false)).set O.1.heap[j.1].var.1 true) =
              (O.high hj).evaluate (choice_helper (O.high hj) hh ((Vector.replicate n false))) := by
         rw [OBdd.independentOf_lt_root (O.high hj) ⟨O.1.heap[j.1].var.1, ?_⟩ true (choice_helper (O.high hj) hh (Vector.replicate n false))]
@@ -112,7 +112,8 @@ lemma choice_helper_spec {O : OBdd n m} (hr : O.Reduced) (hj : O.1.root = node j
 termination_by O
 
 @[simp]
-public lemma choice_evaluate {O : OBdd n m} (hr : O.Reduced) (ht : ∃ I, O.evaluate I) : O.evaluate (choice O ht) = true := by
+public lemma choice_evaluate {n m} {O : OBdd n m} (hr : O.Reduced) (ht : ∃ I, O.evaluate I) :
+    O.evaluate (choice O ht) = true := by
   simp only [choice]
   split
   next O_root_def => rw [evaluate_terminal O_root_def]

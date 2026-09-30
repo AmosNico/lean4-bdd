@@ -543,7 +543,7 @@ lemma restrict_helper_correct {n m} (O : OBdd n m) (b : Bool) (i : Fin n) (s0 : 
           ext I
           congr 1
           · simp only [Nary.restrict, cook_heap_eq, RawNode.cook_eq, Fin.getElem_fin,
-              Vector.getElem_ofFn, Vector.getElem_push_eq, eq_iff_iff, Bool.coe_iff_coe]
+              Vector.getElem_ofFn, Vector.getElem_push_eq]
             rw [Vector.getElem_set_ne]
             · rfl
             · grind only [= Fin.getElem_fin]
