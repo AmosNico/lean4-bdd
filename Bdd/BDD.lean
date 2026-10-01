@@ -57,8 +57,16 @@ marked with `bdd_nvars`, and hence the validity of the bounds can usually be inf
 public instance {n} : GetElem BDD (Vector Bool n) Bool (fun B _ ↦ B.nvars ≤ n) where
   getElem B v h := Evaluate.evaluate (B.lift h).obdd v
 
-lemma getElem_eq_evaluate {n} (B : BDD) (I : Vector Bool n) (h : B.nvars ≤ n) :
+lemma getElem_def {n} (B : BDD) (I : Vector Bool n) (h : B.nvars ≤ n) :
     B[I] = Evaluate.evaluate (B.lift h).obdd I := rfl
+
+lemma getElem_eq_evaluate' (B : BDD) (I : Vector Bool B.nvars) :
+    B[I] = B.obdd.evaluate I := by
+  simp only [getElem_def, lift, Lift.olift_trivial_eq, Evaluate.evaluate_evaluate]
+
+lemma getElem_eq_evaluate {n} (B : BDD) (I : Vector Bool n) (h : B.nvars ≤ n) :
+    B[I] = B.obdd.evaluate (Vector.cast (by simpa) (I.take B.nvars)) := by
+  simp only [getElem_def, Evaluate.evaluate_evaluate, lift, Lift.olift_evaluate]
 
 /--
 A BDD `B` depends on a variable `i` if there are two variable assignemts `I` and `I'` such that
@@ -68,8 +76,8 @@ public def DependsOn (B : BDD) (i : ℕ) : Prop :=
   ∃ h : i < B.nvars, Nary.DependsOn (Evaluate.evaluate B.obdd) ⟨i, h⟩
 
 lemma dependsOn_iff_evaluate {B : BDD} {i} (h : i < B.nvars) :
-    B.DependsOn i ↔ Nary.DependsOn (Evaluate.evaluate B.obdd) ⟨i, h⟩ := by
-  grind only [DependsOn]
+    B.DependsOn i ↔ Nary.DependsOn B.obdd.evaluate ⟨i, h⟩ := by
+  grind only [DependsOn, Evaluate.evaluate_evaluate]
 
 /-- A `BDD` does not depend on variables greater or equal to its input size. -/
 @[simp]
@@ -84,9 +92,8 @@ public lemma getElem_cast {B : BDD} {n m} {I : Vector Bool n} {hn : B.nvars ≤ 
 
 public lemma getElem_take {B : BDD} {n} {I : Vector Bool n} {m} {h1 : B.nvars ≤ m} {h2 : m ≤ n} :
     B[I.take m] = B[I] := by
-  simp only [getElem_eq_evaluate, lift, Evaluate.evaluate_evaluate, Lift.olift_evaluate]
-  simp only [Vector.take_eq_extract, Vector.extract_extract, Nat.add_zero, Nat.sub_zero,
-    Vector.cast_cast]
+  simp only [Vector.take_eq_extract, getElem_eq_evaluate, Nat.sub_zero, Vector.extract_extract,
+    Nat.add_zero, Vector.cast_cast]
   congr!
   omega
 
@@ -134,30 +141,26 @@ public lemma congrInterpretation {B : BDD} {n m}
   have h3 : min B.nvars m = B.nvars := by omega
   suffices B[(I.take B.nvars).cast h2] = B[(J.take B.nvars).cast h3] by
     grind only [getElem_cast, !getElem_take]
+  simp only [B.getElem_eq_evaluate']
   apply Nary.eq_of_forall_dependency_getElem_eq
-  rintro j h4
+  intro j h4
   calc
-  (I.take B.nvars)[↑j]
+  (I.take B.nvars)[j]
   _ = I[j] := by
-    grind only [= Fin.getElem_fin, = Vector.getElem_take]
+    simp only [Fin.getElem_fin, Vector.getElem_take]
   _ = J[j] := by
-    simp only [lift, Lift.olift_trivial_eq] at h4
     simp only [Fin.is_lt, dependsOn_iff_evaluate] at h1
     exact h1 j h4
-  _ = (J.take B.nvars)[↑j] := by
-    grind only [= Fin.getElem_fin, = Vector.getElem_take]
+  _ = (J.take B.nvars)[j] := by
+    simp only [Fin.getElem_fin, Vector.getElem_take]
 
-public lemma congrInterpretation' {B : BDD}
+public lemma congrInterpretation' {n m} {B : BDD}
     {I : Vector Bool n} {J : Vector Bool m} {hn : B.nvars ≤ n} {hm : B.nvars ≤ m} :
     (∀ i : Fin B.nvars, I[i] = J[i]) → B[I] = B[J] := by
   grind only [congrInterpretation]
 
-lemma dependsOn_iff' {B : BDD} {i} (h : i < B.nvars) :
-    B.DependsOn i ↔ Nary.DependsOn (fun I : Vector Bool B.nvars ↦ B[I]) ⟨i, h⟩ := by
-  simp_all only [dependsOn_iff_evaluate, getElem_eq_evaluate, lift, Lift.olift_trivial_eq]
-
-public lemma dependsOn_iff {B : BDD} {i : ℕ} n (h : B.nvars ≤ n) : B.DependsOn i ↔
-    ∃ v1 v2 : Vector Bool n, (∀ i' : Fin n, i ≠ i' → v1[i'] = v2[i']) ∧ B[v1] ≠ B[v2] := by
+public lemma dependsOn_iff {B : BDD} {i} n (h : B.nvars ≤ n) : B.DependsOn i ↔
+    ∃ I J : Vector Bool n, (∀ i' : Fin n, i ≠ i' → I[i'] = J[i']) ∧ B[I] ≠ B[J] := by
   if hi : i < B.nvars then
     contrapose
     simp only [ne_eq, Fin.getElem_fin, not_exists, not_and, Decidable.not_not]
@@ -168,10 +171,11 @@ public lemma dependsOn_iff {B : BDD} {i : ℕ} n (h : B.nvars ≤ n) : B.Depends
       specialize h2 (i'.castLE h)
       grind only [= Fin.val_castLE, = Fin.getElem_fin]
     · intro h1
-      simp only [dependsOn_iff' hi, Nary.dependsOn_iff, ne_eq, Fin.getElem_fin, not_exists, not_and,
+      simp only [dependsOn_iff_evaluate hi, Nary.dependsOn_iff, ne_eq, not_exists, not_and,
         Decidable.not_not]
       intro v1 v2 h2
       have h3 : B.nvars + (n - B.nvars) = n := by omega
+      simp only [← getElem_eq_evaluate']
       rw [getElem_append h3 _ (Vector.replicate (n - B.nvars) false)]
       rw [getElem_append h3 _ (Vector.replicate (n - B.nvars) false)]
       apply h1
@@ -188,7 +192,7 @@ public lemma dependsOn_iff {B : BDD} {i : ℕ} n (h : B.nvars ≤ n) : B.Depends
     specialize h1 (i'.castLE h)
     grind only [= Fin.val_castLE, = Lean.Grind.toInt_fin, = Fin.getElem_fin]
 
-public lemma dependsOn_getElem_ne_of_ne {B : BDD}
+public lemma dependsOn_getElem_ne_of_ne {n m} {B : BDD}
     {I : Vector Bool n} {J : Vector Bool m} {hn : B.nvars ≤ n} {hm : B.nvars ≤ m} :
     B[I] ≠ B[J] → ∃ i : Fin B.nvars, B.DependsOn i ∧ I[i] ≠ J[i] := by
   contrapose
@@ -198,7 +202,7 @@ public lemma dependsOn_getElem_ne_of_ne {B : BDD}
 @[simp, bdd_nvars]
 public lemma getElem_lift {B : BDD} {n} {h1 : B.nvars ≤ n} {m} {I : Vector Bool m} {h2} :
     (B.lift h1)[I]'h2 = B[I] := by
-  simp [getElem_eq_evaluate, lift, Evaluate.evaluate_evaluate]
+  simp only [lift, getElem_def, Lift.olift_olift]
 
 public lemma lift_dependsOn {B : BDD} {n} {h1 : B.nvars ≤ n} {i} :
     (B.lift h1).DependsOn i ↔ B.DependsOn i := by
@@ -206,7 +210,8 @@ public lemma lift_dependsOn {B : BDD} {n} {h1 : B.nvars ≤ n} {i} :
   simp only [ne_eq, Fin.getElem_fin, getElem_lift]
 
 /--
-Two `BDD`s are semantically equivalent when they have the same evaluation on all variable assignemts.
+Two `BDD`s are semantically equivalent when they
+have the same evaluation on all variable assignemts.
 -/
 @[expose]
 public def SemanticEquiv (B C : BDD) := ∀ I : Vector Bool (max B.nvars C.nvars), B[I] = C[I]
@@ -241,12 +246,12 @@ instance instDecidableSimilar : DecidableRel Similar
 theorem SemanticEquiv_iff_Similar {B C : BDD} :
     B.SemanticEquiv C ↔ B.Similar C := ⟨l_to_r, r_to_l⟩ where
   l_to_r h := by
-    simp [getElem_eq_evaluate, Evaluate.evaluate_evaluate, SemanticEquiv] at h
+    simp only [SemanticEquiv, getElem_def, Evaluate.evaluate_evaluate] at h
     apply OBdd.canonicity (Lift.olift_reduced B.hred) (Lift.olift_reduced C.hred)
     ext I
     exact h I
   r_to_l h := by
-    simp only [SemanticEquiv, getElem_eq_evaluate, Evaluate.evaluate_evaluate]
+    simp only [SemanticEquiv, getElem_def, Evaluate.evaluate_evaluate]
     simp only [Similar] at h
     intro I
     erw [OBdd.Canonicity_reverse h]
@@ -288,7 +293,8 @@ public lemma const_nvars {b} : (const b).nvars = 0 := (rfl)
 
 @[simp]
 public lemma getElem_const {n b} : ∀ I : Vector Bool n, (const b)[I] = b := by
-  simp [getElem_eq_evaluate, const, Evaluate.evaluate_terminal _, lift]
+  simp only [const, getElem_eq_evaluate, Vector.take_eq_extract, Pointer.terminal.injEq,
+    OBdd.evaluate_terminal, implies_true]
 
 @[simp]
 public lemma const_dependsOn {b} : ∀ i, ¬(const b).DependsOn i := by
@@ -368,7 +374,10 @@ lemma var_reduced : OBdd.Reduced ⟨(var_raw n), var_ordered⟩ := by
 public def var (n : Nat) : BDD :=
   { nvars := n + 1,
     nheap := 1,
-    obdd  := ⟨⟨Vector.singleton ⟨⟨n, Nat.lt_add_one n⟩, .terminal false, .terminal true⟩, .node 0⟩, var_ordered⟩,
+    obdd  := {
+      bdd := ⟨Vector.singleton ⟨⟨n, Nat.lt_add_one n⟩, .terminal false, .terminal true⟩, .node 0⟩
+      ordered := var_ordered
+    }
     hred  := var_reduced
   }
 
@@ -379,12 +388,11 @@ public lemma var_nvars {i} : (var i).nvars = i + 1 := (rfl)
 public lemma getElem_var {i n} {h : i < n} :
     ∀ I : Vector Bool n, (var i)[I]'(by rw [var_nvars]; omega) = I[i] := by
   intro I
-  simp only [var, Vector.singleton_def, getElem_eq_evaluate, lift, Evaluate.evaluate_evaluate,
-    Lift.olift_evaluate, Pointer.node.injEq, OBdd.evaluate_node, Fin.getElem_fin, Fin.val_eq_zero,
-    Vector.getElem_mk, List.getElem_toArray, List.getElem_cons_zero, Vector.getElem_cast,
-    Vector.getElem_take, OBdd.high_root_eq_high, Pointer.terminal.injEq, Bool.true_eq,
-    OBdd.evaluate_terminal, OBdd.low_root_eq_low, Bool.false_eq, Bool.cond_false_right,
-    Bool.and_true]
+  simp only [var, Vector.singleton_def, getElem_eq_evaluate, Pointer.node.injEq, OBdd.evaluate_node,
+    Fin.getElem_fin, Fin.val_eq_zero, Vector.getElem_mk, List.getElem_toArray,
+    List.getElem_cons_zero, Vector.getElem_cast, Vector.getElem_take, OBdd.high_root_eq_high,
+    Pointer.terminal.injEq, Bool.true_eq, OBdd.evaluate_terminal, OBdd.low_root_eq_low,
+    Bool.false_eq, Bool.cond_false_right, Bool.and_true]
 
 @[simp]
 public lemma var_dependsOn {n i} :
@@ -419,7 +427,7 @@ public lemma getElem_apply {n} {B C : BDD} {op} {h1 : max B.nvars C.nvars ≤ n}
       grind only [= min_def, getElem_take]
     exact this (by omega) _
   · rcases h2 with ⟨rfl⟩
-    simp only [getElem_eq_evaluate, Evaluate.evaluate_evaluate, lift, Lift.olift_evaluate, apply]
+    simp only [getElem_eq_evaluate, apply]
     simp only [Reduce.oreduce_evaluate, Apply.oapply_correct]
     simp
 
@@ -512,7 +520,7 @@ def relabel' (B : BDD) (f : Nat → Nat) (h1 : ∀ i : Fin B.nvars, f i < f B.nv
     refine ⟨h1, ?_⟩
     intro i i' hii' hi hi'
     rw [OBdd.usesVar_iff_dependsOn_of_reduced B.hred] at hi hi'
-    grind only [Fin.is_lt, dependsOn_iff_evaluate, Evaluate.evaluate_evaluate]
+    grind only [Fin.is_lt, dependsOn_iff_evaluate]
   ⟨ f B.nvars, _,
     Relabel.orelabel B.obdd hf,
     Relabel.orelabel_reduced hf B.hred
@@ -532,18 +540,18 @@ lemma relabel_helper_aux' {m n f} {i : Fin m} : relabel_wrap m n f i.1 = f i := 
 /-- Relabel the variables in a `BDD` according to a relabeling function `f`.
 
 See also `getElem_relabel`. -/
-public def relabel (B : BDD) (f : Fin B.nvars → Fin n)
+public def relabel (B : BDD) {n} (f : Fin B.nvars → Fin n)
     (h : ∀ i i' : Fin B.nvars, B.DependsOn i → B.DependsOn i' → i < i' → f i < f i') : BDD :=
   relabel' B (relabel_wrap B.nvars n f) (by simp) (fun i i' h' hi hi' ↦ by simp [h i i' h' hi hi'])
 
 @[simp, bdd_nvars]
-public lemma relabel_nvars {B : BDD} {f : _ → Fin n} {h} : (relabel B f h).nvars = n := by
+public lemma relabel_nvars {B : BDD} {n} {f : _ → Fin n} {h} : (relabel B f h).nvars = n := by
   simp [relabel, relabel']
 
 @[simp]
 lemma getElem_relabel' {B : BDD} {f : Nat → Nat} {hf hu n} {I : Vector Bool n} {h} :
     (relabel' B f hf hu)[I] = B[Vector.ofFn fun i ↦ I[f i]'(lt_of_lt_of_le (hf i) h)] := by
-  simp [getElem_eq_evaluate, Evaluate.evaluate_evaluate, lift, relabel']
+  simp [getElem_eq_evaluate, relabel']
   grind only [Vector.getElem_extract]
 
 @[simp]
@@ -605,11 +613,12 @@ public lemma relabel_dependsOn {B : BDD} {n} {f : Fin B.nvars → Fin n} {hf} {i
 
 /-- Return a satisfying assignment for the given `BDD`, assuming it is satisfiable. -/
 public def choice {B : BDD} (s : ∃ I : Vector Bool B.nvars, B[I]) : Vector Bool B.nvars :=
-  Choice.choice B.obdd (by simp_all [getElem_eq_evaluate, Evaluate.evaluate_evaluate, lift])
+  Choice.choice B.obdd (by simp_all only [getElem_eq_evaluate'])
 
 @[simp]
-public lemma getElem_choice {B : BDD} {s : ∃ I : Vector Bool B.nvars, B[I]} : B[B.choice s] = true := by
-  simp only [choice, getElem_eq_evaluate, lift, Lift.olift_trivial_eq, Evaluate.evaluate_evaluate]
+public lemma getElem_choice {B : BDD} {s : ∃ I : Vector Bool B.nvars, B[I]} :
+    B[B.choice s] = true := by
+  simp only [choice, getElem_eq_evaluate']
   apply Choice.choice_evaluate B.hred
 
 lemma find_aux' {B : BDD} :
@@ -660,27 +669,22 @@ public def restrict (b : Bool) (i : Nat) (B : BDD) : BDD :=
   then restrict' B b ⟨i, h⟩
   else B
 
-public lemma restrict_geq_eq_self {B : BDD} : i ≥ B.nvars → B.restrict b i = B := by
+public lemma restrict_geq_eq_self {B : BDD} {b i} : i ≥ B.nvars → B.restrict b i = B := by
   grind only [restrict]
 
 @[simp, bdd_nvars]
-public lemma restrict_nvars {B : BDD} {i} : (B.restrict b i).nvars = B.nvars := by
+public lemma restrict_nvars {B : BDD} {b i} : (B.restrict b i).nvars = B.nvars := by
   simp only [restrict, restrict']
   split <;> simp
 
 @[simp]
-lemma Vector.cast_set {v : Vector α n} {i : Fin m} :
-  (Vector.cast h v).set i a = Vector.cast h (v.set i a) := by rfl
-
-@[simp]
-public lemma getElem_restrict {B : BDD} {i} {hi : i < n} {h} : ∀ I : Vector Bool n,
+public lemma getElem_restrict {B : BDD} {i n} {hi : i < n} {b h} : ∀ I : Vector Bool n,
     (B.restrict b i)[I] = B[I.set i b] := by
   intro I
   simp only [restrict]
   split
   next hlt =>
-    simp only [restrict', getElem_eq_evaluate, lift, Evaluate.evaluate_evaluate, Lift.olift_evaluate]
-    simp only [Reduce.oreduce_evaluate]
+    simp only [restrict', getElem_eq_evaluate, Reduce.oreduce_evaluate]
     simp only [Vector.take_eq_extract, Restrict.orestrict_correct, Nary.restrict]
     congr
     grind only [Vector.getElem_set_ne, Vector.getElem_cast, = Vector.getElem_set,
@@ -702,7 +706,7 @@ public instance instDecidableDependsOn (B : BDD) : DecidablePred B.DependsOn :=
   fun i ↦
     if hi : i < B.nvars then
       decidable_of_iff (B.obdd.bdd.usesVar ⟨i, hi⟩) (by
-        rw [dependsOn_iff_evaluate, Evaluate.evaluate_evaluate]
+        rw [dependsOn_iff_evaluate]
         exact OBdd.usesVar_iff_dependsOn_of_reduced B.hred)
     else
       isFalse (not_dependsOn_of_ge (by omega))
@@ -718,7 +722,7 @@ public lemma bforall_nvars {B : BDD} {i} : (B.bforall i).nvars = B.nvars := by
   simp only [bforall, and_nvars, restrict_nvars, max_self]
 
 @[simp]
-public lemma getElem_bforall {B : BDD} {i} {hi : i < n} {I : Vector Bool n} {h} :
+public lemma getElem_bforall {B : BDD} {i n} {hi : i < n} {I : Vector Bool n} {h} :
     (B.bforall i)[I] = decide (∀ b, B[I.set i b]) := by
   simp_all only [bforall, getElem_and, getElem_restrict, Bool.forall_bool, Bool.decide_and,
     Bool.decide_eq_true]
@@ -738,19 +742,14 @@ public lemma bforall_idem {B : BDD} {i n} {hi : i < n} {I : Vector Bool n} {h} :
 
 public lemma bforall_comm {B : BDD} {i j : Fin B.nvars} {n} {I : Vector Bool n} {h} :
     ((B.bforall i).bforall j)[I] = ((B.bforall j).bforall i)[I] := by
+  simp only [bforall_nvars] at h
   repeat
-    ( rw [getElem_bforall (i := i.1) (hi := by simp_all; omega)]
-      rw [getElem_bforall (i := j.1) (hi := by simp_all; omega)]
-      simp only [Bool.forall_bool, Bool.decide_and, Bool.decide_eq_true]
-    )
-  cases decEq j.1 i.1 with
-  | isTrue ht => simp_rw [ht]
-  | isFalse hf =>
-    rw [show ((I.set (↑j) false _).set (↑i) false _) = _ by refine Vector.set_comm _ _ hf]
-    rw [show ((I.set (↑j) false _).set (↑i) true  _) = _ by refine Vector.set_comm _ _ hf]
-    rw [show ((I.set (↑j) true  _).set (↑i) false _) = _ by refine Vector.set_comm _ _ hf]
-    rw [show ((I.set (↑j) true  _).set (↑i) true  _) = _ by refine Vector.set_comm _ _ hf]
-    grind only
+    rw [getElem_bforall (i := i) (hi := by omega), getElem_bforall (i := j) (hi := by omega)]
+    simp only [Bool.forall_bool, Bool.decide_and, Bool.decide_eq_true]
+  if h' : i.val = j.val then
+    simp_rw [h']
+  else
+    grind only [Vector.set_comm _ _ h']
 
 /-- Eliminate the variable `i` from the given `BDD` via existential quantification. -/
 public def bexists (B : BDD) (i : Nat) : BDD := (or (B.restrict false i) (B.restrict true i))
@@ -762,7 +761,7 @@ public def bexistss (B : BDD) (l : List Nat) : BDD := List.foldl bexists B l
 public lemma bexists_nvars {B : BDD} {i} : (B.bexists i).nvars = B.nvars := by simp [bexists]
 
 @[simp]
-public lemma getElem_bexists {B : BDD} {i} {hi : i < n} {I : Vector Bool n} {h} :
+public lemma getElem_bexists {B : BDD} {i n} {hi : i < n} {I : Vector Bool n} {h} :
     (B.bexists i)[I] = decide (∃ b, B[I.set i b]) := by simp_all [bexists]
 
 public lemma bexists_dependsOn {B : BDD} {i j} {hi : i < B.nvars} :
@@ -774,25 +773,20 @@ public lemma bexists_dependsOn {B : BDD} {i j} {hi : i < B.nvars} :
   · exact restrict_dependsOn h1 (hi := hi)
 
 @[simp]
-public lemma bexists_idem {B : BDD} {i} {hi : i < n} {I : Vector Bool n} {h} :
+public lemma bexists_idem {B : BDD} {i n} {hi : i < n} {I : Vector Bool n} {h} :
     ((B.bexists i).bexists i)[I] = (B.bexists i)[I] := by
   repeat (rw [getElem_bexists (hi := hi)]; simp_all)
 
-public lemma bexists_comm {B : BDD} {i j : Fin B.nvars} {I : Vector Bool n} {h} :
+public lemma bexists_comm {B : BDD} {i j : Fin B.nvars} {n} {I : Vector Bool n} {h} :
     ((B.bexists i).bexists j)[I] = ((B.bexists j).bexists i)[I] := by
+  simp only [bexists_nvars] at h
   repeat
-    ( rw [getElem_bexists (i := i.1) (hi := by simp_all; omega)]
-      rw [getElem_bexists (i := j.1) (hi := by simp_all; omega)]
-      simp only [Bool.exists_bool, Bool.decide_or, Bool.decide_eq_true]
-    )
-  cases decEq j.1 i.1 with
-  | isTrue ht => simp_rw [ht]
-  | isFalse hf =>
-    rw [show ((I.set (↑j) false _).set (↑i) false _) = _ by refine Vector.set_comm _ _ hf]
-    rw [show ((I.set (↑j) false _).set (↑i) true  _) = _ by refine Vector.set_comm _ _ hf]
-    rw [show ((I.set (↑j) true  _).set (↑i) false _) = _ by refine Vector.set_comm _ _ hf]
-    rw [show ((I.set (↑j) true  _).set (↑i) true  _) = _ by refine Vector.set_comm _ _ hf]
-    grind only
+    rw [getElem_bexists (i := i) (hi := by omega), getElem_bexists (i := j) (hi := by omega)]
+    simp only [Bool.exists_bool, Bool.decide_or, Bool.decide_eq_true]
+  if h' : i.val = j.val then
+    simp_rw [h']
+  else
+    grind only [Vector.set_comm _ _ h']
 
 /-- Return the number of satisfying assignments the given `BDD`. -/
 public def count (B : BDD) : Nat := Count.count B.obdd
@@ -800,6 +794,6 @@ public def count (B : BDD) : Nat := Count.count B.obdd
 public lemma count_eq_card {B : BDD} :
     B.count = Fintype.card { I : Vector Bool B.nvars // B[I] = true } := by
   simp only [count, Count.count_correct, Count.numSolutions, Count.Solution, getElem_eq_evaluate,
-    lift, Lift.olift_trivial_eq, Evaluate.evaluate_evaluate]
+    Vector.take_eq_extract, Vector.extract_size, Nat.sub_zero, Vector.cast_cast, Vector.cast_rfl]
 
 end BDD
