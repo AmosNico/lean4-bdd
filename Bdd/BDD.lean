@@ -126,7 +126,7 @@ public lemma congrBDD {B C : BDD} {n m}
     rw [getElem_append h2 _ (Vector.replicate (n - m) false)]
     apply h
 
-public lemma congrInterpretation {B : BDD}
+public lemma congrInterpretation {B : BDD} {n m}
     {I : Vector Bool n} {J : Vector Bool m} {hn : B.nvars ≤ n} {hm : B.nvars ≤ m} :
     (∀ i : Fin B.nvars, B.DependsOn i → I[i] = J[i]) → B[I] = B[J] := by
   intro h1
@@ -135,7 +135,7 @@ public lemma congrInterpretation {B : BDD}
   suffices B[(I.take B.nvars).cast h2] = B[(J.take B.nvars).cast h3] by
     grind only [getElem_cast, !getElem_take]
   apply Nary.eq_of_forall_dependency_getElem_eq
-  rintro ⟨j, h4⟩
+  rintro j h4
   calc
   (I.take B.nvars)[↑j]
   _ = I[j] := by

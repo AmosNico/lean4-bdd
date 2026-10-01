@@ -8,99 +8,49 @@ public section
 
 abbrev Func n α β := Vector α n → β
 
-/-- `IndependentOf f i` if the output of `f` does not depend on the value of the `i`th input. -/
-@[simp, expose]
-def IndependentOf {n α β} (f : Func n α β) (i : Fin n) := ∀ a v, f v = f (Vector.set v i a)
-
 /-- `DependsOn f i` if the output of `f` depends on the value of the `i`th input. -/
-@[expose]
-def DependsOn {n α β} (f : Func n α β) (i : Fin n) := ¬ IndependentOf f i
+def DependsOn {n α β} (f : Func n α β) (i : Fin n) :=
+  ∃ v1 v2, (∀ i' ≠ i, v1[i'] = v2[i']) ∧ f v1 ≠ f v2
 
--- TODO : use this as the definition instead?
 lemma dependsOn_iff {n α β} {f : Func n α β} {i : Fin n} :
-    DependsOn f i ↔ ∃ v1 v2, (∀ i' ≠ i, v1[i'] = v2[i']) ∧ f v1 ≠ f v2 := by
-  simp only [DependsOn, IndependentOf, not_forall, ne_eq, Fin.getElem_fin]
-  constructor
-  · grind only [= Vector.getElem_set]
-  · contrapose
-    simp only [not_exists, not_not, not_and]
-    intro h1 v1 v2 h2
-    rw[h1 v2[i] v1]
-    congr
-    ext i' hi'
-    by_contra h
-    simp at h
-    specialize h2 ⟨i', hi'⟩
-    grind only [= Vector.getElem_set]
+    DependsOn f i ↔ ∃ v1 v2, (∀ i' ≠ i, v1[i'] = v2[i']) ∧ f v1 ≠ f v2 := by rfl
 
-/-- The type of indices that a given function depends on. -/
-@[expose]
-def Dependency {n α β} (f : Func n α β) := { i // DependsOn f i }
+lemma push_pop_last {α n} (I : Vector α (n + 1)) : I.pop.push I[n] = I := by
+  have h: I[n] = I.back := by simp only [Vector.back_eq_getElem, Nat.add_one_sub_one]
+  rw [h, Vector.push_pop_back]
 
 lemma eq_of_forall_dependency_getElem_eq {n α β} {f : Func n α β} {I J : Vector α n} :
-    (∀ (x : Dependency f), I[x.1] = J[x.1]) → f I = f J := by
+    (∀ i, DependsOn f i →  I[i] = J[i]) → f I = f J := by
   induction n with
   | zero =>
-    intro h
-    congr
-    ext i hi
-    contradiction
+    simp only [Vector.eq_empty, implies_true]
   | succ n ih =>
-    intro h
+    intro h1
     let g : Vector α n → β := fun v ↦ f (Vector.push v I[n])
-    have h2 : ∀ V : Vector α (n + 1), I[n] = V[n] → f V = g V.pop := by
-      intro V hV
-      simp only [g]
-      congr
-      ext i hi
-      rw [Vector.getElem_push]
-      split
-      next hh => simp only [Vector.getElem_pop']
-      next hh =>
-        have : i = n := by omega
-        simp_all only [DependsOn, IndependentOf, Fin.getElem_fin]
-    by_cases hf : DependsOn f ⟨n, Nat.lt_add_one n⟩
-    · have h1 := h ⟨⟨n, Nat.lt_add_one n⟩, hf⟩
-      rw [h2 I rfl]
-      rw [h2 J h1]
-      apply ih
-      rintro ⟨x, hx⟩
-      simp only [g] at hx
-      have : DependsOn f x.castSucc := by
-        simp only [DependsOn, IndependentOf, not_forall] at hx
-        rcases hx with ⟨a, V, hav⟩
-        rw [show (V.set x a).push I[n] = (V.push I[n]).set x a by
-          simp only [Vector.set_push, Fin.is_lt, ↓reduceDIte]] at hav
-        simp only [DependsOn, IndependentOf, not_forall]
-        use a, V.push I[n]
-        exact hav
-      have := h ⟨x.castSucc, this⟩
-      simp_all only [DependsOn, IndependentOf, Fin.getElem_fin,
-        Fin.val_castSucc, Vector.getElem_pop', g]
-    · simp only [DependsOn, not_not, IndependentOf] at hf
-      rw [hf I[n] J]
-      rw [h2 I rfl]
-      rw [h2 (J.set (Fin.mk n n.lt_add_one) I[n]) (by simp only [Vector.getElem_set_self])]
-      apply ih
-      rintro ⟨x, hx⟩
-      simp only [g] at hx
-      have : DependsOn f x.castSucc := by
-        simp only [DependsOn, IndependentOf, not_forall] at hx
-        rcases hx with ⟨a, V, hav⟩
-        rw [show (V.set x a).push I[n] = (V.push I[n]).set x a by simp [Vector.set_push]] at hav
-        simp only [DependsOn, IndependentOf, not_forall]
-        use a, V.push I[n]
-        exact hav
-      have := h ⟨x.castSucc, this⟩
-      simp only [Fin.getElem_fin, Vector.getElem_pop']
-      rw [Vector.getElem_set_ne _ _ (by omega)]
-      simp_all only [DependsOn, IndependentOf, Fin.getElem_fin, Fin.val_castSucc]
-
-lemma ne_implies_dependency_getElem_ne {n α β} {f : Func n α β} {I J : Vector α n} :
-    f I ≠ f J → ∃ i : Nary.Dependency f, I[i.1] ≠ J[i.1] := by
-  contrapose
-  simp only [Fin.getElem_fin, ne_eq, not_exists, not_not]
-  exact Nary.eq_of_forall_dependency_getElem_eq
+    have h2 : ∀ (i : Fin n), DependsOn g i → I.pop[i] = J.pop[i] := by
+        simp only [Nat.add_one_sub_one, Fin.getElem_fin, Vector.getElem_pop', g, dependsOn_iff]
+        rintro i ⟨I', J', h8, h9⟩
+        apply h1 i.castSucc
+        rw [dependsOn_iff]
+        refine ⟨I'.push I[n], J'.push I[n], ?_, h9⟩
+        intro i' hi'
+        simp only [Fin.getElem_fin, Vector.getElem_push]
+        split
+        · exact h8 ⟨i', by omega⟩ (by grind)
+        · rfl
+    specialize @ih g I.pop J.pop h2
+    simp only [g, push_pop_last] at ih
+    if h : DependsOn f (Fin.last n) then
+      specialize h1 (Fin.last n) h
+      simp only [Fin.getElem_fin, Fin.val_last] at h1
+      rw [ih, h1, push_pop_last]
+    else
+      rw [ih]
+      simp only [dependsOn_iff, ne_eq, Fin.getElem_fin, not_exists, not_and, not_not] at h
+      apply h
+      intro i hi
+      have hi' : i < n := by grind only [usr Fin.val_last]
+      simp only [Vector.getElem_push_lt hi', Vector.getElem_pop']
 
 @[expose, simp]
 def restrict {n α β} (f : Func n α β) : α → Fin n → Func n α β := fun a i I ↦ f (I.set i a)
@@ -109,17 +59,6 @@ def restrict {n α β} (f : Func n α β) : α → Fin n → Func n α β := fun
 lemma restrict_const {n α β} {c : α} {b : β} {i : Fin n} :
     restrict (fun _ ↦ b) c i = (fun _ ↦ b) := by
   ext; simp
-
-lemma restrict_independentOf {n α β} {f : Func n α β} {c : α} {i} :
-    IndependentOf (restrict f c i) i := by simp
-
-lemma restrict_eq_self_of_independentOf {n α β} {f : Func n α β} {c : α} {i} :
-    IndependentOf f i → (restrict f c i) = f := by
-  intro h
-  ext I
-  symm
-  simp_all only [IndependentOf, restrict]
-  apply h
 
 lemma restrict_if {n α β} {f g : Func n α β} {b : α} {i : Fin n} {c : Func n α Bool} :
     restrict (fun I ↦ bif c I then f I else g I) b i =

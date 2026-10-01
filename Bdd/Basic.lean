@@ -593,23 +593,6 @@ lemma OBdd.not_dependsOn_lt_root {n m} {O : OBdd n m} {I J}
     · exact ih_high (by grind only [!var_lt_high_var])
     · exact ih_low (by grind only [!var_lt_low_var])
 
--- TODO : replace by `OBdd.not_dependsOn_lt_root`
-lemma OBdd.independentOf_lt_root {n m} (O : OBdd n m) (i : Fin O.var) :
-    Nary.IndependentOf (O.evaluate) (i.castLE O.var_le) := by
-  cases h : O.1.root with
-  | terminal _ => simp [evaluate_terminal h]
-  | node j =>
-    intro b I
-    rw [evaluate_node' h]
-    simp only
-    rcases i with ⟨i, hi⟩
-    congr 1
-    · symm
-      apply Vector.getElem_set_ne _ _ (Nat.ne_of_lt (by grind [O.var_node]))
-    · exact (independentOf_lt_root (O.high h) ⟨i, .trans hi var_lt_high_var⟩) b I
-    · exact (independentOf_lt_root (O.low  h) ⟨i, .trans hi var_lt_low_var⟩) b I
-termination_by O
-
 /-! ## Similarity -/
 
 def OBdd.Similar {n m m'} (O : OBdd n m) (U : OBdd n m') := O.toTree = U.toTree
@@ -1085,42 +1068,24 @@ decreasing_by
   · simp [flip, oedge_of_low]
   · simp [flip, oedge_of_high]
 
-private lemma OBdd.usesVar_of_dependsOn {n m} {O : OBdd n m} {v} {i : Fin n} {b} :
-    O.evaluate v ≠ O.evaluate (v.set i b) → O.1.usesVar i := by
-  intro h
-  cases O_root_def : O.1.root with
-  | terminal _ =>
-    simp [evaluate_terminal O_root_def] at h
-  | node j =>
-    cases decEq O.1.heap[j].var i with
-    | isFalse hf =>
-      cases lt_or_gt_of_ne hf with
-      | inl hl =>
-        rw [evaluate_node' O_root_def] at h
-        simp only [cond_eq_ite] at h
-        split at h
-        next hh =>
-          simp only [Fin.getElem_fin] at h hh hf
-          simp_rw [Vector.getElem_set_ne i.isLt O.1.heap[j.1].var.isLt (by omega)] at h
-          rw [hh] at h
-          simp only [↓reduceIte] at h
-          exact usesVar_of_high_usesVar (usesVar_of_dependsOn h)
-        next hh =>
-          simp only [Bool.not_eq_true] at hh
-          simp only [Fin.getElem_fin] at h hh hf
-          simp_rw [Vector.getElem_set_ne i.isLt O.1.heap[j.1].var.isLt (by omega)] at h
-          rw [hh] at h
-          simp only [Bool.false_eq_true, ↓reduceIte] at h
-          exact usesVar_of_low_usesVar (usesVar_of_dependsOn h)
-      | inr hr =>
-        have := (independentOf_lt_root O ⟨i.1, by simp [var, Bdd.var, O_root_def]; omega⟩) b v
-        contradiction
-    | isTrue ht =>
-      use j
-      constructor
-      · rw [O_root_def]; left
-      · exact ht
-termination_by O
+private lemma OBdd.usesVar_of_dependsOn {n m} {O : OBdd n m} {v1 v2} {i : Fin n} :
+    (∀ (i' : Fin n), ¬i' = i → v1[i'] = v2[i']) → O.evaluate v1 ≠ O.evaluate v2 →
+    O.1.usesVar i := by
+  intro h1 h2
+  induction O using init_inductionOn with
+  | base _ _ _ O_root_def =>
+    simp [evaluate_terminal O_root_def] at h2
+  | step O j h3 O_root_def ihl ihh =>
+    if h3 : O.1.heap[j].var = i then
+      refine ⟨j, ?_, h3⟩
+      rw [O_root_def]
+      exact .refl
+    else
+      have h4 := h1 O.bdd.heap[j].var h3
+      simp only [evaluate_node O_root_def, cond_eq_ite, h4] at h2
+      split_ifs at h2
+      · exact OBdd.usesVar_of_high_usesVar (ihh h2)
+      · exact OBdd.usesVar_of_low_usesVar (ihl h2)
 
 lemma OBdd.usesVar_iff_dependsOn_of_reduced {n m} {O : OBdd n m} {i} :
     O.Reduced → (O.1.usesVar i ↔ Nary.DependsOn O.evaluate i) := by
@@ -1130,9 +1095,9 @@ lemma OBdd.usesVar_iff_dependsOn_of_reduced {n m} {O : OBdd n m} {i} :
     rw [Nary.dependsOn_iff]
     exact OBdd.dependsOn_of_usesVar_of_reduced hr hj hi
   · intro nind
-    simp only [Nary.DependsOn, Nary.IndependentOf, not_forall] at nind
+    simp only [Nary.dependsOn_iff, ne_eq, Fin.getElem_fin] at nind
     rcases nind with ⟨b, v, hbv⟩
-    exact usesVar_of_dependsOn hbv
+    exact usesVar_of_dependsOn hbv.1 hbv.2
 
 private lemma OBdd.usesVar_iff {n m} (O : OBdd n m) (i : Fin n) : O.1.usesVar i ↔
     (∃ j, ∃ (hj : O.1.root = node j),

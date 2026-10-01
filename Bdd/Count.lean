@@ -82,22 +82,24 @@ lemma aux {n} {i : Fin n} {P Q : Vector Bool n → Prop}:
   simp_all
 
 lemma aux_low {n m j I b} {O : OBdd n m} {h : O.1.root = .node j}:
-    (O.low h).evaluate (I.set (O.1.heap[j.1].var : Fin n) b) = (O.low h).evaluate I := by
-  have : Nary.IndependentOf (O.low h).evaluate O.1.heap[j.1].var := by
-    apply OBdd.independentOf_lt_root (O := (O.low h)) (i := ⟨O.1.heap[j.1].var.1, ?_⟩)
-    have := OBdd.var_lt_low_var (O := O) (h := h)
-    simp [O.var_node, h] at this
-    exact this
-  simp_all
+    (O.low h).evaluate (I.set (O.1.heap[j.val].var : Fin n) b) = (O.low h).evaluate I := by
+  apply OBdd.not_dependsOn_lt_root
+  intro i hi
+  have h' : O.bdd.heap[j.val].var.val ≠ i.val := by
+    have h' := OBdd.var_lt_low_var (O := O) (h := h)
+    simp only [h, Pointer.node.injEq, O.var_node] at h'
+    grind only [usr Fin.isLt, = Lean.Grind.toInt_fin, = Fin.getElem_fin]
+  simp only [Fin.getElem_fin, Vector.getElem_set_ne _ _ h']
 
 lemma aux_high {n m j I b} {O : OBdd n m} {h : O.1.root = .node j}:
-    (O.high h).evaluate (I.set (O.1.heap[j.1].var) b) = (O.high h).evaluate I := by
-  have : Nary.IndependentOf (O.high h).evaluate O.1.heap[j.1].var := by
-    apply OBdd.independentOf_lt_root (O := (O.high h)) (i := ⟨O.1.heap[j.1].var.1, ?_⟩)
-    have := OBdd.var_lt_high_var (O := O) (h := h)
-    simp [O.var_node, h] at this
-    exact this
-  simp_all
+    (O.high h).evaluate (I.set (O.1.heap[j.val].var) b) = (O.high h).evaluate I := by
+  apply OBdd.not_dependsOn_lt_root
+  intro i hi
+  have h' : O.bdd.heap[j.val].var.val ≠ i.val := by
+    have h' := OBdd.var_lt_high_var (O := O) (h := h)
+    simp only [h, Pointer.node.injEq, O.var_node] at h'
+    grind only [usr Fin.isLt, = Lean.Grind.toInt_fin, = Fin.getElem_fin]
+  simp only [Fin.getElem_fin, Vector.getElem_set_ne _ _ h']
 
 lemma numSolutions_node {n m} {O : OBdd n m} {j : Fin m} (h : O.1.root = .node j) :
     numSolutions O + numSolutions O = numSolutions (O.low h) + numSolutions (O.high h) := by
