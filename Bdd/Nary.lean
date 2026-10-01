@@ -20,7 +20,7 @@ lemma push_pop_last {α n} (I : Vector α (n + 1)) : I.pop.push I[n] = I := by
   rw [h, Vector.push_pop_back]
 
 lemma eq_of_forall_dependency_getElem_eq {n α β} {f : Func n α β} {I J : Vector α n} :
-    (∀ i, DependsOn f i →  I[i] = J[i]) → f I = f J := by
+    (∀ i, DependsOn f i → I[i] = J[i]) → f I = f J := by
   induction n with
   | zero =>
     simp only [Vector.eq_empty, implies_true]

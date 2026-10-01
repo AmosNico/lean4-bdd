@@ -581,6 +581,24 @@ lemma OBdd.evaluate_node' {n m} {O : OBdd n m} {j : Fin m} (h : O.1.root = node 
   ext I
   exact OBdd.evaluate_node h
 
+/-! ## DependsOn -/
+
+/-- `DependsOn f i` if the output of `f` depends on the value of the `i`th input. -/
+def OBdd.DependsOn {n m} (O : OBdd n m) (i : Fin n) :=
+  ∃ I J, (∀ i' ≠ i, I[i'] = J[i']) ∧ O.evaluate I ≠ O.evaluate J
+
+lemma OBdd.dependsOn_iff {n m} {O : OBdd n m} {i : Fin n} :
+  O.DependsOn i ↔ ∃ I J, (∀ i' ≠ i, I[i'] = J[i']) ∧ O.evaluate I ≠ O.evaluate J := by rfl
+
+lemma push_pop_last {α n} (I : Vector α (n + 1)) : I.pop.push I[n] = I := by
+  have h: I[n] = I.back := by simp only [Vector.back_eq_getElem, Nat.add_one_sub_one]
+  rw [h, Vector.push_pop_back]
+
+lemma OBdd.eq_of_forall_dependency_getElem_eq {n m} {O : OBdd n m} {I J} :
+    (∀ i, O.DependsOn i → I[i] = J[i]) → O.evaluate I = O.evaluate J := by
+  sorry
+
+
 lemma OBdd.not_dependsOn_lt_root {n m} {O : OBdd n m} {I J}
     (h : ∀ (i : Fin n), O.var ≤ i → I[i] = J[i]) : O.evaluate I = O.evaluate J := by
   induction O using init_inductionOn with
@@ -592,6 +610,7 @@ lemma OBdd.not_dependsOn_lt_root {n m} {O : OBdd n m} {I J}
       grind only [var_eq, = Lean.Grind.toInt_fin, !toVar_node, = Fin.val_castLE]
     · exact ih_high (by grind only [!var_lt_high_var])
     · exact ih_low (by grind only [!var_lt_low_var])
+
 
 /-! ## Similarity -/
 
@@ -1088,14 +1107,14 @@ private lemma OBdd.usesVar_of_dependsOn {n m} {O : OBdd n m} {v1 v2} {i : Fin n}
       · exact OBdd.usesVar_of_low_usesVar (ihl h2)
 
 lemma OBdd.usesVar_iff_dependsOn_of_reduced {n m} {O : OBdd n m} {i} :
-    O.Reduced → (O.1.usesVar i ↔ Nary.DependsOn O.evaluate i) := by
+    O.Reduced → (O.1.usesVar i ↔ O.DependsOn i) := by
   intro hr
   constructor
   · rintro ⟨j, hj, hi⟩
-    rw [Nary.dependsOn_iff]
+    rw [O.dependsOn_iff]
     exact OBdd.dependsOn_of_usesVar_of_reduced hr hj hi
   · intro nind
-    simp only [Nary.dependsOn_iff, ne_eq, Fin.getElem_fin] at nind
+    simp only [O.dependsOn_iff, ne_eq, Fin.getElem_fin] at nind
     rcases nind with ⟨b, v, hbv⟩
     exact usesVar_of_dependsOn hbv.1 hbv.2
 
