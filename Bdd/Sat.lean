@@ -1,27 +1,41 @@
 module
 
-public import Std.Sat.CNF.Basic
+public import Std.Sat.CNF.Sat
 public import Bdd.BDD
 
 namespace Sat
 
-def BDD_of_literal (l : Std.Sat.Literal (Fin n)) : BDD :=
+def BDD_of_literal {n} (l : Std.Sat.Literal (Fin n)) : BDD :=
   if l.2 then (BDD.var l.1) else (BDD.var l.1).not
 
-def BDD_of_clause (c : Std.Sat.CNF.Clause (Fin n)) : BDD :=
-  (c.map BDD_of_literal).foldr BDD.or (BDD.const false)
+/-
+def BDD_of_clause {n} (c : Std.Sat.CNF.Clause (Fin n)) : BDD := Id.run do
+  let mut B : BDD := (BDD.const false)
+  for l in c do
+    B := BDD.or B (BDD_of_literal l)
+  return B
+-/
 
-def BDD_of_CNF (C : Std.Sat.CNF (Fin n)) : BDD :=
+def BDD_of_clause {n} (c : Std.Sat.CNF.Clause (Fin n)) : BDD :=
+  c.literals.foldl (fun B l ↦  B.or (BDD_of_literal l)) (BDD.const false)
+
+def BDD_of_CNF {n} (C : Std.Sat.CNF (Fin n)) : BDD :=
   (C.clauses.map BDD_of_clause).foldr BDD.and (BDD.const true)
 
 @[simp]
-lemma BDD_of_literal_nvars : (BDD_of_literal (n := n) C).nvars ≤ n := by
+lemma BDD_of_literal_nvars {n C} : (BDD_of_literal (n := n) C).nvars ≤ n := by
   simp only [BDD_of_literal]
   split <;> (simp; omega)
 
 @[simp]
-lemma BDD_of_clause_nvars : (BDD_of_clause (n := n) C).nvars ≤ n := by
-  induction C <;> simp_all [BDD_of_clause]
+lemma BDD_of_clause_nvars {n C} : (BDD_of_clause (n := n) C).nvars ≤ n := by
+  rw [BDD_of_clause]
+  induction C using Std.Sat.CNF.Clause.inductionOn with
+  | empty =>
+    simp_rw [Std.Sat.CNF.Clause.literals_empty, List.foldl_nil, BDD.const_nvars, Nat.zero_le]
+  | add c i b ih =>
+    simp_rw [Std.Sat.CNF.Clause.literals_add, List.foldl_append, List.foldl_cons, List.foldl_nil,
+      BDD.or_nvars, sup_le_iff, ih, BDD_of_literal_nvars, and_self]
 
 @[simp]
 lemma BDD_of_CNF_nvars : (BDD_of_CNF (n := n) C).nvars ≤ n := by
@@ -35,11 +49,14 @@ lemma BDD_of_literal_correct {n} {f : Fin n → Bool} (l : Std.Sat.Literal (Fin 
 
 lemma BDD_of_clause_correct {n} {f : Fin n → Bool} (c : Std.Sat.CNF.Clause (Fin n)) :
     (BDD_of_clause c)[Vector.ofFn f] = Std.Sat.CNF.Clause.eval f c := by
-  induction c with
-  | nil => simp [BDD_of_clause]
-  | cons head tail ih =>
-    simp_rw [Std.Sat.CNF.Clause.eval_cons, ← ih, BDD_of_clause]
-    simp_rw [List.map_cons, List.foldr_cons, BDD.getElem_or, BDD_of_literal_correct]
+  induction c using Std.Sat.CNF.Clause.inductionOn with
+  | empty =>
+    simp_rw [BDD_of_clause, Std.Sat.CNF.Clause.literals_empty, List.foldl_nil, BDD.getElem_const,
+      Std.Sat.CNF.Clause.eval_empty]
+  | add c i b ih =>
+    simp only [BDD_of_clause, Std.Sat.CNF.Clause.literals_add, List.foldl_append, List.foldl_cons,
+      List.foldl_nil, BDD.getElem_or, BDD_of_literal_correct, Std.Sat.CNF.Clause.eval_add, ← ih]
+    grind only
 
 lemma BDD_of_CNF_correct {n} {f : Fin n → Bool} (C : Std.Sat.CNF (Fin n)) :
     Std.Sat.CNF.eval f C = (BDD_of_CNF C)[Vector.ofFn f] := by

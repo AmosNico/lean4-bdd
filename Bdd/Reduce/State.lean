@@ -1,7 +1,7 @@
 module
 
-public import Mathlib.Data.Prod.Lex
-public import Mathlib.Data.Sum.Order
+public import Mathlib.Order.Prod.Lex.Basic
+public import Mathlib.Order.Sum.Order
 public import Bdd.Basic
 
 import Bdd.Collect

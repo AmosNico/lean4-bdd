@@ -4,7 +4,7 @@ public import Mathlib.Data.Fintype.Sum
 public import Mathlib.Tactic.DeriveFintype
 import Init.Data.ToString.Basic
 import Mathlib.Data.Fintype.Vector
-import Mathlib.Data.Sum.Order
+import Mathlib.Order.Sum.Order
 import Mathlib.Tactic.Linarith
 import Std.Data.HashSet.Lemmas
 public import Bdd.Nary
@@ -263,7 +263,7 @@ lemma Bdd.mayPrecede_iff {n m} {B : Bdd n m} {p q} :
   simp only [MayPrecede, toVar]
   split
   all_goals split
-  all_goals grind only [= Lean.Grind.toInt_fin, usr Fin.val_last]
+  all_goals grind only [usr Fin.val_last]
 
 lemma Bdd.mayPrecede_eq_of_heap_eq {n m} {B1 B2 : Bdd n m} :
     B1.heap = B2.heap → B1.MayPrecede = B2.MayPrecede := by
@@ -491,7 +491,7 @@ theorem OEdge.flip_wellFounded {n m} : @WellFounded (OBdd n m) (flip OEdge) := b
   simp only [ordered_iff'] at hy
   rw [← h1] at h2
   specialize hy y.root x.root .refl h2
-  grind only [= Lean.Grind.toInt_fin]
+  grind only
 
 instance OEdge.instWellFoundedRelation {n m} : WellFoundedRelation (OBdd n m) where
   rel := flip OEdge
@@ -589,7 +589,7 @@ lemma OBdd.not_dependsOn_lt_root {n m} {O : OBdd n m} {I J}
     simp only [evaluate_node' h3]
     congr 1
     · apply h
-      grind only [var_eq, = Lean.Grind.toInt_fin, !toVar_node, = Fin.val_castLE]
+      grind only [var_eq, !toVar_node, = Fin.val_castLE]
     · exact ih_high (by grind only [!var_lt_high_var])
     · exact ih_low (by grind only [!var_lt_low_var])
 
@@ -770,7 +770,7 @@ lemma OBdd.evaluate_high_eq_evaluate_set_true {n m} {O : OBdd n m} {j} {h : O.1.
   apply not_dependsOn_lt_root
   have h' := var_lt_high_var (h := h)
   simp only [var_node h, Fin.getElem_fin] at h'
-  grind only [usr Fin.isLt, = Lean.Grind.toInt_fin, = Fin.getElem_fin, = Vector.getElem_set]
+  grind only [usr Fin.isLt, = Fin.getElem_fin, = Vector.getElem_set]
 
 lemma OBdd.evaluate_low_eq_evaluate_set_false {n m} {O : OBdd n m} {j} {h : O.1.root = node j} :
     (O.low h).evaluate = O.evaluate ∘ fun I ↦ I.set O.1.heap[j].var false := by
@@ -781,7 +781,7 @@ lemma OBdd.evaluate_low_eq_evaluate_set_false {n m} {O : OBdd n m} {j} {h : O.1.
   apply not_dependsOn_lt_root
   have h' := var_lt_low_var (h := h)
   simp only [var_node h, Fin.getElem_fin] at h'
-  grind only [usr Fin.isLt, = Lean.Grind.toInt_fin, = Fin.getElem_fin, = Vector.getElem_set]
+  grind only [usr Fin.isLt, = Fin.getElem_fin, = Vector.getElem_set]
 
 private lemma OBdd.not_reduced_of_sim_high_low {n m} {O : OBdd n m} {j : Fin m}
     (h : O.1.root = node j) : Similar (O.high h) (O.low h) → ¬ O.Reduced := by
@@ -1008,13 +1008,13 @@ private lemma OBdd.dependsOn_of_usesVar_of_reduced {n m} {O : OBdd n m} {j i} :
         calc _
           _ = (O.high heq).evaluate (x.set O.1.heap[j].var true) := by
             have hj : O.1.heap[j].var.1 < (O.high heq).var := by
-              grind only [= Lean.Grind.toInt_fin, !var_lt_high_var, var_node]
+              grind only [!var_lt_high_var, var_node]
             exact not_dependsOn_lt_root (by grind)
           _ = (O.low heq).evaluate (x.set O.1.heap[j].var false) := by symm; assumption
           _ = _ := by
             symm
             have hhi : O.1.heap[j].var.1 < (O.low heq).var := by
-              grind only [= Lean.Grind.toInt_fin, !var_lt_low_var, var_node]
+              grind only [!var_lt_low_var, var_node]
             exact not_dependsOn_lt_root (by grind)
     · exact hr
   | cons e r =>

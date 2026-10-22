@@ -88,7 +88,7 @@ lemma aux_low {n m j I b} {O : OBdd n m} {h : O.1.root = .node j}:
   have h' : O.bdd.heap[j.val].var.val ≠ i.val := by
     have h' := OBdd.var_lt_low_var (O := O) (h := h)
     simp only [h, Pointer.node.injEq, O.var_node] at h'
-    grind only [usr Fin.isLt, = Lean.Grind.toInt_fin, = Fin.getElem_fin]
+    grind only [usr Fin.isLt, = Fin.getElem_fin]
   simp only [Fin.getElem_fin, Vector.getElem_set_ne _ _ h']
 
 lemma aux_high {n m j I b} {O : OBdd n m} {h : O.1.root = .node j}:
@@ -98,7 +98,7 @@ lemma aux_high {n m j I b} {O : OBdd n m} {h : O.1.root = .node j}:
   have h' : O.bdd.heap[j.val].var.val ≠ i.val := by
     have h' := OBdd.var_lt_high_var (O := O) (h := h)
     simp only [h, Pointer.node.injEq, O.var_node] at h'
-    grind only [usr Fin.isLt, = Lean.Grind.toInt_fin, = Fin.getElem_fin]
+    grind only [usr Fin.isLt, = Fin.getElem_fin]
   simp only [Fin.getElem_fin, Vector.getElem_set_ne _ _ h']
 
 lemma numSolutions_node {n m} {O : OBdd n m} {j : Fin m} (h : O.1.root = .node j) :

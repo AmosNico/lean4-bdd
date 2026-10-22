@@ -3,9 +3,7 @@ module
 public import Bdd.Reduce.State
 import Bdd.Reduce.Populate
 
-open Pointer
-open Bdd
-open RawBdd
+open Pointer Bdd RawBdd
 
 namespace Reduce
 
@@ -45,7 +43,7 @@ public lemma keyLE_sentinel (a : KeyPair) :
     · exact RawPointer.terminal_le_node
   rw [← toLex_ofLex a]
   rcases ofLex a with ⟨a1, a2⟩
-  grind only [Prod.Lex.toLex_ge_toLex, hbot a1]
+  grind only [Prod.Lex.toLex_le_toLex, #de30, hbot a1]
 
 /-- Pushing a new node to the heap preserves reducedness of existing sub-BDDs,
 because old reachable nodes are unchanged. -/

@@ -190,7 +190,7 @@ public lemma dependsOn_iff {B : BDD} {i} n (h : B.nvars ≤ n) : B.DependsOn i �
     apply congrInterpretation'
     intro i'
     specialize h1 (i'.castLE h)
-    grind only [= Fin.val_castLE, = Lean.Grind.toInt_fin, = Fin.getElem_fin]
+    grind only [= Fin.val_castLE, = Fin.getElem_fin]
 
 public lemma dependsOn_getElem_ne_of_ne {n m} {B : BDD}
     {I : Vector Bool n} {J : Vector Bool m} {hn : B.nvars ≤ n} {hm : B.nvars ≤ m} :
@@ -310,11 +310,11 @@ lemma var_ordered {n} : Bdd.Ordered (var_raw n) := by
   · simp only [Bdd.low_eq]
     exact Bdd.ordered_of_terminal rfl
   · simp [Bdd.low_eq, Bdd.var_eq]
-    grind only [!Pointer.toVar_node, = Lean.Grind.toInt_fin]
+    grind only [!Pointer.toVar_node]
   · simp only [Bdd.high_eq]
     exact Bdd.ordered_of_terminal rfl
   · simp [Bdd.high_eq, Bdd.var_eq]
-    grind only [!Pointer.toVar_node, = Lean.Grind.toInt_fin]
+    grind only [!Pointer.toVar_node]
 
 lemma var_reduced : OBdd.Reduced ⟨(var_raw n), var_ordered⟩ := by
   simp only [var_raw, Vector.singleton_def, Fin.isValue]
@@ -591,7 +591,7 @@ public lemma relabel_dependsOn {B : BDD} {n} {f : Fin B.nvars → Fin n} {hf} {i
     obtain ⟨j, hj, h4⟩ := dependsOn_getElem_ne_of_ne h3
     use j
     specialize h2 ((f j).castLE (by omega))
-    grind only [= Fin.getElem_fin, = Fin.val_castLE, = Vector.getElem_ofFn, = Lean.Grind.toInt_fin]
+    grind only [= Fin.getElem_fin, = Fin.val_castLE, = Vector.getElem_ofFn]
   · rintro ⟨j, rfl, h1⟩
     rw [dependsOn_iff B.nvars (by simp)] at h1
     rcases h1 with ⟨v1, v2, h1, h2⟩

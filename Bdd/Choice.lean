@@ -105,8 +105,7 @@ lemma choice_helper_spec {O : OBdd n m} (hr : O.Reduced) (hj : O.1.root = node j
       have : (O.high hj).evaluate ((choice_helper (O.high hj) hh (Vector.replicate n false)).set O.1.heap[j.1].var.1 true) =
              (O.high hj).evaluate (choice_helper (O.high hj) hh ((Vector.replicate n false))) := by
         apply not_dependsOn_lt_root
-        grind only [= Fin.getElem_fin, = Lean.Grind.toInt_fin, !var_lt_high_var,
-          = Vector.getElem_set, var_node hj]
+        grind only [= Fin.getElem_fin, !var_lt_high_var, = Vector.getElem_set, var_node hj]
       rw [this]
       apply choice_helper_spec (high_reduced hr)
 termination_by O
